@@ -14,11 +14,11 @@ const api = {
     ipcRenderer.send('recording:status', status)
   },
 
-  // Main renderer → listen for commands from control bar (relayed via main process)
-  onRemoteStart:  (cb: () => void) => { ipcRenderer.on('remote:start',  () => cb()) },
-  onRemoteStop:   (cb: () => void) => { ipcRenderer.on('remote:stop',   () => cb()) },
-  onRemotePause:  (cb: () => void) => { ipcRenderer.on('remote:pause',  () => cb()) },
-  onRemoteResume: (cb: () => void) => { ipcRenderer.on('remote:resume', () => cb()) },
+  // Main renderer → listen for commands from control bar (each channel has at most one listener)
+  onRemoteStart:  (cb: () => void) => { ipcRenderer.removeAllListeners('remote:start');  ipcRenderer.on('remote:start',  () => cb()) },
+  onRemoteStop:   (cb: () => void) => { ipcRenderer.removeAllListeners('remote:stop');   ipcRenderer.on('remote:stop',   () => cb()) },
+  onRemotePause:  (cb: () => void) => { ipcRenderer.removeAllListeners('remote:pause');  ipcRenderer.on('remote:pause',  () => cb()) },
+  onRemoteResume: (cb: () => void) => { ipcRenderer.removeAllListeners('remote:resume'); ipcRenderer.on('remote:resume', () => cb()) },
 
   // Control bar → main process: send a command
   controlCommand: (cmd: string) => { ipcRenderer.send('control:command', cmd) },
@@ -31,11 +31,13 @@ const api = {
 
   // Control bar → listen for status broadcasts from main process
   onControlStatus: (cb: (status: { state: string; duration: number; countdown: number; sourceName: string }) => void) => {
+    ipcRenderer.removeAllListeners('control:status')
     ipcRenderer.on('control:status', (_event, status) => cb(status))
   },
 
   // Main renderer → listen for source set from control bar
   onRemoteSetSource: (cb: (source: unknown) => void) => {
+    ipcRenderer.removeAllListeners('remote:set-source')
     ipcRenderer.on('remote:set-source', (_event, source) => cb(source))
   }
 }

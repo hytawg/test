@@ -61,9 +61,12 @@ export function VideoEditor({
     { id: 'text' as const, Icon: Type, label: 'Text' }
   ]
 
+  // Always render video element so loadedmetadata can fire even during loading screen
   if (!videoLoaded) {
     return (
       <div className="flex h-screen bg-surface-950 text-white items-center justify-center flex-col gap-4">
+        {/* video must be in DOM for loadedmetadata to fire */}
+        <video ref={videoRef} src={blobUrl ?? undefined} className="hidden" preload="auto" />
         <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
           <Film size={28} className="text-white/30" />
         </div>
