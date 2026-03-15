@@ -15,7 +15,7 @@ const api = {
   onRemoteStop: (cb: () => void) => {
     ipcRenderer.on('remote:stop', () => cb())
   },
-  sendStatus: (status: { state: string; duration: number }) => {
+  sendStatus: (status: { state: string; duration: number; countdown?: number }) => {
     ipcRenderer.send('remote:status-update', status)
   }
 }

@@ -13,6 +13,25 @@ type Props = {
   onRecordingComplete: (blob: Blob, durationSec: number) => void
 }
 
+function playStartTone() {
+  try {
+    const ctx = new AudioContext()
+    const play = (freq: number, start: number, dur: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
+      gain.gain.setValueAtTime(0.35, ctx.currentTime + start)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + dur)
+    }
+    play(523, 0, 0.12)    // C5
+    play(784, 0.13, 0.18) // G5
+  } catch { /* ignore */ }
+}
+
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -66,10 +85,19 @@ export function RecordingBar({
     })
   }, [startRecording, stopRecording])
 
-  // Report recording status to main process (for HTTP /status endpoint)
+  // Play start tone when recording begins
+  const prevStateRef2 = useRef(recordingState)
   useEffect(() => {
-    window.electronAPI?.sendStatus({ state: recordingState, duration })
-  }, [recordingState, duration])
+    if (prevStateRef2.current !== recordingState && recordingState === 'recording') {
+      playStartTone()
+    }
+    prevStateRef2.current = recordingState
+  }, [recordingState])
+
+  // Report recording status (including countdown) to main process
+  useEffect(() => {
+    window.electronAPI?.sendStatus({ state: recordingState, duration, countdown })
+  }, [recordingState, duration, countdown])
 
   const handleStart = () => {
     if (!source) return

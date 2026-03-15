@@ -2,138 +2,118 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ScreenStudio</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       width: 240px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #0f0f12;
       color: #fff;
-      padding: 16px;
+      padding: 14px;
     }
 
     .header {
       display: flex;
       align-items: center;
-      gap-8px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
-
     .logo {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
+      width: 26px; height: 26px;
+      border-radius: 7px;
       background: linear-gradient(135deg, #9333ea, #ec4899);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
+    .logo svg { width: 12px; height: 12px; fill: white; }
+    .title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); margin-left: 8px; }
 
-    .logo svg { width: 14px; height: 14px; fill: white; }
-
-    .title {
-      font-size: 13px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.9);
-      margin-left: 8px;
-    }
-
+    /* Status row */
     .status-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 11px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.07);
       border-radius: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot.idle     { background: rgba(255,255,255,0.2); }
+    .dot.recording{ background: #ef4444; animation: pulse 1.2s ease-in-out infinite; }
+    .dot.paused   { background: #f59e0b; }
+    .dot.offline  { background: rgba(255,255,255,0.1); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
+    .status-text { font-size: 12px; color: rgba(255,255,255,0.5); flex: 1; }
+    .duration { font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.35); }
 
-    .dot.idle    { background: rgba(255,255,255,0.2); }
-    .dot.recording { background: #ef4444; animation: pulse 1.2s ease-in-out infinite; }
-    .dot.paused  { background: #f59e0b; }
-    .dot.offline { background: rgba(255,255,255,0.1); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.3; }
-    }
-
-    .status-text {
-      font-size: 12px;
-      color: rgba(255,255,255,0.5);
-      flex: 1;
-    }
-
-    .duration {
-      font-size: 11px;
-      font-family: monospace;
-      color: rgba(255,255,255,0.35);
-    }
-
-    .btn {
-      width: 100%;
+    /* Countdown overlay */
+    #countdownBox {
+      display: none;
+      align-items: center; justify-content: center;
       padding: 10px;
-      border-radius: 10px;
-      border: none;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+      margin-bottom: 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    #countdownNum {
+      font-size: 42px; font-weight: 700;
+      background: linear-gradient(135deg, #9333ea, #ec4899);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #countdownLabel {
+      font-size: 11px; color: rgba(255,255,255,0.3); margin-left: 8px;
+    }
+
+    /* Effect selector */
+    .section-label {
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: rgba(255,255,255,0.25);
+      margin-bottom: 6px;
+    }
+    .effect-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 6px; margin-bottom: 10px;
+    }
+    .effect-btn {
+      padding: 7px 0;
+      border-radius: 8px; border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.03);
+      color: rgba(255,255,255,0.45); font-size: 11px;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .effect-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.7); }
+    .effect-btn.active {
+      border-color: rgba(147,51,234,0.6);
+      background: rgba(147,51,234,0.12);
+      color: #c084fc;
+    }
+    .effect-icon { font-size: 16px; }
+
+    /* Action buttons */
+    .btn {
+      width: 100%; padding: 10px; border-radius: 10px;
+      border: none; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 6px;
       transition: opacity 0.15s, transform 0.1s;
     }
-
     .btn:active { transform: scale(0.97); }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-    .btn-record {
-      background: #ef4444;
-      color: white;
-    }
-
+    .btn-record { background: #ef4444; color: white; }
     .btn-record:hover:not(:disabled) { background: #f87171; }
-
-    .btn-stop {
-      background: rgba(255,255,255,0.1);
-      color: rgba(255,255,255,0.8);
-    }
-
+    .btn-stop { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
     .btn-stop:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
 
     .offline-notice {
-      font-size: 11px;
-      color: rgba(255,255,255,0.25);
-      text-align: center;
-      padding: 4px 0;
+      font-size: 11px; color: rgba(255,255,255,0.25); text-align: center; padding: 4px 0;
     }
-
-    .dot-icon {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
-
-    .sq-icon {
-      width: 8px; height: 8px;
-      border-radius: 2px;
-      background: currentColor;
-      flex-shrink: 0;
-    }
+    .dot-icon  { width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0; }
+    .sq-icon   { width:8px;height:8px;border-radius:2px;background:currentColor;flex-shrink:0; }
+    .gap6 { height: 6px; }
   </style>
 </head>
 <body>
@@ -144,20 +124,46 @@
     <span class="title">ScreenStudio</span>
   </div>
 
+  <!-- Status -->
   <div class="status-row">
     <div class="dot idle" id="dot"></div>
     <span class="status-text" id="statusText">Connecting…</span>
     <span class="duration" id="durationText"></span>
   </div>
 
+  <!-- Countdown -->
+  <div id="countdownBox">
+    <span id="countdownNum">3</span>
+    <span id="countdownLabel">Starting…</span>
+  </div>
+
+  <!-- Click effect selector -->
+  <p class="section-label">Click Effect</p>
+  <div class="effect-grid">
+    <button class="effect-btn active" data-effect="ripple">
+      <span class="effect-icon">◎</span>Ripple
+    </button>
+    <button class="effect-btn" data-effect="spotlight">
+      <span class="effect-icon">☀</span>Spotlight
+    </button>
+    <button class="effect-btn" data-effect="dot">
+      <span class="effect-icon">●</span>Dot
+    </button>
+    <button class="effect-btn" data-effect="ring">
+      <span class="effect-icon">○</span>Ring
+    </button>
+    <button class="effect-btn" data-effect="none" style="grid-column:span 2">
+      <span class="effect-icon">✕</span>None
+    </button>
+  </div>
+
+  <!-- Record buttons -->
   <button class="btn btn-record" id="startBtn" disabled>
-    <span class="dot-icon"></span>
-    Start Recording
+    <span class="dot-icon"></span>Start Recording
   </button>
-  <div style="height:8px"></div>
+  <div class="gap6"></div>
   <button class="btn btn-stop" id="stopBtn" disabled style="display:none">
-    <span class="sq-icon"></span>
-    Stop &amp; Edit
+    <span class="sq-icon"></span>Stop &amp; Edit
   </button>
 
   <div class="offline-notice" id="offlineNotice" style="display:none">
