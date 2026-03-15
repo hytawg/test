@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film } from 'lucide-react'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
@@ -30,10 +30,10 @@ export function VideoEditor({
     exportVideo, exporting, exportProgress
   } = useVideoEditor(initialState)
 
-  const blobUrlRef = useRef<string | null>(null)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
   useEffect(() => {
     const url = URL.createObjectURL(state.blob)
-    blobUrlRef.current = url
+    setBlobUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [state.blob])
 
@@ -149,7 +149,7 @@ export function VideoEditor({
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
             style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
 
-          <video ref={videoRef} src={blobUrlRef.current ?? undefined} className="hidden" preload="auto" />
+          <video ref={videoRef} src={blobUrl ?? undefined} className="hidden" preload="auto" />
 
           <div className={clsx(
             'relative max-w-full max-h-full',
