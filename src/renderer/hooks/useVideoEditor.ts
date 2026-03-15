@@ -19,6 +19,7 @@ type UseVideoEditorReturn = {
   setSelectedId: (id: string | null) => void
   // Zoom keyframes
   addZoomKeyframe: (time: number, x?: number, y?: number) => void
+  addZoomRegion: (startTime: number, endTime: number) => void
   updateZoomKeyframe: (id: string, patch: Partial<ZoomKeyframe>) => void
   removeZoomKeyframe: (id: string) => void
   // Text annotations
@@ -162,6 +163,16 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     }))
   }, [])
 
+  const addZoomRegion = useCallback((startTime: number, endTime: number) => {
+    const kfIn: ZoomKeyframe = { id: nanoid(), time: startTime, x: 0.5, y: 0.5, scale: 1.5, easing: 'ease-in-out' }
+    const kfOut: ZoomKeyframe = { id: nanoid(), time: endTime, x: 0.5, y: 0.5, scale: 1.0, easing: 'ease-in-out' }
+    setState((s) => ({
+      ...s,
+      zoomKeyframes: [...s.zoomKeyframes, kfIn, kfOut].sort((a, b) => a.time - b.time),
+      selectedId: kfIn.id
+    }))
+  }, [])
+
   const updateZoomKeyframe = useCallback((id: string, patch: Partial<ZoomKeyframe>) => {
     setState((s) => ({
       ...s,
@@ -278,7 +289,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     playing, currentTime,
     play, pause, seek,
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
-    addZoomKeyframe, updateZoomKeyframe, removeZoomKeyframe,
+    addZoomKeyframe, addZoomRegion, updateZoomKeyframe, removeZoomKeyframe,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     exportVideo, exporting, exportProgress
   }
