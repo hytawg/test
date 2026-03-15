@@ -31,6 +31,11 @@ declare global {
       onRegionPickerResult: (cb: (result: { x: number; y: number; w: number; h: number } | null) => void) => void
       // Focus log (auto-zoom)
       getFocusLog: () => Promise<import('./index').FocusLogRecord[]>
+      // Video file import & recording history
+      openFileByPath: (filePath: string) => Promise<{ fileName: string; filePath: string; buffer: ArrayBuffer } | null>
+      getRecordingHistory: () => Promise<import('./index').RecordingHistoryEntry[]>
+      addRecordingHistory: (entry: import('./index').RecordingHistoryEntry) => Promise<void>
+      removeRecordingHistory: (id: string) => Promise<void>
     }
   }
 }

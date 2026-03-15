@@ -31,7 +31,7 @@ type UseVideoEditorReturn = {
   addCutSegment: (startTime: number, endTime: number) => void
   updateCutSegment: (id: string, patch: Partial<CutSegment>) => void
   removeCutSegment: (id: string) => void
-  exportVideo: (format: string, quality: string, fps: number, saveLocation: string) => Promise<void>
+  exportVideo: (format: string, quality: string, fps: number, saveLocation: string) => Promise<string | null>
   exporting: boolean
   exportProgress: number
   setAutoZoomEnabled: (enabled: boolean) => void
@@ -358,9 +358,9 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   // ── Export (Web Codecs → H.264 MP4) ──────────────────────────────────────
 
-  const exportVideo = useCallback(async (format: string, quality: string, fps: number, saveLocation: string) => {
+  const exportVideo = useCallback(async (format: string, quality: string, fps: number, saveLocation: string): Promise<string | null> => {
     const video = videoRef.current; const canvas = canvasRef.current
-    if (!video || !canvas) return
+    if (!video || !canvas) return null
     // Stop playback and RAF loop before export to prevent tick() interference
     video.pause(); video.playbackRate = 1.0
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
@@ -369,17 +369,20 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     const st = stateRef.current
     const bitrate = quality === 'high' ? 8_000_000 : quality === 'medium' ? 4_000_000 : 2_000_000
 
+    let savedFilePath: string | null = null
     try {
       const buffer = await exportWithWebCodecs(canvas, video, st, fps, bitrate, renderFrame, setExportProgress)
-      const ext = 'mp4'
-      if (saveLocation === 'dialog') await window.electronAPI?.saveRecording(buffer, ext)
-      else await window.electronAPI?.saveToDownloads(buffer, ext)
+      const result = saveLocation === 'dialog'
+        ? await window.electronAPI?.saveRecording(buffer, 'mp4')
+        : await window.electronAPI?.saveToDownloads(buffer, 'mp4')
+      savedFilePath = result?.filePath ?? null
     } catch (err) {
       console.error('Web Codecs export failed, falling back to WebM:', err)
-      await exportWithMediaRecorder(canvas, video, st, fps, bitrate, renderFrame, setExportProgress, saveLocation)
+      savedFilePath = await exportWithMediaRecorder(canvas, video, st, fps, bitrate, renderFrame, setExportProgress, saveLocation)
     }
 
     setExporting(false); setExportProgress(100)
+    return savedFilePath
   }, [renderFrame])
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
@@ -522,7 +525,7 @@ async function exportWithMediaRecorder(
   renderFrame: (t: number) => void,
   onProgress: (p: number) => void,
   saveLocation: string
-) {
+): Promise<string | null> {
   const sourceDuration = st.trimEnd - st.trimStart
   video.currentTime = st.trimStart; await waitForSeek(video)
 
@@ -551,8 +554,10 @@ async function exportWithMediaRecorder(
 
   const blob = new Blob(chunks, { type: mimeType })
   const buffer = await blob.arrayBuffer()
-  if (saveLocation === 'dialog') await window.electronAPI?.saveRecording(buffer, 'webm')
-  else await window.electronAPI?.saveToDownloads(buffer, 'webm')
+  const result = saveLocation === 'dialog'
+    ? await window.electronAPI?.saveRecording(buffer, 'webm')
+    : await window.electronAPI?.saveToDownloads(buffer, 'webm')
+  return result?.filePath ?? null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

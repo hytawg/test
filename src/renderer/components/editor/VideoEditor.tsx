@@ -53,7 +53,19 @@ export function VideoEditor({
   }
 
   const handleExport = async () => {
-    await exportVideo(exportFormat, exportQuality, exportFps, exportSaveLocation)
+    const filePath = await exportVideo(exportFormat, exportQuality, exportFps, exportSaveLocation)
+    if (filePath) {
+      const cutDuration = state.cutSegments.reduce((acc, c) => acc + (c.endTime - c.startTime), 0)
+      const durationSec = Math.max(0, Math.round(state.trimEnd - state.trimStart - cutDuration))
+      const fileName = filePath.split('/').pop() ?? filePath.split('\\').pop() ?? 'recording'
+      await window.electronAPI?.addRecordingHistory({
+        id: Math.random().toString(36).slice(2),
+        filePath, fileName,
+        savedAt: Date.now(),
+        durationSec,
+        format: exportFormat,
+      })
+    }
     onExportDone()
   }
 

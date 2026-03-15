@@ -1,4 +1,4 @@
-import { Monitor, Camera, Sliders, Mic, Download, type LucideIcon } from 'lucide-react'
+import { Monitor, Camera, Sliders, Mic, Download, FolderOpen, type LucideIcon } from 'lucide-react'
 import type { AppState } from '../types'
 import clsx from 'clsx'
 
@@ -15,7 +15,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'canvas', label: 'Canvas', Icon: Sliders },
   { id: 'camera', label: 'Camera', Icon: Camera },
   { id: 'audio', label: 'Audio', Icon: Mic },
-  { id: 'export', label: 'Export', Icon: Download }
+  { id: 'export', label: 'Export', Icon: Download },
+  { id: 'files', label: 'Files', Icon: FolderOpen }
 ]
 
 type Props = {

@@ -20,6 +20,7 @@ import { RecordingBar } from './components/RecordingBar'
 import { VideoEditor } from './components/editor/VideoEditor'
 import { ControlBar } from './components/ControlBar'
 import { RegionPickerOverlay } from './components/RegionPickerOverlay'
+import { FilesPanel } from './components/FilesPanel'
 
 type AppMode = 'capture' | 'editing'
 
@@ -181,6 +182,36 @@ export default function App() {
     })
   }, [handleStartRegionPicker])
 
+  // Called by FilesPanel when user imports / re-edits a file → go to editor
+  const handleOpenFile = useCallback(async (blob: Blob, _fileName: string) => {
+    const url = URL.createObjectURL(blob)
+    const durationSec = await new Promise<number>((resolve) => {
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(isFinite(v.duration) ? v.duration : 0) }
+      v.onerror = () => { URL.revokeObjectURL(url); resolve(0) }
+      v.src = url
+    })
+    const state: EditState = {
+      blob,
+      rawDuration: durationSec,
+      trimStart: 0,
+      trimEnd: durationSec,
+      zoomRegions: [],
+      textAnnotations: [],
+      speedSegments: [],
+      cutSegments: [],
+      captureRegion: null,
+      canvasSettings: { ...canvas },
+      activeTool: 'select',
+      selectedId: null,
+      focusLog: null,
+      autoZoomEnabled: false,
+    }
+    setEditState(state)
+    setMode('editing')
+  }, [canvas])
+
   // Called by RecordingBar when recording finishes → go to editor
   const handleRecordingComplete = useCallback(async (blob: Blob, durationSec: number) => {
     // Fetch focus log recorded by MouseTracker in main process
@@ -247,6 +278,9 @@ export default function App() {
           )}
           {activePanel === 'export' && (
             <ExportPanel settings={recordingSettings} onChange={setRecordingSettings} />
+          )}
+          {activePanel === 'files' && (
+            <FilesPanel onOpenFile={handleOpenFile} />
           )}
         </div>
       </div>

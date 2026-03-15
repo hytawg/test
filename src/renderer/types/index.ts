@@ -84,7 +84,16 @@ export type AppState = {
   recording: RecordingSettings
   recordingState: 'idle' | 'countdown' | 'recording' | 'paused' | 'processing'
   recordingDuration: number
-  activePanel: 'source' | 'canvas' | 'camera' | 'audio' | 'export'
+  activePanel: 'source' | 'canvas' | 'camera' | 'audio' | 'export' | 'files'
+}
+
+export type RecordingHistoryEntry = {
+  id: string
+  filePath: string
+  fileName: string
+  savedAt: number       // Unix timestamp ms
+  durationSec: number
+  format: string        // 'mp4' | 'webm' | 'gif'
 }
 
 export const WALLPAPER_PRESETS: WallpaperPreset[] = [

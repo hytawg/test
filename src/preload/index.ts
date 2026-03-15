@@ -61,7 +61,19 @@ const api = {
   },
 
   // Focus log from mouse tracker (collected during recording)
-  getFocusLog: () => ipcRenderer.invoke('get-focus-log')
+  getFocusLog: () => ipcRenderer.invoke('get-focus-log'),
+
+  // Video file import & recording history
+  openFileByPath: (filePath: string) =>
+    ipcRenderer.invoke('open-file-by-path', filePath),
+  getRecordingHistory: () =>
+    ipcRenderer.invoke('get-recording-history'),
+  addRecordingHistory: (entry: {
+    id: string; filePath: string; fileName: string
+    savedAt: number; durationSec: number; format: string
+  }) => ipcRenderer.invoke('add-recording-history', entry),
+  removeRecordingHistory: (id: string) =>
+    ipcRenderer.invoke('remove-recording-history', id)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

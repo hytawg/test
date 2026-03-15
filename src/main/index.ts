@@ -1,9 +1,23 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, dialog, screen, systemPreferences } from 'electron'
-import { join } from 'path'
-import { writeFile, mkdir } from 'fs/promises'
+import { join, basename } from 'path'
+import { writeFile, readFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { is } from '@electron-toolkit/utils'
 import { MouseTracker, FocusLogRecord } from './mouseTracker'
+import Store from 'electron-store'
+
+// ── Persistent storage ────────────────────────────────────────────────────────
+
+type RecordingHistoryEntry = {
+  id: string
+  filePath: string
+  fileName: string
+  savedAt: number
+  durationSec: number
+  format: string
+}
+
+const store = new Store<{ recordingHistory: RecordingHistoryEntry[] }>()
 
 let mainWindow: BrowserWindow | null = null
 let controlBarWindow: BrowserWindow | null = null
@@ -235,6 +249,30 @@ ipcMain.handle('get-display-info', () => {
     bounds: d.bounds, scaleFactor: d.scaleFactor,
     isPrimary: d.id === screen.getPrimaryDisplay().id
   }))
+})
+
+// ── IPC: video file import & recording history ────────────────────────────────
+
+ipcMain.handle('open-file-by-path', async (_event, filePath: string) => {
+  if (!existsSync(filePath)) return null
+  const nodeBuffer = await readFile(filePath)
+  const arrayBuffer = new ArrayBuffer(nodeBuffer.byteLength)
+  new Uint8Array(arrayBuffer).set(nodeBuffer)
+  return { fileName: basename(filePath), filePath, buffer: arrayBuffer }
+})
+
+ipcMain.handle('get-recording-history', () => {
+  return store.get('recordingHistory', [])
+})
+
+ipcMain.handle('add-recording-history', (_event, entry: RecordingHistoryEntry) => {
+  const history = store.get('recordingHistory', [])
+  store.set('recordingHistory', [entry, ...history].slice(0, 50))
+})
+
+ipcMain.handle('remove-recording-history', (_event, id: string) => {
+  const history = store.get('recordingHistory', [])
+  store.set('recordingHistory', history.filter((e) => e.id !== id))
 })
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
