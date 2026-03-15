@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film } from 'lucide-react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers } from 'lucide-react'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
 import { ZoomPanel } from './ZoomPanel'
 import { TextPanel } from './TextPanel'
+import { CanvasPanel } from '../CanvasPanel'
 import clsx from 'clsx'
 
 type Props = {
@@ -27,6 +28,7 @@ export function VideoEditor({
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
+    updateCanvasSettings,
     exportVideo, exporting, exportProgress
   } = useVideoEditor(initialState)
 
@@ -58,7 +60,8 @@ export function VideoEditor({
   const TOOLS = [
     { id: 'select' as const, Icon: Scissors, label: 'Trim' },
     { id: 'zoom' as const, Icon: ZoomIn, label: 'Zoom' },
-    { id: 'text' as const, Icon: Type, label: 'Text' }
+    { id: 'text' as const, Icon: Type, label: 'Text' },
+    { id: 'canvas' as const, Icon: Layers, label: 'Canvas' }
   ]
 
   // Always render video element so loadedmetadata can fire even during loading screen
@@ -116,6 +119,9 @@ export function VideoEditor({
             <TextPanel annotations={state.textAnnotations} selectedId={state.selectedId}
               trimEnd={state.trimEnd} onUpdate={updateTextAnnotation}
               onRemove={removeTextAnnotation} onSelect={setSelectedId} />
+          )}
+          {state.activeTool === 'canvas' && (
+            <CanvasPanel canvas={state.canvasSettings} onChange={(c) => updateCanvasSettings(c)} />
           )}
         </div>
 

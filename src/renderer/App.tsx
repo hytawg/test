@@ -73,12 +73,13 @@ export default function App() {
       trimEnd: durationSec,
       zoomRegions: [],
       textAnnotations: [],
+      canvasSettings: canvas,
       activeTool: 'select',
       selectedId: null
     }
     setEditState(state)
     setMode('editing')
-  }, [])
+  }, [canvas])
 
   if (mode === 'editing' && editState) {
     return (

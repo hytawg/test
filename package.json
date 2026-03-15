@@ -10,7 +10,11 @@
     "build:mac": "electron-builder --mac",
     "lint": "eslint src electron --ext .ts,.tsx"
   },
-  "keywords": ["screen-recorder", "mac", "electron"],
+  "keywords": [
+    "screen-recorder",
+    "mac",
+    "electron"
+  ],
   "author": "ScreenStudio Clone",
   "license": "MIT",
   "devDependencies": {
@@ -36,6 +40,7 @@
     "electron-store": "^9.0.0",
     "framer-motion": "^11.3.2",
     "lucide-react": "^0.395.0",
+    "mp4-muxer": "^5.2.2",
     "react": "^18.3.1",
     "react-color": "^2.19.3",
     "react-dom": "^18.3.1",

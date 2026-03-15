@@ -190,6 +190,7 @@ export type EditState = {
   trimEnd: number       // seconds
   zoomRegions: ZoomRegion[]
   textAnnotations: TextAnnotation[]
-  activeTool: 'select' | 'zoom' | 'text'
+  canvasSettings: CanvasSettings
+  activeTool: 'select' | 'zoom' | 'text' | 'canvas'
   selectedId: string | null
 }
