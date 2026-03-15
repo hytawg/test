@@ -1,6 +1,8 @@
-import { resolve } from 'path'
+import { join, resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+
+const root = process.cwd()
 
 export default defineConfig({
   main: {
@@ -10,15 +12,15 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    root: resolve(__dirname, '.'),
+    root,
     build: {
       rollupOptions: {
-        input: resolve(__dirname, 'index.html')
+        input: join(root, 'index.html')
       }
     },
     resolve: {
       alias: {
-        '@renderer': resolve(__dirname, 'src')
+        '@renderer': resolve(root, 'src')
       }
     },
     plugins: [react()]
