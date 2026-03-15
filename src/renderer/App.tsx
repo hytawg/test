@@ -7,7 +7,7 @@ import {
 } from './types'
 import type {
   CanvasSettings, CameraSettings, AudioSettings, RecordingSettings,
-  CaptureSource, EditState, AppState
+  CaptureSource, EditState, AppState, CaptureRegion
 } from './types'
 import { Sidebar } from './components/Sidebar'
 import { SourcePanel } from './components/SourcePanel'
@@ -37,6 +37,7 @@ export default function App() {
   const [audio, setAudio] = useState<AudioSettings>(DEFAULT_AUDIO)
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings>(DEFAULT_RECORDING)
 
+  const [captureRegion, setCaptureRegion] = useState<CaptureRegion | null>(null)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const streamsRef = useRef({ screenStream, cameraStream })
@@ -73,13 +74,15 @@ export default function App() {
       trimEnd: durationSec,
       zoomRegions: [],
       textAnnotations: [],
+      speedSegments: [],
+      captureRegion,
       canvasSettings: canvas,
       activeTool: 'select',
       selectedId: null
     }
     setEditState(state)
     setMode('editing')
-  }, [canvas])
+  }, [canvas, captureRegion])
 
   if (mode === 'editing' && editState) {
     return (
@@ -141,6 +144,8 @@ export default function App() {
           source={source}
           screenStream={screenStream}
           cameraStream={cameraStream}
+          captureRegion={captureRegion}
+          onRegionChange={setCaptureRegion}
         />
 
         <RecordingBar

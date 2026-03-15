@@ -158,6 +158,13 @@ export const DEFAULT_RECORDING: RecordingSettings = {
 
 // ─── Editor types ────────────────────────────────────────────────────────────
 
+export type CaptureRegion = {
+  x: number   // 0–1 normalized left
+  y: number   // 0–1 normalized top
+  w: number   // 0–1 normalized width
+  h: number   // 0–1 normalized height
+}
+
 export type ZoomRegion = {
   id: string
   startTime: number   // region start (seconds)
@@ -183,6 +190,13 @@ export type TextAnnotation = {
   align: 'left' | 'center' | 'right'
 }
 
+export type SpeedSegment = {
+  id: string
+  startTime: number
+  endTime: number
+  speed: number   // 0.5 to 2.0
+}
+
 export type EditState = {
   blob: Blob
   rawDuration: number   // seconds recorded
@@ -190,7 +204,9 @@ export type EditState = {
   trimEnd: number       // seconds
   zoomRegions: ZoomRegion[]
   textAnnotations: TextAnnotation[]
+  speedSegments: SpeedSegment[]
+  captureRegion: CaptureRegion | null
   canvasSettings: CanvasSettings
-  activeTool: 'select' | 'zoom' | 'text' | 'canvas'
+  activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed'
   selectedId: string | null
 }

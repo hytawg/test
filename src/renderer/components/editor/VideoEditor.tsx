@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers } from 'lucide-react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge } from 'lucide-react'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
 import { ZoomPanel } from './ZoomPanel'
 import { TextPanel } from './TextPanel'
+import { SpeedPanel } from './SpeedPanel'
 import { CanvasPanel } from '../CanvasPanel'
 import clsx from 'clsx'
 
@@ -28,6 +29,7 @@ export function VideoEditor({
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
+    addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
     updateCanvasSettings,
     exportVideo, exporting, exportProgress
   } = useVideoEditor(initialState)
@@ -61,7 +63,8 @@ export function VideoEditor({
     { id: 'select' as const, Icon: Scissors, label: 'Trim' },
     { id: 'zoom' as const, Icon: ZoomIn, label: 'Zoom' },
     { id: 'text' as const, Icon: Type, label: 'Text' },
-    { id: 'canvas' as const, Icon: Layers, label: 'Canvas' }
+    { id: 'canvas' as const, Icon: Layers, label: 'Canvas' },
+    { id: 'speed' as const, Icon: Gauge, label: 'Speed' }
   ]
 
   // Always render video element so loadedmetadata can fire even during loading screen
@@ -123,6 +126,11 @@ export function VideoEditor({
           {state.activeTool === 'canvas' && (
             <CanvasPanel canvas={state.canvasSettings} onChange={(c) => updateCanvasSettings(c)} />
           )}
+          {state.activeTool === 'speed' && (
+            <SpeedPanel segments={state.speedSegments} selectedId={state.selectedId}
+              currentTime={currentTime} onUpdate={updateSpeedSegment}
+              onRemove={removeSpeedSegment} onSelect={setSelectedId} />
+          )}
         </div>
 
         {/* Export */}
@@ -177,6 +185,11 @@ export function VideoEditor({
                 Click to zoom 150% at {fmtDuration(currentTime)}
               </div>
             )}
+            {state.activeTool === 'speed' && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-cyan-400/70 pointer-events-none">
+                タイムラインをドラッグして速度範囲を指定
+              </div>
+            )}
           </div>
         </div>
 
@@ -206,9 +219,13 @@ export function VideoEditor({
           onSetTool={setActiveTool}
           onAddZoomAtTime={addZoomAtTime}
           onAddZoomRegion={addZoomRegion}
+          onRemoveZoom={removeZoomRegion}
           onAddText={handleAddTextFromTimeline}
           onUpdateText={updateTextAnnotation}
           onRemoveText={removeTextAnnotation}
+          onAddSpeedSegment={addSpeedSegment}
+          onUpdateSpeedSegment={updateSpeedSegment}
+          onRemoveSpeedSegment={removeSpeedSegment}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings } from '../types'
+import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment } from '../types'
 import { nanoid } from '../utils/nanoid'
 
 type UseVideoEditorReturn = {
@@ -25,6 +25,9 @@ type UseVideoEditorReturn = {
   addTextAnnotation: (x: number, y: number, time: number) => void
   updateTextAnnotation: (id: string, patch: Partial<TextAnnotation>) => void
   removeTextAnnotation: (id: string) => void
+  addSpeedSegment: (startTime: number, endTime: number) => void
+  updateSpeedSegment: (id: string, patch: Partial<SpeedSegment>) => void
+  removeSpeedSegment: (id: string) => void
   exportVideo: (format: string, quality: string, fps: number, saveLocation: string) => Promise<void>
   exporting: boolean
   exportProgress: number
@@ -90,7 +93,19 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       bgImageRef.current = null; bgImageSrcRef.current = null
     }
 
-    const { sx, sy, sw, sh } = computeZoomCrop(st.zoomRegions, time, video.videoWidth, video.videoHeight)
+    // Apply capture region first (defines the "full source" viewport)
+    let vx0 = 0, vy0 = 0, vW = video.videoWidth, vH = video.videoHeight
+    if (st.captureRegion) {
+      vx0 = st.captureRegion.x * video.videoWidth
+      vy0 = st.captureRegion.y * video.videoHeight
+      vW = st.captureRegion.w * video.videoWidth
+      vH = st.captureRegion.h * video.videoHeight
+    }
+
+    // Apply zoom within the capture region
+    const { sx: zsx, sy: zsy, sw, sh } = computeZoomCrop(st.zoomRegions, time, vW, vH)
+    const sx = vx0 + zsx
+    const sy = vy0 + zsy
 
     ctx.clearRect(0, 0, W, H)
 
@@ -104,13 +119,13 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     const areaH = H - pad * 2
     const videoAR = sw / sh
     const areaAR = areaW / areaH
-    let vx: number, vy: number, vw: number, vh: number
+    let vdx: number, vdy: number, vdw: number, vdh: number
     if (videoAR > areaAR) {
-      vw = areaW; vh = areaW / videoAR
-      vx = pad;   vy = pad + (areaH - vh) / 2
+      vdw = areaW; vdh = areaW / videoAR
+      vdx = pad;   vdy = pad + (areaH - vdh) / 2
     } else {
-      vh = areaH; vw = areaH * videoAR
-      vy = pad;   vx = pad + (areaW - vw) / 2
+      vdh = areaH; vdw = areaH * videoAR
+      vdy = pad;   vdx = pad + (areaW - vdw) / 2
     }
 
     // 3 — Drop shadow
@@ -121,16 +136,16 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       ctx.shadowBlur = 30 + cs.shadowIntensity / 5
       ctx.shadowOffsetY = 6
       ctx.fillStyle = 'rgba(0,0,0,0.001)'
-      roundedRectPath(ctx, vx, vy, vw, vh, r)
+      roundedRectPath(ctx, vdx, vdy, vdw, vdh, r)
       ctx.fill()
       ctx.restore()
     }
 
     // 4 — Video (clipped to rounded rect)
     ctx.save()
-    roundedRectPath(ctx, vx, vy, vw, vh, r)
+    roundedRectPath(ctx, vdx, vdy, vdw, vdh, r)
     ctx.clip()
-    ctx.drawImage(video, sx, sy, sw, sh, vx, vy, vw, vh)
+    ctx.drawImage(video, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
     ctx.restore()
 
     // 5 — Text annotations (positioned over full canvas)
@@ -143,8 +158,21 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   const tick = useCallback(() => {
     const video = videoRef.current; if (!video) return
     const t = video.currentTime
+
+    // Adjust playback speed based on speed segments
+    const speedSeg = stateRef.current.speedSegments.find(s => t >= s.startTime && t <= s.endTime)
+    const targetRate = speedSeg ? speedSeg.speed : 1.0
+    if (Math.abs(video.playbackRate - targetRate) > 0.01) {
+      video.playbackRate = targetRate
+    }
+
     setCurrentTime(t); renderFrame(t)
-    if (t >= stateRef.current.trimEnd) { video.pause(); setPlaying(false); return }
+    if (t >= stateRef.current.trimEnd) {
+      video.pause()
+      video.playbackRate = 1.0
+      setPlaying(false)
+      return
+    }
     rafRef.current = requestAnimationFrame(tick)
   }, [renderFrame])
 
@@ -156,7 +184,9 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   }, [tick])
 
   const pause = useCallback(() => {
-    videoRef.current?.pause(); setPlaying(false)
+    const video = videoRef.current
+    if (video) { video.pause(); video.playbackRate = 1.0 }
+    setPlaying(false)
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
   }, [])
 
@@ -180,7 +210,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   useEffect(() => {
     if (!playing) renderFrame(currentTime)
-  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, playing, currentTime, renderFrame])
+  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, playing, currentTime, renderFrame])
 
   // ── Edit actions ──────────────────────────────────────────────────────────
 
@@ -244,6 +274,26 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     setState(s => ({ ...s, textAnnotations: s.textAnnotations.filter(a => a.id !== id), selectedId: s.selectedId === id ? null : s.selectedId }))
   }, [])
 
+  // ── Speed segments ────────────────────────────────────────────────────────
+
+  const addSpeedSegment = useCallback((startTime: number, endTime: number) => {
+    setState(s => {
+      if (s.speedSegments.some(seg => startTime < seg.endTime && endTime > seg.startTime)) return s
+      const clampedEnd = Math.min(endTime, s.trimEnd)
+      if (clampedEnd <= startTime + 0.2) return s
+      const seg: SpeedSegment = { id: nanoid(), startTime, endTime: clampedEnd, speed: 1.5 }
+      return { ...s, speedSegments: [...s.speedSegments, seg].sort((a, b) => a.startTime - b.startTime), selectedId: seg.id, activeTool: 'speed' }
+    })
+  }, [])
+
+  const updateSpeedSegment = useCallback((id: string, patch: Partial<SpeedSegment>) => {
+    setState(s => ({ ...s, speedSegments: s.speedSegments.map(seg => seg.id === id ? { ...seg, ...patch } : seg) }))
+  }, [])
+
+  const removeSpeedSegment = useCallback((id: string) => {
+    setState(s => ({ ...s, speedSegments: s.speedSegments.filter(seg => seg.id !== id), selectedId: s.selectedId === id ? null : s.selectedId }))
+  }, [])
+
   // ── Export (Web Codecs → H.264 MP4) ──────────────────────────────────────
 
   const exportVideo = useCallback(async (format: string, quality: string, fps: number, saveLocation: string) => {
@@ -275,8 +325,16 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     updateCanvasSettings,
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
+    addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
     exportVideo, exporting, exportProgress
   }
+}
+
+// ── Speed helpers ──────────────────────────────────────────────────────────────
+
+function getSpeedAt(t: number, segments: SpeedSegment[]): number {
+  const seg = segments.find(s => t >= s.startTime && t <= s.endTime)
+  return seg ? seg.speed : 1.0
 }
 
 // ─── Export: Web Codecs + mp4-muxer ──────────────────────────────────────────
@@ -291,7 +349,7 @@ async function exportWithWebCodecs(
   onProgress: (p: number) => void
 ): Promise<ArrayBuffer> {
   const W = canvas.width; const H = canvas.height
-  const duration = st.trimEnd - st.trimStart
+  const sourceDuration = st.trimEnd - st.trimStart
 
   const target = new ArrayBufferTarget()
   const muxer = new Muxer({
@@ -316,21 +374,28 @@ async function exportWithWebCodecs(
   encoder.configure({ codec: chosenCodec, width: W, height: H, bitrate, framerate: fps })
 
   const frameInterval = 1 / fps
-  let t = st.trimStart; let frameCount = 0
+  // Walk through source time; each output frame advances source by frameInterval * speed
+  let srcT = st.trimStart
+  let outT = 0  // output time in seconds
+  let frameCount = 0
 
-  while (t <= st.trimEnd + frameInterval / 2) {
-    const clampedT = Math.min(t, st.trimEnd)
+  while (srcT <= st.trimEnd + frameInterval / 2) {
+    const clampedT = Math.min(srcT, st.trimEnd)
     video.currentTime = clampedT
     await waitForSeek(video)
     renderFrame(clampedT)
 
-    const timestampUs = Math.round((t - st.trimStart) * 1_000_000)
+    const timestampUs = Math.round(outT * 1_000_000)
     const frame = new VideoFrame(canvas, { timestamp: timestampUs, duration: Math.round(frameInterval * 1_000_000) })
     encoder.encode(frame, { keyFrame: frameCount % (fps * 2) === 0 })
     frame.close()
 
-    onProgress(Math.min(99, ((t - st.trimStart) / duration) * 100))
-    t += frameInterval; frameCount++
+    onProgress(Math.min(99, ((srcT - st.trimStart) / sourceDuration) * 100))
+
+    const speed = getSpeedAt(srcT, st.speedSegments)
+    srcT += frameInterval * speed
+    outT += frameInterval
+    frameCount++
     if (frameCount % 10 === 0) await new Promise<void>(r => setTimeout(r, 0))
   }
 
@@ -351,7 +416,7 @@ async function exportWithMediaRecorder(
   onProgress: (p: number) => void,
   saveLocation: string
 ) {
-  const duration = st.trimEnd - st.trimStart
+  const sourceDuration = st.trimEnd - st.trimStart
   video.currentTime = st.trimStart; await waitForSeek(video)
 
   const canvasStream = canvas.captureStream(fps)
@@ -362,11 +427,13 @@ async function exportWithMediaRecorder(
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
   recorder.start()
 
-  const frameInterval = 1 / fps; let t = st.trimStart; let fc = 0
-  while (t <= st.trimEnd) {
-    video.currentTime = t; await waitForSeek(video); renderFrame(t)
-    onProgress(Math.min(99, ((t - st.trimStart) / duration) * 100))
-    t += frameInterval; fc++
+  const frameInterval = 1 / fps
+  let srcT = st.trimStart; let fc = 0
+  while (srcT <= st.trimEnd) {
+    video.currentTime = srcT; await waitForSeek(video); renderFrame(srcT)
+    onProgress(Math.min(99, ((srcT - st.trimStart) / sourceDuration) * 100))
+    const speed = getSpeedAt(srcT, st.speedSegments)
+    srcT += frameInterval * speed; fc++
     if (fc % 10 === 0) await new Promise<void>(r => setTimeout(r, 0))
   }
 
@@ -385,7 +452,7 @@ function waitForSeek(video: HTMLVideoElement): Promise<void> {
   return new Promise(r => { if (!video.seeking) { r(); return }; video.onseeked = () => r() })
 }
 
-/** Compute zoom crop rect in video space */
+/** Compute zoom crop rect in video space (relative to captureRegion or full video) */
 function computeZoomCrop(regions: ZoomRegion[], time: number, videoW: number, videoH: number) {
   const full = { sx: 0, sy: 0, sw: videoW, sh: videoH }
   if (!regions.length || !videoW) return full

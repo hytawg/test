@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from 'react'
-import type { EditState, ZoomRegion, TextAnnotation } from '../../types'
+import type { EditState, ZoomRegion, TextAnnotation, SpeedSegment } from '../../types'
 import clsx from 'clsx'
+import { X } from 'lucide-react'
 
 type Props = {
   state: EditState
@@ -9,13 +10,19 @@ type Props = {
   onTrimStart: (t: number) => void
   onTrimEnd: (t: number) => void
   onSelectId: (id: string | null) => void
-  onSetTool: (tool: 'select' | 'zoom' | 'text') => void
+  onSetTool: (tool: 'select' | 'zoom' | 'text' | 'speed') => void
   // Zoom lane
   onAddZoomAtTime: (time: number) => void
   onAddZoomRegion: (startTime: number, endTime: number) => void
+  onRemoveZoom: (id: string) => void
   // Text lane
   onAddText: (time: number) => void
   onUpdateText: (id: string, patch: Partial<TextAnnotation>) => void
+  onRemoveText: (id: string) => void
+  // Speed lane
+  onAddSpeedSegment: (startTime: number, endTime: number) => void
+  onUpdateSpeedSegment: (id: string, patch: Partial<SpeedSegment>) => void
+  onRemoveSpeedSegment: (id: string) => void
 }
 
 function fmt(s: number): string {
@@ -25,15 +32,29 @@ function fmt(s: number): string {
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${ms}`
 }
 
+function speedColor(speed: number): string {
+  if (speed < 0.8) return 'bg-blue-500/30 border-blue-500/50'
+  if (speed > 1.2) return 'bg-orange-500/30 border-orange-500/50'
+  return 'bg-green-500/30 border-green-500/50'
+}
+
+function speedColorSelected(speed: number): string {
+  if (speed < 0.8) return 'bg-blue-500/50 border-blue-400/70 ring-1 ring-blue-300/40'
+  if (speed > 1.2) return 'bg-orange-500/50 border-orange-400/70 ring-1 ring-orange-300/40'
+  return 'bg-green-500/50 border-green-400/70 ring-1 ring-green-300/40'
+}
+
 export function Timeline({
   state, currentTime,
   onSeek, onTrimStart, onTrimEnd, onSelectId, onSetTool,
-  onAddZoomAtTime, onAddZoomRegion,
-  onAddText, onUpdateText
+  onAddZoomAtTime, onAddZoomRegion, onRemoveZoom,
+  onAddText, onUpdateText, onRemoveText,
+  onAddSpeedSegment, onUpdateSpeedSegment, onRemoveSpeedSegment
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const zoomLaneRef = useRef<HTMLDivElement>(null)
   const textLaneRef = useRef<HTMLDivElement>(null)
+  const speedLaneRef = useRef<HTMLDivElement>(null)
   const duration = state.rawDuration
 
   const stateRef = useRef(state)
@@ -105,7 +126,6 @@ export function Timeline({
       setZoomDragPreview(null)
 
       if (isDragging && Math.abs(lastT - startT) > 0.15) {
-        // Drag → create region directly, cancel pending
         setPendingZoomStart(null)
         pendingZoomStartRef.current = null
         onAddZoomRegion(Math.min(startT, lastT), Math.max(startT, lastT))
@@ -184,6 +204,78 @@ export function Timeline({
       window.addEventListener('mouseup', up)
     }, [getTime, duration, onUpdateText])
 
+  // ── Speed Lane ────────────────────────────────────────────────────────────
+
+  const [speedDragPreview, setSpeedDragPreview] = useState<{ start: number; end: number } | null>(null)
+  const [speedHover, setSpeedHover] = useState<number | null>(null)
+  const [isOverSpeedSeg, setIsOverSpeedSeg] = useState(false)
+  const [pendingSpeedStart, setPendingSpeedStart] = useState<number | null>(null)
+  const pendingSpeedStartRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (pendingSpeedStart === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPendingSpeedStart(null)
+        pendingSpeedStartRef.current = null
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pendingSpeedStart])
+
+  const handleSpeedLaneMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    const startT = getTime(e.clientX, speedLaneRef)
+    let lastT = startT
+    let isDragging = false
+
+    const move = (ev: MouseEvent) => {
+      const t = getTime(ev.clientX, speedLaneRef)
+      if (Math.abs(t - startT) > 0.15) {
+        isDragging = true
+        setSpeedDragPreview({ start: Math.min(startT, t), end: Math.max(startT, t) })
+      }
+      lastT = t
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      setSpeedDragPreview(null)
+
+      if (isDragging && Math.abs(lastT - startT) > 0.15) {
+        setPendingSpeedStart(null)
+        pendingSpeedStartRef.current = null
+        onAddSpeedSegment(Math.min(startT, lastT), Math.max(startT, lastT))
+        return
+      }
+
+      // Single click — check if over an existing speed segment
+      const s = stateRef.current
+      const overSeg = s.speedSegments.find((seg) => startT >= seg.startTime && startT <= seg.endTime)
+      if (overSeg) {
+        onSetTool('speed')
+        onSelectId(overSeg.id)
+        return
+      }
+
+      // Two-click logic
+      const pending = pendingSpeedStartRef.current
+      if (pending !== null) {
+        const t0 = Math.min(pending, startT)
+        const t1 = Math.max(pending, startT)
+        setPendingSpeedStart(null)
+        pendingSpeedStartRef.current = null
+        if (t1 - t0 > 0.1) onAddSpeedSegment(t0, t1)
+      } else {
+        setPendingSpeedStart(startT)
+        pendingSpeedStartRef.current = startT
+      }
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }, [getTime, onAddSpeedSegment, onSetTool, onSelectId])
+
   const trimmedStart = toPercent(state.trimStart)
   const trimmedEnd = toPercent(state.trimEnd)
   const playheadPct = toPercent(currentTime)
@@ -252,7 +344,7 @@ export function Timeline({
         {state.zoomRegions.map((r) => (
           <div key={r.id}
             className={clsx(
-              'absolute top-1 bottom-1 rounded border pointer-events-none',
+              'absolute top-1 bottom-1 rounded border group/item',
               state.selectedId === r.id
                 ? 'bg-amber-500/40 border-amber-400/60 ring-1 ring-amber-300/40'
                 : 'bg-amber-500/25 border-amber-500/35'
@@ -261,9 +353,17 @@ export function Timeline({
               left: `${toPercent(r.startTime)}%`,
               width: `${Math.max(0.3, toPercent(r.endTime) - toPercent(r.startTime))}%`
             }}>
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-amber-300/70 whitespace-nowrap">
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-amber-300/70 whitespace-nowrap pointer-events-none">
               {r.scale.toFixed(1)}×
             </span>
+            {/* Delete button */}
+            <button
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all pointer-events-auto z-10"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onClick={(e) => { e.stopPropagation(); onRemoveZoom(r.id) }}
+            >
+              <X size={9} />
+            </button>
           </div>
         ))}
 
@@ -329,7 +429,7 @@ export function Timeline({
         {state.textAnnotations.map((ann) => (
           <div key={ann.id}
             className={clsx(
-              'absolute top-1 bottom-1 rounded flex items-center',
+              'absolute top-1 bottom-1 rounded flex items-center group/item',
               'bg-violet-500/30 border border-violet-500/50 hover:bg-violet-500/40 transition-colors',
               state.selectedId === ann.id && 'ring-1 ring-violet-300',
               textDragId === ann.id ? 'cursor-grabbing' : 'cursor-pointer'
@@ -346,6 +446,14 @@ export function Timeline({
             <span className="absolute inset-x-2 text-[9px] text-violet-200/80 truncate pointer-events-none px-0.5">
               {ann.text || '…'}
             </span>
+            {/* Delete button */}
+            <button
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all z-20"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onClick={(e) => { e.stopPropagation(); onRemoveText(ann.id) }}
+            >
+              <X size={9} />
+            </button>
             <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-violet-400/40 rounded-r z-10"
               onMouseDown={(e) => { e.stopPropagation(); startTextDrag(ann, 'end')(e) }} />
           </div>
@@ -354,6 +462,95 @@ export function Timeline({
         {textHover !== null && !isOverTextAnn && (
           <div className="absolute top-0 bottom-0 w-px bg-violet-400/30 pointer-events-none"
             style={{ left: `${toPercent(textHover)}%` }} />
+        )}
+
+        <div className="absolute top-0 bottom-0 w-px bg-white/20 pointer-events-none z-20"
+          style={{ left: `${playheadPct}%` }} />
+      </div>
+
+      {/* ── Speed Lane ───────────────────────────────────────────────────── */}
+      <LaneLabel color="text-cyan-400/50">Speed</LaneLabel>
+      <div ref={speedLaneRef}
+        className={clsx(
+          'relative h-7 rounded-lg group',
+          isOverSpeedSeg ? 'cursor-pointer' : 'cursor-crosshair'
+        )}
+        onMouseDown={handleSpeedLaneMouseDown}
+        onMouseMove={(e) => {
+          const t = getTime(e.clientX, speedLaneRef)
+          setSpeedHover(t)
+          setIsOverSpeedSeg(state.speedSegments.some((seg) => t >= seg.startTime && t <= seg.endTime))
+        }}
+        onMouseLeave={() => { setSpeedHover(null); setIsOverSpeedSeg(false) }}
+      >
+        <div className="absolute inset-0 rounded-lg bg-cyan-950/20 border border-cyan-500/10 group-hover:border-cyan-500/25 transition-colors" />
+
+        {state.speedSegments.length === 0 && !speedDragPreview && !pendingSpeedStart && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[10px] text-cyan-500/35">Click or drag to set speed range</span>
+          </div>
+        )}
+        {pendingSpeedStart !== null && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[10px] text-cyan-400/60">Click to set end point — Esc to cancel</span>
+          </div>
+        )}
+
+        {/* Speed segment bars */}
+        {state.speedSegments.map((seg) => (
+          <div key={seg.id}
+            className={clsx(
+              'absolute top-1 bottom-1 rounded border group/item',
+              state.selectedId === seg.id ? speedColorSelected(seg.speed) : speedColor(seg.speed)
+            )}
+            style={{
+              left: `${toPercent(seg.startTime)}%`,
+              width: `${Math.max(0.3, toPercent(seg.endTime) - toPercent(seg.startTime))}%`
+            }}>
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-white/70 whitespace-nowrap pointer-events-none">
+              {seg.speed.toFixed(1)}×
+            </span>
+            {/* Delete button */}
+            <button
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all pointer-events-auto z-10"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onClick={(e) => { e.stopPropagation(); onRemoveSpeedSegment(seg.id) }}
+            >
+              <X size={9} />
+            </button>
+          </div>
+        ))}
+
+        {/* Pending start marker */}
+        {pendingSpeedStart !== null && (
+          <div className="absolute top-0 bottom-0 w-0.5 bg-cyan-400/80 pointer-events-none z-10"
+            style={{ left: `${toPercent(pendingSpeedStart)}%` }}>
+            <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-cyan-400 rounded-full" />
+          </div>
+        )}
+
+        {/* Preview of pending region on hover */}
+        {pendingSpeedStart !== null && speedHover !== null && !speedDragPreview && (
+          <div className="absolute top-1 bottom-1 rounded bg-cyan-400/20 border border-dashed border-cyan-400/40 pointer-events-none"
+            style={{
+              left: `${toPercent(Math.min(pendingSpeedStart, speedHover))}%`,
+              width: `${Math.max(0.3, Math.abs(toPercent(speedHover) - toPercent(pendingSpeedStart)))}%`
+            }} />
+        )}
+
+        {/* Drag preview */}
+        {speedDragPreview && (
+          <div className="absolute top-1 bottom-1 rounded bg-cyan-400/40 border border-cyan-400/60 pointer-events-none"
+            style={{
+              left: `${toPercent(speedDragPreview.start)}%`,
+              width: `${Math.max(0.3, toPercent(speedDragPreview.end) - toPercent(speedDragPreview.start))}%`
+            }} />
+        )}
+
+        {/* Hover line */}
+        {speedHover !== null && !speedDragPreview && !isOverSpeedSeg && pendingSpeedStart === null && (
+          <div className="absolute top-0 bottom-0 w-px bg-cyan-400/30 pointer-events-none"
+            style={{ left: `${toPercent(speedHover)}%` }} />
         )}
 
         <div className="absolute top-0 bottom-0 w-px bg-white/20 pointer-events-none z-20"
@@ -369,7 +566,10 @@ export function Timeline({
         {state.textAnnotations.length > 0 && (
           <span className="text-violet-400/50">{state.textAnnotations.length} text</span>
         )}
-        <span className="text-white/15 ml-auto">click item to open panel</span>
+        {state.speedSegments.length > 0 && (
+          <span className="text-cyan-400/50">{state.speedSegments.length} speed</span>
+        )}
+        <span className="text-white/15 ml-auto">hover item → ✕ to delete</span>
       </div>
     </div>
   )
