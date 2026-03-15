@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2 } from 'lucide-react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film } from 'lucide-react'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
@@ -21,7 +21,7 @@ export function VideoEditor({
   initialState, exportFormat, exportQuality, exportFps, exportSaveLocation, onBack, onExportDone
 }: Props) {
   const {
-    state, videoRef, canvasRef,
+    state, videoRef, canvasRef, videoLoaded,
     playing, currentTime,
     play, pause, seek,
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
@@ -60,6 +60,20 @@ export function VideoEditor({
     { id: 'zoom' as const, Icon: ZoomIn, label: 'Zoom' },
     { id: 'text' as const, Icon: Type, label: 'Text' }
   ]
+
+  if (!videoLoaded) {
+    return (
+      <div className="flex h-screen bg-surface-950 text-white items-center justify-center flex-col gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
+          <Film size={28} className="text-white/30" />
+        </div>
+        <div className="flex items-center gap-2 text-white/40 text-sm">
+          <Loader2 size={14} className="animate-spin" />
+          Preparing editor…
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-surface-950 text-white overflow-hidden select-none">

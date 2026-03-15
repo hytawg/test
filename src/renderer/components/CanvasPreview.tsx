@@ -71,12 +71,16 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
 
   const background = useMemo((): React.CSSProperties => {
     switch (canvas.backgroundType) {
-      case 'gradient': return { background: canvas.backgroundGradient }
-      case 'solid':    return { background: canvas.backgroundColor }
-      case 'blur':     return { background: '#1a1a1a', backdropFilter: 'blur(40px)' }
-      case 'none':     return { background: 'transparent' }
+      case 'gradient':  return { background: canvas.backgroundGradient }
+      case 'wallpaper': return { background: canvas.backgroundWallpaper }
+      case 'solid':     return { background: canvas.backgroundColor }
+      case 'image':     return canvas.backgroundImageDataUrl
+        ? { backgroundImage: `url(${canvas.backgroundImageDataUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+        : { background: '#1a1a1a' }
+      case 'blur':      return { background: '#1a1a1a', backdropFilter: 'blur(40px)' }
+      case 'none':      return { background: 'transparent' }
     }
-  }, [canvas.backgroundType, canvas.backgroundGradient, canvas.backgroundColor])
+  }, [canvas.backgroundType, canvas.backgroundGradient, canvas.backgroundWallpaper, canvas.backgroundColor, canvas.backgroundImageDataUrl])
 
   const shadowStyle = useMemo((): React.CSSProperties => {
     if (!canvas.shadowEnabled) return {}

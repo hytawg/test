@@ -16,7 +16,7 @@ export type DisplayInfo = {
 
 export type CameraPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'custom'
 export type CameraShape = 'circle' | 'rounded' | 'square'
-export type BackgroundType = 'gradient' | 'solid' | 'image' | 'blur' | 'none'
+export type BackgroundType = 'gradient' | 'solid' | 'wallpaper' | 'image' | 'blur' | 'none'
 export type AspectRatio = '16:9' | '4:3' | '1:1' | '9:16' | 'fill'
 export type RecordingFormat = 'mp4' | 'webm' | 'gif'
 export type RecordingQuality = 'high' | 'medium' | 'low'
@@ -27,6 +27,12 @@ export type GradientPreset = {
   value: string
 }
 
+export type WallpaperPreset = {
+  id: string
+  name: string
+  css: string
+}
+
 export type CanvasSettings = {
   padding: number
   cornerRadius: number
@@ -35,6 +41,8 @@ export type CanvasSettings = {
   backgroundType: BackgroundType
   backgroundGradient: string
   backgroundColor: string
+  backgroundWallpaper: string
+  backgroundImageDataUrl: string | null
   backgroundImagePath: string | null
   aspectRatio: AspectRatio
   showWallpaper: boolean
@@ -79,6 +87,17 @@ export type AppState = {
   activePanel: 'source' | 'canvas' | 'camera' | 'audio' | 'export'
 }
 
+export const WALLPAPER_PRESETS: WallpaperPreset[] = [
+  { id: 'big-sur',   name: 'Big Sur',   css: 'radial-gradient(ellipse at 75% 110%, #f7971e 0%, #ffd200 25%, #ff6b6b 55%, #c44dff 100%)' },
+  { id: 'monterey',  name: 'Monterey',  css: 'radial-gradient(ellipse at 25% 75%, #0052d4 0%, #4364f7 45%, #6fb1fc 100%)' },
+  { id: 'ventura',   name: 'Ventura',   css: 'radial-gradient(ellipse at 60% 40%, #0d0221 0%, #3a0d6e 40%, #0d1b6e 70%, #000814 100%)' },
+  { id: 'sonoma',    name: 'Sonoma',    css: 'radial-gradient(ellipse at 50% 110%, #f8a44c 0%, #ffd580 30%, #ffe5b4 60%, #d4b896 100%)' },
+  { id: 'sequoia',   name: 'Sequoia',   css: 'radial-gradient(ellipse at 50% 100%, #0f4c2a 0%, #2d7a4f 40%, #6abf8a 70%, #b8dfc8 100%)' },
+  { id: 'high-sierra', name: 'High Sierra', css: 'radial-gradient(ellipse at 50% 100%, #b8cce8 0%, #7ba7d4 35%, #3d6fa8 65%, #1a3a5c 100%)' },
+  { id: 'mojave-day',  name: 'Mojave Day',  css: 'radial-gradient(ellipse at 30% 80%, #e8a44a 0%, #d4762a 30%, #8b4513 60%, #3d1f0a 100%)' },
+  { id: 'mojave-night', name: 'Mojave Night', css: 'radial-gradient(ellipse at 30% 90%, #1a0a00 0%, #3d1f0a 30%, #1a1a3e 60%, #0a0a1a 100%)' },
+]
+
 export const GRADIENT_PRESETS: GradientPreset[] = [
   { id: 'aurora', name: 'Aurora', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
   { id: 'sunset', name: 'Sunset', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
@@ -102,6 +121,8 @@ export const DEFAULT_CANVAS: CanvasSettings = {
   backgroundType: 'gradient',
   backgroundGradient: GRADIENT_PRESETS[0].value,
   backgroundColor: '#1a1a2e',
+  backgroundWallpaper: WALLPAPER_PRESETS[0].css,
+  backgroundImageDataUrl: null,
   backgroundImagePath: null,
   aspectRatio: '16:9',
   showWallpaper: false

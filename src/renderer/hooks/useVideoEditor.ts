@@ -6,6 +6,7 @@ type UseVideoEditorReturn = {
   state: EditState
   videoRef: React.RefObject<HTMLVideoElement>
   canvasRef: React.RefObject<HTMLCanvasElement>
+  videoLoaded: boolean
   // Playback
   playing: boolean
   currentTime: number
@@ -38,6 +39,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   const [currentTime, setCurrentTime] = useState(initialState.trimStart)
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [videoLoaded, setVideoLoaded] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -127,8 +129,9 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       video.currentTime = stateRef.current.trimStart
       video.onseeked = () => renderFrame(stateRef.current.trimStart)
     }
-    video.addEventListener('loadedmetadata', onLoaded)
-    return () => video.removeEventListener('loadedmetadata', onLoaded)
+    const onLoadedWithFlag = () => { onLoaded(); setVideoLoaded(true) }
+    video.addEventListener('loadedmetadata', onLoadedWithFlag)
+    return () => video.removeEventListener('loadedmetadata', onLoadedWithFlag)
   }, [renderFrame])
 
   // Re-render on state change when paused
@@ -255,9 +258,10 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
       recorder.start()
 
-      // Render frames by advancing video in real time (frame by frame simulation)
+      // Render frames by advancing video frame by frame
       const frameInterval = 1 / fps
       let t = st.trimStart
+      let frameCount = 0
 
       while (t <= st.trimEnd) {
         video.currentTime = t
@@ -265,8 +269,11 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
         renderFrame(t)
         setExportProgress(((t - st.trimStart) / duration) * 100)
         t += frameInterval
-        // Yield to browser
-        await new Promise<void>((r) => setTimeout(r, 0))
+        frameCount++
+        // Yield to browser every 10 frames to keep UI responsive
+        if (frameCount % 10 === 0) {
+          await new Promise<void>((r) => setTimeout(r, 0))
+        }
       }
 
       recorder.stop()
@@ -290,7 +297,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
 
   return {
-    state, videoRef, canvasRef,
+    state, videoRef, canvasRef, videoLoaded,
     playing, currentTime,
     play, pause, seek,
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,

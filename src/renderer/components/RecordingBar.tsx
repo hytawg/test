@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Circle, Square, Pause, Play, X } from 'lucide-react'
 import clsx from 'clsx'
 import type { CaptureSource, CameraSettings, AudioSettings, RecordingSettings } from '../types'
@@ -30,6 +30,18 @@ export function RecordingBar({
     screenStream, cameraStream, onComplete
   } = useRecording()
 
+  // Refs to avoid stale closures in remote-control effect
+  const sourceRef = useRef(source)
+  const cameraRef = useRef(camera)
+  const audioRef = useRef(audio)
+  const recordingSettingsRef = useRef(recordingSettings)
+  const recordingStateRef = useRef(recordingState)
+  sourceRef.current = source
+  cameraRef.current = camera
+  audioRef.current = audio
+  recordingSettingsRef.current = recordingSettings
+  recordingStateRef.current = recordingState
+
   // Register completion callback → go to editor
   useEffect(() => {
     onComplete(onRecordingComplete)
@@ -40,19 +52,19 @@ export function RecordingBar({
     onStreamsChange(screenStream, cameraStream)
   }, [screenStream, cameraStream, onStreamsChange])
 
-  // Listen for remote start/stop from Chrome extension via main process
+  // Listen for remote start/stop from Chrome extension (registered once, uses refs)
   useEffect(() => {
     window.electronAPI?.onRemoteStart(() => {
-      if (source && recordingState === 'idle') {
-        startRecording(source, camera, audio, recordingSettings)
+      if (sourceRef.current && recordingStateRef.current === 'idle') {
+        startRecording(sourceRef.current, cameraRef.current, audioRef.current, recordingSettingsRef.current)
       }
     })
     window.electronAPI?.onRemoteStop(() => {
-      if (recordingState === 'recording' || recordingState === 'paused') {
+      if (recordingStateRef.current === 'recording' || recordingStateRef.current === 'paused') {
         stopRecording()
       }
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [startRecording, stopRecording])
 
   // Report recording status to main process (for HTTP /status endpoint)
   useEffect(() => {
