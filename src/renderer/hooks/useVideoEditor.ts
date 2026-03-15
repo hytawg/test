@@ -158,20 +158,34 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   }, [])
 
   const addZoomKeyframe = useCallback((time: number, x = 0.5, y = 0.5) => {
+    const s = stateRef.current
+    // Don't add if too close to an existing keyframe
+    const existing = s.zoomKeyframes.find((kf) => Math.abs(kf.time - time) < 0.05)
+    if (existing) {
+      setState((prev) => ({ ...prev, selectedId: existing.id }))
+      return
+    }
     const kf: ZoomKeyframe = { id: nanoid(), time, x, y, scale: 1.5, easing: 'ease-in-out' }
-    setState((s) => ({
-      ...s,
-      zoomKeyframes: [...s.zoomKeyframes, kf].sort((a, b) => a.time - b.time),
+    setState((prev) => ({
+      ...prev,
+      zoomKeyframes: [...prev.zoomKeyframes, kf].sort((a, b) => a.time - b.time),
       selectedId: kf.id
     }))
   }, [])
 
   const addZoomRegion = useCallback((startTime: number, endTime: number) => {
+    const s = stateRef.current
+    // Clip endTime to just before the next existing keyframe after startTime
+    const nextKf = s.zoomKeyframes
+      .filter((kf) => kf.time > startTime)
+      .sort((a, b) => a.time - b.time)[0]
+    const clampedEnd = nextKf ? Math.min(endTime, nextKf.time - 0.05) : endTime
+    if (clampedEnd <= startTime + 0.1) return // no room
     const kfIn: ZoomKeyframe = { id: nanoid(), time: startTime, x: 0.5, y: 0.5, scale: 1.5, easing: 'ease-in-out' }
-    const kfOut: ZoomKeyframe = { id: nanoid(), time: endTime, x: 0.5, y: 0.5, scale: 1.0, easing: 'ease-in-out' }
-    setState((s) => ({
-      ...s,
-      zoomKeyframes: [...s.zoomKeyframes, kfIn, kfOut].sort((a, b) => a.time - b.time),
+    const kfOut: ZoomKeyframe = { id: nanoid(), time: clampedEnd, x: 0.5, y: 0.5, scale: 1.0, easing: 'ease-in-out' }
+    setState((prev) => ({
+      ...prev,
+      zoomKeyframes: [...prev.zoomKeyframes, kfIn, kfOut].sort((a, b) => a.time - b.time),
       selectedId: kfIn.id
     }))
   }, [])
@@ -192,11 +206,23 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   }, [])
 
   const addTextAnnotation = useCallback((x: number, y: number, time: number) => {
+    const s = stateRef.current
+    // Don't add inside an existing annotation
+    const overlapping = s.textAnnotations.find((a) => a.startTime <= time && a.endTime >= time)
+    if (overlapping) {
+      setState((prev) => ({ ...prev, selectedId: overlapping.id }))
+      return
+    }
+    // Clip endTime to just before the next annotation that starts after this time
+    const nextAnn = s.textAnnotations
+      .filter((a) => a.startTime > time)
+      .sort((a, b) => a.startTime - b.startTime)[0]
+    const maxEnd = nextAnn ? nextAnn.startTime - 0.05 : s.trimEnd
     const ann: TextAnnotation = {
       id: nanoid(),
       text: 'Text',
       startTime: time,
-      endTime: Math.min(time + 3, stateRef.current.trimEnd),
+      endTime: Math.min(time + 3, maxEnd),
       x, y,
       fontSize: 32,
       color: '#ffffff',
@@ -205,7 +231,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       bold: false,
       align: 'center'
     }
-    setState((s) => ({ ...s, textAnnotations: [...s.textAnnotations, ann], selectedId: ann.id }))
+    setState((prev) => ({ ...prev, textAnnotations: [...prev.textAnnotations, ann], selectedId: ann.id }))
   }, [])
 
   const updateTextAnnotation = useCallback((id: string, patch: Partial<TextAnnotation>) => {
@@ -245,12 +271,18 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
       // Capture canvas stream
       const canvasStream = canvas.captureStream(fps)
-      // Prefer H.264 MP4 for QuickTime compatibility; fall back to VP9/VP8 WebM
-      const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
-        ? 'video/mp4;codecs=avc1'
-        : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-          ? 'video/webm;codecs=vp9'
-          : 'video/webm;codecs=vp8'
+      // Try H.264 MP4 candidates for QuickTime compatibility, fall back to WebM
+      const codecCandidates = [
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=avc1.42E01E',
+        'video/mp4;codecs=avc1',
+        'video/mp4;codecs=h264',
+        'video/mp4',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm'
+      ]
+      const mimeType = codecCandidates.find((c) => MediaRecorder.isTypeSupported(c)) ?? 'video/webm'
       const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
       const recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: bitrate })
       const chunks: Blob[] = []

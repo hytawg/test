@@ -153,7 +153,7 @@ export const DEFAULT_RECORDING: RecordingSettings = {
   format: 'mp4',
   quality: 'high',
   fps: 30,
-  saveLocation: 'downloads'
+  saveLocation: 'dialog'
 }
 
 // ─── Editor types ────────────────────────────────────────────────────────────

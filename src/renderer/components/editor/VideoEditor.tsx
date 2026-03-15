@@ -197,6 +197,7 @@ export function VideoEditor({
           onTrimStart={setTrimStart}
           onTrimEnd={setTrimEnd}
           onSelectId={setSelectedId}
+          onSetTool={setActiveTool}
           onAddZoom={addZoomKeyframe}
           onAddZoomRegion={addZoomRegion}
           onRemoveZoom={removeZoomKeyframe}

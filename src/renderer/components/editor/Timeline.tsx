@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useState, useEffect } from 'react'
 import type { EditState, ZoomKeyframe, TextAnnotation } from '../../types'
 import clsx from 'clsx'
 
@@ -9,6 +9,7 @@ type Props = {
   onTrimStart: (t: number) => void
   onTrimEnd: (t: number) => void
   onSelectId: (id: string | null) => void
+  onSetTool: (tool: 'select' | 'zoom' | 'text') => void
   // Zoom lane
   onAddZoom: (time: number, x?: number, y?: number) => void
   onAddZoomRegion: (startTime: number, endTime: number) => void
@@ -28,7 +29,7 @@ function fmt(s: number): string {
 
 export function Timeline({
   state, currentTime,
-  onSeek, onTrimStart, onTrimEnd, onSelectId,
+  onSeek, onTrimStart, onTrimEnd, onSelectId, onSetTool,
   onAddZoom, onAddZoomRegion, onRemoveZoom,
   onAddText, onUpdateText, onRemoveText
 }: Props) {
@@ -67,6 +68,21 @@ export function Timeline({
 
   const [zoomDragPreview, setZoomDragPreview] = useState<{ start: number; end: number } | null>(null)
   const [zoomHover, setZoomHover] = useState<number | null>(null)
+  const [pendingZoomStart, setPendingZoomStart] = useState<number | null>(null)
+  const pendingZoomStartRef = useRef<number | null>(null)
+
+  // Cancel pending zoom start on Escape
+  useEffect(() => {
+    if (pendingZoomStart === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPendingZoomStart(null)
+        pendingZoomStartRef.current = null
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pendingZoomStart])
 
   const handleZoomLaneMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
@@ -87,9 +103,29 @@ export function Timeline({
       window.removeEventListener('mouseup', up)
       setZoomDragPreview(null)
       if (isDragging && Math.abs(lastT - startT) > 0.15) {
+        // Drag → create region immediately, cancel any pending start
+        setPendingZoomStart(null)
+        pendingZoomStartRef.current = null
         onAddZoomRegion(Math.min(startT, lastT), Math.max(startT, lastT))
       } else {
-        onAddZoom(startT)
+        // Single click
+        const pending = pendingZoomStartRef.current
+        if (pending !== null) {
+          // Second click → create region
+          const t0 = Math.min(pending, startT)
+          const t1 = Math.max(pending, startT)
+          setPendingZoomStart(null)
+          pendingZoomStartRef.current = null
+          if (t1 - t0 > 0.1) {
+            onAddZoomRegion(t0, t1)
+          } else {
+            onAddZoom(startT)
+          }
+        } else {
+          // First click → set pending start point
+          setPendingZoomStart(startT)
+          pendingZoomStartRef.current = startT
+        }
       }
     }
     window.addEventListener('mousemove', move)
@@ -188,9 +224,14 @@ export function Timeline({
       >
         <div className="absolute inset-0 rounded-lg bg-amber-950/30 border border-amber-500/10 group-hover:border-amber-500/25 transition-colors" />
 
-        {state.zoomKeyframes.length === 0 && !zoomDragPreview && (
+        {state.zoomKeyframes.length === 0 && !zoomDragPreview && !pendingZoomStart && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-[10px] text-amber-500/35">Click or drag to add zoom</span>
+          </div>
+        )}
+        {pendingZoomStart !== null && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[10px] text-amber-400/60">Click to set end point — Esc to cancel</span>
           </div>
         )}
 
@@ -213,10 +254,27 @@ export function Timeline({
             )}
             style={{ left: `${toPercent(kf.time)}%` }}
             onClick={(e) => { e.stopPropagation(); onSelectId(kf.id) }}
-            onDoubleClick={(e) => { e.stopPropagation(); onRemoveZoom(kf.id) }}
-            title={`${kf.scale.toFixed(1)}× — double-click to remove`}
+            onDoubleClick={(e) => { e.stopPropagation(); onSetTool('zoom'); onSelectId(kf.id) }}
+            title="Click to select · double-click to open zoom panel"
           />
         ))}
+
+        {/* Pending zoom start marker */}
+        {pendingZoomStart !== null && (
+          <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400/80 pointer-events-none z-10"
+            style={{ left: `${toPercent(pendingZoomStart)}%` }}>
+            <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-400 rounded-full" />
+          </div>
+        )}
+
+        {/* Pending zoom preview (hover while pending) */}
+        {pendingZoomStart !== null && zoomHover !== null && !zoomDragPreview && (
+          <div className="absolute top-1 bottom-1 rounded bg-amber-400/20 border border-dashed border-amber-400/40 pointer-events-none"
+            style={{
+              left: `${toPercent(Math.min(pendingZoomStart, zoomHover))}%`,
+              width: `${Math.max(0.3, Math.abs(toPercent(zoomHover) - toPercent(pendingZoomStart)))}%`
+            }} />
+        )}
 
         {/* Drag preview */}
         {zoomDragPreview && (
@@ -225,7 +283,7 @@ export function Timeline({
         )}
 
         {/* Hover line */}
-        {zoomHover !== null && !zoomDragPreview && (
+        {zoomHover !== null && !zoomDragPreview && pendingZoomStart === null && (
           <div className="absolute top-0 bottom-0 w-px bg-amber-400/30 pointer-events-none" style={{ left: `${toPercent(zoomHover)}%` }} />
         )}
 
@@ -261,8 +319,8 @@ export function Timeline({
             style={{ left: `${toPercent(ann.startTime)}%`, width: `${Math.max(1, toPercent(ann.endTime) - toPercent(ann.startTime))}%` }}
             onClick={(e) => { e.stopPropagation(); onSelectId(ann.id) }}
             onMouseDown={startTextDrag(ann, 'move')}
-            onDoubleClick={(e) => { e.stopPropagation(); onRemoveText(ann.id) }}
-            title={`${ann.text || '(empty)'} — drag to move, double-click to remove`}
+            onDoubleClick={(e) => { e.stopPropagation(); onSetTool('text'); onSelectId(ann.id) }}
+            title="Drag to move · double-click to open text panel"
           >
             {/* Left resize handle */}
             <div
@@ -298,7 +356,7 @@ export function Timeline({
         {state.textAnnotations.length > 0 && (
           <span className="text-violet-400/50">{state.textAnnotations.length} text</span>
         )}
-        <span className="text-white/15 ml-auto">double-click to remove</span>
+        <span className="text-white/15 ml-auto">double-click item to open panel</span>
       </div>
     </div>
   )
