@@ -2,9 +2,98 @@ import { app, BrowserWindow, ipcMain, desktopCapturer, dialog, screen, systemPre
 import { join } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
+import { createServer, IncomingMessage, ServerResponse } from 'http'
 import { is } from '@electron-toolkit/utils'
 
+const HTTP_PORT = 7823
+
 let mainWindow: BrowserWindow | null = null
+
+// Recording status tracked by main process
+let recordingStatus: { state: string; duration: number } = { state: 'idle', duration: 0 }
+
+// ── HTTP server for Chrome extension ────────────────────────────────────────
+
+function startHttpServer() {
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    // CORS headers so Chrome extension can fetch
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    res.setHeader('Content-Type', 'application/json')
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204)
+      res.end()
+      return
+    }
+
+    const url = req.url ?? '/'
+
+    // GET /status — return current recording state
+    if (req.method === 'GET' && url === '/status') {
+      res.writeHead(200)
+      res.end(JSON.stringify({ ...recordingStatus, appRunning: true }))
+      return
+    }
+
+    // POST /record/start
+    if (req.method === 'POST' && url === '/record/start') {
+      if (recordingStatus.state !== 'idle') {
+        res.writeHead(409)
+        res.end(JSON.stringify({ error: 'Already recording' }))
+        return
+      }
+      mainWindow?.webContents.send('remote:start')
+      res.writeHead(200)
+      res.end(JSON.stringify({ ok: true }))
+      return
+    }
+
+    // POST /record/stop
+    if (req.method === 'POST' && url === '/record/stop') {
+      if (recordingStatus.state !== 'recording' && recordingStatus.state !== 'paused') {
+        res.writeHead(409)
+        res.end(JSON.stringify({ error: 'Not recording' }))
+        return
+      }
+      mainWindow?.webContents.send('remote:stop')
+      res.writeHead(200)
+      res.end(JSON.stringify({ ok: true }))
+      return
+    }
+
+    // POST /record/toggle
+    if (req.method === 'POST' && url === '/record/toggle') {
+      if (recordingStatus.state === 'idle') {
+        mainWindow?.webContents.send('remote:start')
+      } else {
+        mainWindow?.webContents.send('remote:stop')
+      }
+      res.writeHead(200)
+      res.end(JSON.stringify({ ok: true, action: recordingStatus.state === 'idle' ? 'start' : 'stop' }))
+      return
+    }
+
+    res.writeHead(404)
+    res.end(JSON.stringify({ error: 'Not found' }))
+  })
+
+  server.listen(HTTP_PORT, '127.0.0.1', () => {
+    console.log(`[ScreenStudio] HTTP server listening on http://127.0.0.1:${HTTP_PORT}`)
+  })
+
+  server.on('error', (err) => {
+    console.error('[ScreenStudio] HTTP server error:', err)
+  })
+}
+
+// Renderer reports recording status changes
+ipcMain.on('remote:status-update', (_event, status: { state: string; duration: number }) => {
+  recordingStatus = status
+})
+
+// ── Window ───────────────────────────────────────────────────────────────────
 
 function createWindow(): void {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
@@ -29,9 +118,7 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-  })
+  mainWindow.on('ready-to-show', () => mainWindow?.show())
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -40,6 +127,8 @@ function createWindow(): void {
   }
 }
 
+// ── IPC handlers ─────────────────────────────────────────────────────────────
+
 ipcMain.handle('get-sources', async () => {
   const sources = await desktopCapturer.getSources({
     types: ['screen', 'window'],
@@ -47,8 +136,7 @@ ipcMain.handle('get-sources', async () => {
     fetchWindowIcons: true
   })
   return sources.map((s) => ({
-    id: s.id,
-    name: s.name,
+    id: s.id, name: s.name,
     thumbnailDataURL: s.thumbnail.toDataURL(),
     appIconDataURL: s.appIcon?.toDataURL() ?? null,
     display_id: s.display_id
@@ -72,32 +160,29 @@ ipcMain.handle('save-to-downloads', async (_event, buffer: ArrayBuffer, format: 
   const downloadsPath = app.getPath('downloads')
   const filename = `ScreenStudio-${Date.now()}.${ext}`
   const filePath = join(downloadsPath, filename)
-  if (!existsSync(downloadsPath)) {
-    await mkdir(downloadsPath, { recursive: true })
-  }
+  if (!existsSync(downloadsPath)) await mkdir(downloadsPath, { recursive: true })
   await writeFile(filePath, Buffer.from(buffer))
   return { success: true, filePath }
 })
 
 ipcMain.handle('check-screen-permission', async () => {
   if (process.platform !== 'darwin') return 'granted'
-  const status = systemPreferences.getMediaAccessStatus('screen')
-  return status
+  return systemPreferences.getMediaAccessStatus('screen')
 })
 
 ipcMain.handle('get-display-info', () => {
-  const displays = screen.getAllDisplays()
-  return displays.map((d) => ({
-    id: d.id,
-    label: `Display ${d.id}`,
-    bounds: d.bounds,
-    scaleFactor: d.scaleFactor,
+  return screen.getAllDisplays().map((d) => ({
+    id: d.id, label: `Display ${d.id}`,
+    bounds: d.bounds, scaleFactor: d.scaleFactor,
     isPrimary: d.id === screen.getPrimaryDisplay().id
   }))
 })
 
+// ── App lifecycle ─────────────────────────────────────────────────────────────
+
 app.whenReady().then(() => {
   createWindow()
+  startHttpServer()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

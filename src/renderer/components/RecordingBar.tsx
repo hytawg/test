@@ -40,6 +40,25 @@ export function RecordingBar({
     onStreamsChange(screenStream, cameraStream)
   }, [screenStream, cameraStream, onStreamsChange])
 
+  // Listen for remote start/stop from Chrome extension via main process
+  useEffect(() => {
+    window.electronAPI?.onRemoteStart(() => {
+      if (source && recordingState === 'idle') {
+        startRecording(source, camera, audio, recordingSettings)
+      }
+    })
+    window.electronAPI?.onRemoteStop(() => {
+      if (recordingState === 'recording' || recordingState === 'paused') {
+        stopRecording()
+      }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Report recording status to main process (for HTTP /status endpoint)
+  useEffect(() => {
+    window.electronAPI?.sendStatus({ state: recordingState, duration })
+  }, [recordingState, duration])
+
   const handleStart = () => {
     if (!source) return
     startRecording(source, camera, audio, recordingSettings)
