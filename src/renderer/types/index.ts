@@ -158,12 +158,13 @@ export const DEFAULT_RECORDING: RecordingSettings = {
 
 // ─── Editor types ────────────────────────────────────────────────────────────
 
-export type ZoomKeyframe = {
+export type ZoomRegion = {
   id: string
-  time: number    // seconds from start
-  x: number       // zoom center X (0–1)
-  y: number       // zoom center Y (0–1)
-  scale: number   // 1.0 = no zoom, 2.0 = 2× zoom
+  startTime: number   // region start (seconds)
+  endTime: number     // region end (seconds)
+  x: number           // zoom center X (0–1)
+  y: number           // zoom center Y (0–1)
+  scale: number       // 1.5 = 150% zoom
   easing: 'linear' | 'ease-in-out'
 }
 
@@ -187,7 +188,7 @@ export type EditState = {
   rawDuration: number   // seconds recorded
   trimStart: number     // seconds
   trimEnd: number       // seconds
-  zoomKeyframes: ZoomKeyframe[]
+  zoomRegions: ZoomRegion[]
   textAnnotations: TextAnnotation[]
   activeTool: 'select' | 'zoom' | 'text'
   selectedId: string | null

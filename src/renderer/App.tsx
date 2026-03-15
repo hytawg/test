@@ -71,7 +71,7 @@ export default function App() {
       rawDuration: durationSec,
       trimStart: 0,
       trimEnd: durationSec,
-      zoomKeyframes: [],
+      zoomRegions: [],
       textAnnotations: [],
       activeTool: 'select',
       selectedId: null

@@ -25,7 +25,7 @@ export function VideoEditor({
     playing, currentTime,
     play, pause, seek,
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
-    addZoomKeyframe, addZoomRegion, updateZoomKeyframe, removeZoomKeyframe,
+    addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     exportVideo, exporting, exportProgress
   } = useVideoEditor(initialState)
@@ -41,7 +41,7 @@ export function VideoEditor({
     const rect = e.currentTarget.getBoundingClientRect()
     const x = (e.clientX - rect.left) / rect.width
     const y = (e.clientY - rect.top) / rect.height
-    if (state.activeTool === 'zoom') addZoomKeyframe(currentTime, x, y)
+    if (state.activeTool === 'zoom') addZoomAtTime(currentTime, x, y)
     else if (state.activeTool === 'text') addTextAnnotation(x, y, currentTime)
   }
 
@@ -108,9 +108,9 @@ export function VideoEditor({
               onSetIn={() => setTrimStart(currentTime)} onSetOut={() => setTrimEnd(currentTime)} />
           )}
           {state.activeTool === 'zoom' && (
-            <ZoomPanel keyframes={state.zoomKeyframes} selectedId={state.selectedId}
-              currentTime={currentTime} onUpdate={updateZoomKeyframe}
-              onRemove={removeZoomKeyframe} onSelect={setSelectedId} />
+            <ZoomPanel regions={state.zoomRegions} selectedId={state.selectedId}
+              currentTime={currentTime} onUpdate={updateZoomRegion}
+              onRemove={removeZoomRegion} onSelect={setSelectedId} />
           )}
           {state.activeTool === 'text' && (
             <TextPanel annotations={state.textAnnotations} selectedId={state.selectedId}
@@ -198,9 +198,8 @@ export function VideoEditor({
           onTrimEnd={setTrimEnd}
           onSelectId={setSelectedId}
           onSetTool={setActiveTool}
-          onAddZoom={addZoomKeyframe}
+          onAddZoomAtTime={addZoomAtTime}
           onAddZoomRegion={addZoomRegion}
-          onRemoveZoom={removeZoomKeyframe}
           onAddText={handleAddTextFromTimeline}
           onUpdateText={updateTextAnnotation}
           onRemoveText={removeTextAnnotation}
