@@ -11,9 +11,11 @@ type Props = {
   cameraStream: MediaStream | null
   captureRegion: CaptureRegion | null
   onRegionChange: (region: CaptureRegion | null) => void
-  /** When toggled to true from outside, activate the region picker */
+  /** When toggled to true from outside, activate the in-app region picker (window sources) */
   externalPickerActive?: boolean
   onExternalPickerDone?: () => void
+  /** Called when the user clicks "範囲を指定" — App decides overlay vs in-app */
+  onStartRegionPicker?: () => void
 }
 
 // Returns the CSS aspect-ratio value
@@ -49,7 +51,7 @@ function cameraClipPath(shape: CameraSettings['shape']): string {
   }
 }
 
-export function CanvasPreview({ canvas, camera, source, screenStream, cameraStream, captureRegion, onRegionChange, externalPickerActive, onExternalPickerDone }: Props) {
+export function CanvasPreview({ canvas, camera, source, screenStream, cameraStream, captureRegion, onRegionChange, externalPickerActive, onExternalPickerDone, onStartRegionPicker }: Props) {
   const screenVideoRef = useRef<HTMLVideoElement>(null)
   const cameraVideoRef = useRef<HTMLVideoElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
@@ -190,7 +192,13 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
             </button>
           )}
           <button
-            onClick={() => { setIsSelectingRegion(v => !v); setDragStart(null); setDragCurrent(null) }}
+            onClick={() => {
+              if (onStartRegionPicker) {
+                onStartRegionPicker()
+              } else {
+                setIsSelectingRegion(v => !v); setDragStart(null); setDragCurrent(null)
+              }
+            }}
             className={clsx(
               'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all',
               isSelectingRegion

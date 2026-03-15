@@ -45,6 +45,19 @@ const api = {
   onRemoteRegionMode: (cb: () => void) => {
     ipcRenderer.removeAllListeners('remote:region-mode')
     ipcRenderer.on('remote:region-mode', () => cb())
+  },
+
+  // Region picker overlay window
+  openRegionPicker: (bounds: { x: number; y: number; width: number; height: number }) =>
+    ipcRenderer.invoke('open-region-picker', bounds),
+
+  sendRegionPickerResult: (result: { x: number; y: number; w: number; h: number } | null) => {
+    ipcRenderer.send('region-picker:result', result)
+  },
+
+  onRegionPickerResult: (cb: (result: { x: number; y: number; w: number; h: number } | null) => void) => {
+    ipcRenderer.removeAllListeners('remote:region-picker-result')
+    ipcRenderer.on('remote:region-picker-result', (_event, result) => cb(result))
   }
 }
 

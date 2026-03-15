@@ -175,21 +175,6 @@ export function VideoEditor({
             <canvas ref={canvasRef} width={1920} height={1080} onClick={handleCanvasClick}
               className="max-w-full max-h-full rounded-lg shadow-2xl shadow-black/60"
               style={{ maxHeight: 'calc(100vh - 260px)' }} />
-            {state.activeTool === 'text' && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-white/60 pointer-events-none">
-                Click to add text at {fmtDuration(currentTime)}
-              </div>
-            )}
-            {state.activeTool === 'zoom' && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-amber-400/70 pointer-events-none">
-                Click to zoom 150% at {fmtDuration(currentTime)}
-              </div>
-            )}
-            {state.activeTool === 'speed' && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-cyan-400/70 pointer-events-none">
-                タイムラインをドラッグして速度範囲を指定
-              </div>
-            )}
           </div>
         </div>
 

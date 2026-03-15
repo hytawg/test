@@ -6,6 +6,7 @@ import { is } from '@electron-toolkit/utils'
 
 let mainWindow: BrowserWindow | null = null
 let controlBarWindow: BrowserWindow | null = null
+let regionPickerWindow: BrowserWindow | null = null
 
 // ── Control bar window ────────────────────────────────────────────────────────
 
@@ -169,6 +170,48 @@ ipcMain.handle('save-to-downloads', async (_event, buffer: ArrayBuffer, format: 
 ipcMain.handle('check-screen-permission', async () => {
   if (process.platform !== 'darwin') return 'granted'
   return systemPreferences.getMediaAccessStatus('screen')
+})
+
+ipcMain.handle('open-region-picker', async (_event, bounds: { x: number; y: number; width: number; height: number }) => {
+  if (regionPickerWindow && !regionPickerWindow.isDestroyed()) {
+    regionPickerWindow.close()
+    regionPickerWindow = null
+  }
+  regionPickerWindow = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+  regionPickerWindow.setAlwaysOnTop(true, 'screen-saver')
+  regionPickerWindow.setVisibleOnAllWorkspaces(true)
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    regionPickerWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#region-picker')
+  } else {
+    regionPickerWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'region-picker' })
+  }
+  return true
+})
+
+ipcMain.on('region-picker:result', (_event, result) => {
+  if (regionPickerWindow && !regionPickerWindow.isDestroyed()) {
+    regionPickerWindow.close()
+    regionPickerWindow = null
+  }
+  sendToMain('remote:region-picker-result', result)
 })
 
 ipcMain.handle('get-display-info', () => {

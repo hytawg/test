@@ -19,6 +19,7 @@ import { CanvasPreview } from './components/CanvasPreview'
 import { RecordingBar } from './components/RecordingBar'
 import { VideoEditor } from './components/editor/VideoEditor'
 import { ControlBar } from './components/ControlBar'
+import { RegionPickerOverlay } from './components/RegionPickerOverlay'
 
 type AppMode = 'capture' | 'editing'
 
@@ -75,6 +76,10 @@ export default function App() {
   if (window.location.hash === '#control-bar') {
     return <ControlBar />
   }
+  // Region picker overlay runs in a separate BrowserWindow
+  if (window.location.hash === '#region-picker') {
+    return <RegionPickerOverlay />
+  }
   const [mode, setMode] = useState<AppMode>('capture')
   const [editState, setEditState] = useState<EditState | null>(null)
 
@@ -86,7 +91,15 @@ export default function App() {
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings>(DEFAULT_RECORDING)
 
   const [captureRegion, setCaptureRegion] = useState<CaptureRegion | null>(null)
+  const captureRegionRef = useRef<CaptureRegion | null>(null)
   const [regionPickerTrigger, setRegionPickerTrigger] = useState(false)
+
+  // Keep refs in sync so callbacks always read latest values
+  useEffect(() => { captureRegionRef.current = captureRegion }, [captureRegion])
+
+  const sourceRef = useRef<CaptureSource | null>(null)
+  useEffect(() => { sourceRef.current = source }, [source])
+
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const streamsRef = useRef({ screenStream, cameraStream })
@@ -129,12 +142,35 @@ export default function App() {
     })
   }, [])
 
+  // Open region picker: overlay for screen sources, in-app picker for window sources
+  const handleStartRegionPicker = useCallback(async () => {
+    const src = sourceRef.current
+    if (!src) return
+    if (src.id.startsWith('screen:')) {
+      const displays = await window.electronAPI?.getDisplayInfo() ?? []
+      const display = displays.find(d => d.id.toString() === src.display_id)
+        ?? displays.find(d => d.isPrimary)
+        ?? displays[0]
+      if (!display) return
+      await window.electronAPI?.openRegionPicker(display.bounds)
+    } else {
+      setRegionPickerTrigger(true)
+    }
+  }, [])
+
+  // Receive region picker result from overlay window
+  useEffect(() => {
+    window.electronAPI?.onRegionPickerResult((result) => {
+      setCaptureRegion(result)
+    })
+  }, [])
+
   // Activate region picker from control bar overlay
   useEffect(() => {
     window.electronAPI?.onRemoteRegionMode(() => {
-      setRegionPickerTrigger(true)
+      handleStartRegionPicker()
     })
-  }, [])
+  }, [handleStartRegionPicker])
 
   // Called by RecordingBar when recording finishes → go to editor
   const handleRecordingComplete = useCallback((blob: Blob, durationSec: number) => {
@@ -146,14 +182,14 @@ export default function App() {
       zoomRegions: [],
       textAnnotations: [],
       speedSegments: [],
-      captureRegion,
+      captureRegion: captureRegionRef.current,
       canvasSettings: canvas,
       activeTool: 'select',
       selectedId: null
     }
     setEditState(state)
     setMode('editing')
-  }, [canvas, captureRegion])
+  }, [canvas])
 
   if (mode === 'editing' && editState) {
     return (
@@ -219,6 +255,7 @@ export default function App() {
           onRegionChange={setCaptureRegion}
           externalPickerActive={regionPickerTrigger}
           onExternalPickerDone={() => setRegionPickerTrigger(false)}
+          onStartRegionPicker={handleStartRegionPicker}
         />
 
         <RecordingBar
