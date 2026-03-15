@@ -39,6 +39,12 @@ const api = {
   onRemoteSetSource: (cb: (source: unknown) => void) => {
     ipcRenderer.removeAllListeners('remote:set-source')
     ipcRenderer.on('remote:set-source', (_event, source) => cb(source))
+  },
+
+  // Main renderer → listen for region-picker activation from control bar
+  onRemoteRegionMode: (cb: () => void) => {
+    ipcRenderer.removeAllListeners('remote:region-mode')
+    ipcRenderer.on('remote:region-mode', () => cb())
   }
 }
 

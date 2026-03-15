@@ -11,6 +11,9 @@ type Props = {
   cameraStream: MediaStream | null
   captureRegion: CaptureRegion | null
   onRegionChange: (region: CaptureRegion | null) => void
+  /** When toggled to true from outside, activate the region picker */
+  externalPickerActive?: boolean
+  onExternalPickerDone?: () => void
 }
 
 // Returns the CSS aspect-ratio value
@@ -46,7 +49,7 @@ function cameraClipPath(shape: CameraSettings['shape']): string {
   }
 }
 
-export function CanvasPreview({ canvas, camera, source, screenStream, cameraStream, captureRegion, onRegionChange }: Props) {
+export function CanvasPreview({ canvas, camera, source, screenStream, cameraStream, captureRegion, onRegionChange, externalPickerActive, onExternalPickerDone }: Props) {
   const screenVideoRef = useRef<HTMLVideoElement>(null)
   const cameraVideoRef = useRef<HTMLVideoElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
@@ -54,6 +57,16 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
   const [isSelectingRegion, setIsSelectingRegion] = useState(false)
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
   const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null)
+
+  // Activate picker when triggered from outside (e.g. ControlBar)
+  useEffect(() => {
+    if (externalPickerActive && source) {
+      setIsSelectingRegion(true)
+      setDragStart(null)
+      setDragCurrent(null)
+      onExternalPickerDone?.()
+    }
+  }, [externalPickerActive, source, onExternalPickerDone])
 
   // Attach screen stream
   useEffect(() => {

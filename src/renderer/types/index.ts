@@ -143,7 +143,7 @@ export const DEFAULT_CAMERA: CameraSettings = {
 }
 
 export const DEFAULT_AUDIO: AudioSettings = {
-  micEnabled: true,
+  micEnabled: false,
   micDeviceId: null,
   systemAudioEnabled: false,
   micVolume: 100

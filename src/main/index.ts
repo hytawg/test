@@ -102,6 +102,10 @@ ipcMain.on('control:command', (_event, cmd: string) => {
     case 'show-main': mainWindow?.show(); mainWindow?.focus(); break
     case 'hide-bar':  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.hide(); break
     case 'show-bar':  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.show(); break
+    case 'region':
+      mainWindow?.show(); mainWindow?.focus()
+      sendToMain('remote:region-mode')
+      break
   }
 })
 

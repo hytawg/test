@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { X, Circle, Square, Pause, Play, Maximize2, ChevronDown, ChevronUp, Monitor, AppWindow } from 'lucide-react'
+import { X, Circle, Square, Pause, Play, Maximize2, ChevronDown, ChevronUp, Monitor, AppWindow, Crop } from 'lucide-react'
 import type { CaptureSource } from '../types'
 import clsx from 'clsx'
 
@@ -117,6 +117,20 @@ export function ControlBar() {
             )}
           </button>
         </div>
+
+        {/* Region picker button — only when source selected and idle */}
+        {isIdle && status.sourceName && (
+          <div className="relative" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <button
+              onClick={() => cmd('region')}
+              title="収録範囲を指定"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all bg-white/6 text-white/50 hover:bg-white/10 hover:text-white/80 border border-transparent"
+            >
+              <Crop size={12} />
+              <span>範囲</span>
+            </button>
+          </div>
+        )}
 
         <div className="relative flex-1" />
 
