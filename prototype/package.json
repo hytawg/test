@@ -1,0 +1,20 @@
+{
+  "name": "focus-tracker-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone prototype for the FocusEngine auto-zoom driver",
+  "main": "dist/focus-tracker.js",
+  "scripts": {
+    "start": "ts-node --project tsconfig.json focus-tracker.ts",
+    "build": "tsc",
+    "analyze": "node analyze-log.js"
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}
