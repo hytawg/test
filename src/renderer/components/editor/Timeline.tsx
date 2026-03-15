@@ -38,6 +38,10 @@ export function Timeline({
   const textLaneRef = useRef<HTMLDivElement>(null)
   const duration = state.rawDuration
 
+  // Keep a ref to current state for use inside mousedown callbacks
+  const stateRef = useRef(state)
+  stateRef.current = state
+
   const toPercent = (t: number) => (t / duration) * 100
 
   const getTime = useCallback((clientX: number, ref: React.RefObject<HTMLDivElement>): number => {
@@ -68,6 +72,7 @@ export function Timeline({
 
   const [zoomDragPreview, setZoomDragPreview] = useState<{ start: number; end: number } | null>(null)
   const [zoomHover, setZoomHover] = useState<number | null>(null)
+  const [isOverZoomRegion, setIsOverZoomRegion] = useState(false)
   const [pendingZoomStart, setPendingZoomStart] = useState<number | null>(null)
   const pendingZoomStartRef = useRef<number | null>(null)
 
@@ -102,16 +107,30 @@ export function Timeline({
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
       setZoomDragPreview(null)
+
       if (isDragging && Math.abs(lastT - startT) > 0.15) {
         // Drag → create region immediately, cancel any pending start
         setPendingZoomStart(null)
         pendingZoomStartRef.current = null
         onAddZoomRegion(Math.min(startT, lastT), Math.max(startT, lastT))
       } else {
-        // Single click
+        // Single click — check if over an existing zoom region
+        const s = stateRef.current
+        const regions = buildZoomRegions(s.zoomKeyframes, s.trimEnd)
+        const overRegion = regions.find((r) => startT >= r.start && startT <= r.end)
+        if (overRegion) {
+          // Click on existing region → switch to zoom tool, select nearest peak keyframe
+          onSetTool('zoom')
+          const nearestKf = s.zoomKeyframes
+            .filter((kf) => kf.scale > 1.05 && kf.time >= overRegion.start && kf.time <= overRegion.end)
+            .sort((a, b) => Math.abs(a.time - startT) - Math.abs(b.time - startT))[0]
+          if (nearestKf) onSelectId(nearestKf.id)
+          return
+        }
+
+        // Not over existing region → two-click pending logic
         const pending = pendingZoomStartRef.current
         if (pending !== null) {
-          // Second click → create region
           const t0 = Math.min(pending, startT)
           const t1 = Math.max(pending, startT)
           setPendingZoomStart(null)
@@ -130,13 +149,14 @@ export function Timeline({
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
-  }, [getTime, onAddZoom, onAddZoomRegion])
+  }, [getTime, onAddZoom, onAddZoomRegion, onSetTool, onSelectId])
 
   // ── Text Lane ─────────────────────────────────────────────────────────────
 
   const [textDragId, setTextDragId] = useState<string | null>(null)
   const [textDragEdge, setTextDragEdge] = useState<'start' | 'end' | 'move' | null>(null)
   const [textHover, setTextHover] = useState<number | null>(null)
+  const [isOverTextAnn, setIsOverTextAnn] = useState(false)
 
   const handleTextLaneClick = useCallback((e: React.MouseEvent) => {
     if (textDragId) return // was a drag, not a click
@@ -217,10 +237,17 @@ export function Timeline({
       {/* ── Zoom Lane ────────────────────────────────────────────────────── */}
       <LaneLabel color="text-amber-500/50">Zoom</LaneLabel>
       <div ref={zoomLaneRef}
-        className="relative h-7 rounded-lg cursor-crosshair group"
+        className={clsx(
+          'relative h-7 rounded-lg group',
+          isOverZoomRegion ? 'cursor-pointer' : 'cursor-crosshair'
+        )}
         onMouseDown={handleZoomLaneMouseDown}
-        onMouseMove={(e) => setZoomHover(getTime(e.clientX, zoomLaneRef))}
-        onMouseLeave={() => setZoomHover(null)}
+        onMouseMove={(e) => {
+          const t = getTime(e.clientX, zoomLaneRef)
+          setZoomHover(t)
+          setIsOverZoomRegion(zoomRegions.some((r) => t >= r.start && t <= r.end))
+        }}
+        onMouseLeave={() => { setZoomHover(null); setIsOverZoomRegion(false) }}
       >
         <div className="absolute inset-0 rounded-lg bg-amber-950/30 border border-amber-500/10 group-hover:border-amber-500/25 transition-colors" />
 
@@ -235,7 +262,7 @@ export function Timeline({
           </div>
         )}
 
-        {/* Zoom region bars */}
+        {/* Zoom region bars (full span including ramps) */}
         {zoomRegions.map((r, i) => (
           <div key={i}
             className="absolute top-1 bottom-1 rounded bg-amber-500/25 border border-amber-500/35 pointer-events-none"
@@ -244,18 +271,17 @@ export function Timeline({
           </div>
         ))}
 
-        {/* Keyframe dots */}
-        {state.zoomKeyframes.map((kf) => (
+        {/* Keyframe dots — only peak keyframes (scale > 1.05) */}
+        {state.zoomKeyframes.filter((kf) => kf.scale > 1.05).map((kf) => (
           <div key={kf.id}
             className={clsx(
               'absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 w-3 h-3 rounded-full border-2 cursor-pointer transition-all',
-              kf.scale <= 1.05 ? 'bg-surface-900 border-amber-500/60 hover:border-amber-400' : 'bg-amber-400 border-amber-200 hover:scale-125',
+              'bg-amber-400 border-amber-200 hover:scale-125',
               state.selectedId === kf.id && 'ring-2 ring-white scale-125'
             )}
             style={{ left: `${toPercent(kf.time)}%` }}
-            onClick={(e) => { e.stopPropagation(); onSelectId(kf.id) }}
-            onDoubleClick={(e) => { e.stopPropagation(); onSetTool('zoom'); onSelectId(kf.id) }}
-            title="Click to select · double-click to open zoom panel"
+            onClick={(e) => { e.stopPropagation(); onSetTool('zoom'); onSelectId(kf.id) }}
+            title="Click to open zoom panel"
           />
         ))}
 
@@ -267,7 +293,7 @@ export function Timeline({
           </div>
         )}
 
-        {/* Pending zoom preview (hover while pending) */}
+        {/* Pending zoom preview on hover */}
         {pendingZoomStart !== null && zoomHover !== null && !zoomDragPreview && (
           <div className="absolute top-1 bottom-1 rounded bg-amber-400/20 border border-dashed border-amber-400/40 pointer-events-none"
             style={{
@@ -282,8 +308,8 @@ export function Timeline({
             style={{ left: `${toPercent(zoomDragPreview.start)}%`, width: `${Math.max(0.3, toPercent(zoomDragPreview.end) - toPercent(zoomDragPreview.start))}%` }} />
         )}
 
-        {/* Hover line */}
-        {zoomHover !== null && !zoomDragPreview && pendingZoomStart === null && (
+        {/* Hover line (only when not over a region and no pending) */}
+        {zoomHover !== null && !zoomDragPreview && !isOverZoomRegion && pendingZoomStart === null && (
           <div className="absolute top-0 bottom-0 w-px bg-amber-400/30 pointer-events-none" style={{ left: `${toPercent(zoomHover)}%` }} />
         )}
 
@@ -294,10 +320,17 @@ export function Timeline({
       {/* ── Text Lane ────────────────────────────────────────────────────── */}
       <LaneLabel color="text-violet-400/50">Text</LaneLabel>
       <div ref={textLaneRef}
-        className="relative h-7 rounded-lg cursor-pointer group"
+        className={clsx(
+          'relative h-7 rounded-lg group',
+          isOverTextAnn ? 'cursor-pointer' : 'cursor-crosshair'
+        )}
         onClick={handleTextLaneClick}
-        onMouseMove={(e) => setTextHover(getTime(e.clientX, textLaneRef))}
-        onMouseLeave={() => setTextHover(null)}
+        onMouseMove={(e) => {
+          const t = getTime(e.clientX, textLaneRef)
+          setTextHover(t)
+          setIsOverTextAnn(state.textAnnotations.some((a) => t >= a.startTime && t <= a.endTime))
+        }}
+        onMouseLeave={() => { setTextHover(null); setIsOverTextAnn(false) }}
       >
         <div className="absolute inset-0 rounded-lg bg-violet-950/30 border border-violet-500/10 group-hover:border-violet-500/25 transition-colors" />
 
@@ -314,13 +347,12 @@ export function Timeline({
               'absolute top-1 bottom-1 rounded group/ann flex items-center',
               'bg-violet-500/30 border border-violet-500/50 hover:bg-violet-500/40 transition-colors',
               state.selectedId === ann.id && 'ring-1 ring-violet-300',
-              textDragId === ann.id ? 'cursor-grabbing' : 'cursor-grab'
+              textDragId === ann.id ? 'cursor-grabbing' : 'cursor-pointer'
             )}
             style={{ left: `${toPercent(ann.startTime)}%`, width: `${Math.max(1, toPercent(ann.endTime) - toPercent(ann.startTime))}%` }}
-            onClick={(e) => { e.stopPropagation(); onSelectId(ann.id) }}
+            onClick={(e) => { e.stopPropagation(); onSetTool('text'); onSelectId(ann.id) }}
             onMouseDown={startTextDrag(ann, 'move')}
-            onDoubleClick={(e) => { e.stopPropagation(); onSetTool('text'); onSelectId(ann.id) }}
-            title="Drag to move · double-click to open text panel"
+            title="Click to open text panel · drag to move"
           >
             {/* Left resize handle */}
             <div
@@ -338,8 +370,8 @@ export function Timeline({
           </div>
         ))}
 
-        {/* Hover line */}
-        {textHover !== null && (
+        {/* Hover line (only when not over annotation) */}
+        {textHover !== null && !isOverTextAnn && (
           <div className="absolute top-0 bottom-0 w-px bg-violet-400/30 pointer-events-none" style={{ left: `${toPercent(textHover)}%` }} />
         )}
 
@@ -350,13 +382,13 @@ export function Timeline({
       {/* Status row */}
       <div className="flex items-center gap-4 text-[10px] text-white/20 px-1 pt-0.5">
         <span>Duration: <span className="text-white/35">{fmt(state.trimEnd - state.trimStart)}</span></span>
-        {state.zoomKeyframes.length > 0 && (
-          <span className="text-amber-500/50">{state.zoomKeyframes.length} zoom kf</span>
+        {zoomRegions.length > 0 && (
+          <span className="text-amber-500/50">{zoomRegions.length} zoom</span>
         )}
         {state.textAnnotations.length > 0 && (
           <span className="text-violet-400/50">{state.textAnnotations.length} text</span>
         )}
-        <span className="text-white/15 ml-auto">double-click item to open panel</span>
+        <span className="text-white/15 ml-auto">click item to open panel</span>
       </div>
     </div>
   )
@@ -370,15 +402,37 @@ function LaneLabel({ children, color }: { children: React.ReactNode; color: stri
   )
 }
 
+/** Build display regions: each zoom "block" as one region spanning entry→exit keyframes */
 function buildZoomRegions(keyframes: ZoomKeyframe[], trimEnd: number) {
   if (keyframes.length === 0) return []
   const sorted = [...keyframes].sort((a, b) => a.time - b.time)
-  return sorted
-    .filter((kf) => kf.scale > 1.05)
-    .map((kf, i) => {
-      const next = sorted.find((k, j) => j > sorted.indexOf(kf))
-      return { start: kf.time, end: next?.time ?? trimEnd, scale: kf.scale }
-    })
+  const regions: { start: number; end: number; scale: number }[] = []
+
+  for (let i = 0; i < sorted.length; i++) {
+    const kf = sorted[i]
+    if (kf.scale <= 1.05) continue // skip boundary keyframes
+
+    // Find the display start: previous scale≈1.0 keyframe (ramp entry)
+    const prev = i > 0 ? sorted[i - 1] : null
+    const regionStart = prev && prev.scale <= 1.05 ? prev.time : kf.time
+
+    // Advance through all consecutive peak keyframes
+    let j = i
+    let maxScale = kf.scale
+    while (j + 1 < sorted.length && sorted[j + 1].scale > 1.05) {
+      j++
+      maxScale = Math.max(maxScale, sorted[j].scale)
+    }
+
+    // Find the display end: next scale≈1.0 keyframe (ramp exit)
+    const next = j + 1 < sorted.length ? sorted[j + 1] : null
+    const regionEnd = next && next.scale <= 1.05 ? next.time : trimEnd
+
+    regions.push({ start: regionStart, end: regionEnd, scale: maxScale })
+    i = j // skip past processed peak keyframes
+  }
+
+  return regions
 }
 
 function TrimHandle({ side, percent, onMouseDown }: {

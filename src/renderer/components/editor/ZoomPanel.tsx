@@ -19,23 +19,25 @@ function fmt(s: number) {
 }
 
 export function ZoomPanel({ keyframes, selectedId, currentTime, onUpdate, onRemove, onSelect }: Props) {
+  // Only show peak keyframes (scale > 1.05) — boundary scale=1.0 keyframes are internal
+  const peakKeyframes = keyframes.filter((k) => k.scale > 1.05)
   const selected = keyframes.find((k) => k.id === selectedId)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Zoom Keyframes</p>
-        <span className="text-[10px] text-amber-400/60">Click preview to add</span>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Zoom Regions</p>
+        <span className="text-[10px] text-amber-400/60">Click preview or timeline to add</span>
       </div>
 
       {/* Keyframe list */}
       <div className="flex flex-col gap-1">
-        {keyframes.length === 0 && (
+        {peakKeyframes.length === 0 && (
           <p className="text-xs text-white/20 text-center py-4">
-            プレビューをクリックするとその位置に 150% ズームを追加します。
+            プレビューをクリックするか、タイムラインをドラッグしてズーム領域を追加します。
           </p>
         )}
-        {keyframes.map((kf) => (
+        {peakKeyframes.map((kf) => (
           <button
             key={kf.id}
             onClick={() => onSelect(kf.id === selectedId ? null : kf.id)}
@@ -111,7 +113,7 @@ export function ZoomPanel({ keyframes, selectedId, currentTime, onUpdate, onRemo
       )}
 
       <p className="text-[10px] text-white/20 leading-relaxed">
-        Keyframes define zoom level and focus point at a specific time. The video smoothly interpolates between them.
+        Each zoom region smoothly ramps in and out. Adjust the zoom level and focus point for each region.
       </p>
     </div>
   )

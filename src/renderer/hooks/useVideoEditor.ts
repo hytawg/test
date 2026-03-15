@@ -33,6 +33,28 @@ type UseVideoEditorReturn = {
   exportProgress: number
 }
 
+// ── Sound helpers ─────────────────────────────────────────────────────────────
+
+function playDoneTone() {
+  try {
+    const ctx = new AudioContext()
+    const play = (freq: number, start: number, dur: number, vol = 0.25) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
+      gain.gain.setValueAtTime(vol, ctx.currentTime + start)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + dur)
+    }
+    play(784, 0,    0.12) // G5
+    play(659, 0.13, 0.12) // E5
+    play(523, 0.26, 0.22) // C5
+  } catch { /* ignore */ }
+}
+
 export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   const [state, setState] = useState<EditState>(initialState)
   const [playing, setPlaying] = useState(false)
@@ -117,7 +139,6 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     const clamped = Math.max(stateRef.current.trimStart, Math.min(stateRef.current.trimEnd, t))
     video.currentTime = clamped
     setCurrentTime(clamped)
-    // Render that frame (after seeked event)
     video.onseeked = () => renderFrame(clamped)
   }, [renderFrame])
 
@@ -129,7 +150,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       video.currentTime = stateRef.current.trimStart
       video.onseeked = () => renderFrame(stateRef.current.trimStart)
     }
-    const onLoadedWithFlag = () => { onLoaded(); setVideoLoaded(true) }
+    const onLoadedWithFlag = () => { onLoaded(); setVideoLoaded(true); playDoneTone() }
     video.addEventListener('loadedmetadata', onLoadedWithFlag)
     return () => video.removeEventListener('loadedmetadata', onLoadedWithFlag)
   }, [renderFrame])
@@ -157,36 +178,58 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     setState((s) => ({ ...s, selectedId: id }))
   }, [])
 
+  // ── Zoom helpers ──────────────────────────────────────────────────────────
+
+  /** Build a 4-keyframe zoom region: [entry 1.0 → ramp 1.5 hold 1.5 ← ramp 1.0 exit] */
+  const buildZoomKfs = (
+    startTime: number, endTime: number, x: number, y: number
+  ): { kfs: ZoomKeyframe[]; mainId: string } => {
+    const dur = endTime - startTime
+    const ramp = Math.min(0.4, dur / 4)
+    const mainId = nanoid()
+    const kfs: ZoomKeyframe[] = [
+      { id: nanoid(), time: startTime,        x: 0.5, y: 0.5, scale: 1.0, easing: 'ease-in-out' },
+      { id: mainId,   time: startTime + ramp,  x,     y,     scale: 1.5, easing: 'ease-in-out' },
+      { id: nanoid(), time: endTime - ramp,    x,     y,     scale: 1.5, easing: 'ease-in-out' },
+      { id: nanoid(), time: endTime,           x: 0.5, y: 0.5, scale: 1.0, easing: 'ease-in-out' },
+    ]
+    return { kfs, mainId }
+  }
+
   const addZoomKeyframe = useCallback((time: number, x = 0.5, y = 0.5) => {
     const s = stateRef.current
-    // Don't add if too close to an existing keyframe
-    const existing = s.zoomKeyframes.find((kf) => Math.abs(kf.time - time) < 0.05)
+    // Don't add if too close to an existing peak keyframe
+    const existing = s.zoomKeyframes.find((kf) => kf.scale > 1.05 && Math.abs(kf.time - time) < 0.1)
     if (existing) {
       setState((prev) => ({ ...prev, selectedId: existing.id }))
       return
     }
-    const kf: ZoomKeyframe = { id: nanoid(), time, x, y, scale: 1.5, easing: 'ease-in-out' }
+    // Create a ~2-second bounded region from this point
+    const nextKf = s.zoomKeyframes.filter((kf) => kf.time > time).sort((a, b) => a.time - b.time)[0]
+    const rawEnd = Math.min(time + 2, s.trimEnd)
+    const clampedEnd = nextKf ? Math.min(rawEnd, nextKf.time - 0.05) : rawEnd
+    if (clampedEnd <= time + 0.2) return
+
+    const { kfs, mainId } = buildZoomKfs(time, clampedEnd, x, y)
     setState((prev) => ({
       ...prev,
-      zoomKeyframes: [...prev.zoomKeyframes, kf].sort((a, b) => a.time - b.time),
-      selectedId: kf.id
+      zoomKeyframes: [...prev.zoomKeyframes, ...kfs].sort((a, b) => a.time - b.time),
+      selectedId: mainId
     }))
   }, [])
 
   const addZoomRegion = useCallback((startTime: number, endTime: number) => {
     const s = stateRef.current
     // Clip endTime to just before the next existing keyframe after startTime
-    const nextKf = s.zoomKeyframes
-      .filter((kf) => kf.time > startTime)
-      .sort((a, b) => a.time - b.time)[0]
+    const nextKf = s.zoomKeyframes.filter((kf) => kf.time > startTime).sort((a, b) => a.time - b.time)[0]
     const clampedEnd = nextKf ? Math.min(endTime, nextKf.time - 0.05) : endTime
-    if (clampedEnd <= startTime + 0.1) return // no room
-    const kfIn: ZoomKeyframe = { id: nanoid(), time: startTime, x: 0.5, y: 0.5, scale: 1.5, easing: 'ease-in-out' }
-    const kfOut: ZoomKeyframe = { id: nanoid(), time: clampedEnd, x: 0.5, y: 0.5, scale: 1.0, easing: 'ease-in-out' }
+    if (clampedEnd <= startTime + 0.2) return
+
+    const { kfs, mainId } = buildZoomKfs(startTime, clampedEnd, 0.5, 0.5)
     setState((prev) => ({
       ...prev,
-      zoomKeyframes: [...prev.zoomKeyframes, kfIn, kfOut].sort((a, b) => a.time - b.time),
-      selectedId: kfIn.id
+      zoomKeyframes: [...prev.zoomKeyframes, ...kfs].sort((a, b) => a.time - b.time),
+      selectedId: mainId
     }))
   }, [])
 
@@ -197,13 +240,40 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     }))
   }, [])
 
+  /** Remove the whole zoom region (all 4 keyframes) that contains the given id */
   const removeZoomKeyframe = useCallback((id: string) => {
-    setState((s) => ({
-      ...s,
-      zoomKeyframes: s.zoomKeyframes.filter((kf) => kf.id !== id),
-      selectedId: s.selectedId === id ? null : s.selectedId
-    }))
+    setState((s) => {
+      const sorted = [...s.zoomKeyframes].sort((a, b) => a.time - b.time)
+      const idx = sorted.findIndex((kf) => kf.id === id)
+      if (idx === -1) return s
+
+      // Expand left: stop when two consecutive scale≤1.05 keyframes found
+      let start = idx
+      while (start > 0) {
+        const prev = sorted[start - 1]
+        const curr = sorted[start]
+        if (prev.scale <= 1.05 && curr.scale <= 1.05) break
+        start--
+      }
+      // Expand right: stop when two consecutive scale≤1.05 keyframes found
+      let end = idx
+      while (end < sorted.length - 1) {
+        const curr = sorted[end]
+        const next = sorted[end + 1]
+        if (curr.scale <= 1.05 && next.scale <= 1.05) break
+        end++
+      }
+
+      const idsToRemove = new Set(sorted.slice(start, end + 1).map((kf) => kf.id))
+      return {
+        ...s,
+        zoomKeyframes: s.zoomKeyframes.filter((kf) => !idsToRemove.has(kf.id)),
+        selectedId: s.selectedId && idsToRemove.has(s.selectedId) ? null : s.selectedId
+      }
+    })
   }, [])
+
+  // ── Text annotations ──────────────────────────────────────────────────────
 
   const addTextAnnotation = useCallback((x: number, y: number, time: number) => {
     const s = stateRef.current
@@ -359,17 +429,22 @@ function computeZoomCrop(
     return { sx: 0, sy: 0, sw: videoW, sh: videoH }
   }
 
+  const sorted = [...keyframes].sort((a, b) => a.time - b.time)
+
   let kfA: ZoomKeyframe | null = null
   let kfB: ZoomKeyframe | null = null
 
-  for (let i = 0; i < keyframes.length; i++) {
-    if (keyframes[i].time <= time) kfA = keyframes[i]
-    if (!kfB && keyframes[i].time >= time) kfB = keyframes[i]
+  for (const kf of sorted) {
+    if (kf.time <= time) kfA = kf
+    if (!kfB && kf.time >= time) kfB = kf
   }
 
-  const kf = kfA && kfB && kfA.id !== kfB.id
+  // Before the first keyframe → no zoom (full frame)
+  if (!kfA) return { sx: 0, sy: 0, sw: videoW, sh: videoH }
+
+  const kf = kfB && kfA.id !== kfB.id
     ? interpolateKf(kfA, kfB, time)
-    : kfA ?? kfB ?? { x: 0.5, y: 0.5, scale: 1 }
+    : kfA
 
   const sw = videoW / kf.scale
   const sh = videoH / kf.scale
@@ -381,7 +456,7 @@ function computeZoomCrop(
 function interpolateKf(a: ZoomKeyframe, b: ZoomKeyframe, t: number) {
   const d = b.time - a.time
   let p = d === 0 ? 1 : (t - a.time) / d
-  if (a.easing === 'ease-in-out') p = easeInOut(p)
+  if (a.easing === 'ease-in-out') p = smootherstep(p)
   return {
     x: a.x + (b.x - a.x) * p,
     y: a.y + (b.y - a.y) * p,
@@ -389,8 +464,10 @@ function interpolateKf(a: ZoomKeyframe, b: ZoomKeyframe, t: number) {
   }
 }
 
-function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+/** Perlin's smootherstep: extremely smooth (zero 1st and 2nd derivative at endpoints) */
+function smootherstep(t: number): number {
+  const c = Math.max(0, Math.min(1, t))
+  return c * c * c * (c * (c * 6 - 15) + 10)
 }
 
 function drawText(ctx: CanvasRenderingContext2D, ann: TextAnnotation, W: number, H: number) {
