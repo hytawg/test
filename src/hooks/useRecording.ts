@@ -19,6 +19,7 @@ type UseRecordingReturn = {
   cancelRecording: () => void
   screenStream: MediaStream | null
   cameraStream: MediaStream | null
+  onComplete: (cb: (blob: Blob, durationSec: number) => void) => void
 }
 
 export function useRecording(): UseRecordingReturn {
@@ -31,7 +32,9 @@ export function useRecording(): UseRecordingReturn {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const settingsRef = useRef<RecordingSettings | null>(null)
+  const durationRef = useRef(0)
+  const onCompleteRef = useRef<((blob: Blob, durationSec: number) => void) | null>(null)
+  const streamsRef = useRef<{ screen: MediaStream | null; cam: MediaStream | null }>({ screen: null, cam: null })
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -41,11 +44,16 @@ export function useRecording(): UseRecordingReturn {
   }, [])
 
   const stopAllStreams = useCallback(() => {
-    screenStream?.getTracks().forEach((t) => t.stop())
-    cameraStream?.getTracks().forEach((t) => t.stop())
+    streamsRef.current.screen?.getTracks().forEach((t) => t.stop())
+    streamsRef.current.cam?.getTracks().forEach((t) => t.stop())
+    streamsRef.current = { screen: null, cam: null }
     setScreenStream(null)
     setCameraStream(null)
-  }, [screenStream, cameraStream])
+  }, [])
+
+  const onComplete = useCallback((cb: (blob: Blob, durationSec: number) => void) => {
+    onCompleteRef.current = cb
+  }, [])
 
   const startRecording = useCallback(
     async (
@@ -54,26 +62,22 @@ export function useRecording(): UseRecordingReturn {
       audio: AudioSettings,
       settings: RecordingSettings
     ) => {
-      settingsRef.current = settings
       chunksRef.current = []
+      durationRef.current = 0
 
-      // Start countdown
+      // Countdown
       setCountdown(3)
       setRecordingState('countdown')
-
       await new Promise<void>((resolve) => {
         let count = 3
         const interval = setInterval(() => {
           count--
           setCountdown(count)
-          if (count <= 0) {
-            clearInterval(interval)
-            resolve()
-          }
+          if (count <= 0) { clearInterval(interval); resolve() }
         }, 1000)
       })
 
-      // Acquire screen stream
+      // Screen stream
       let stream: MediaStream
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -81,7 +85,6 @@ export function useRecording(): UseRecordingReturn {
             ? ({ mandatory: { chromeMediaSource: 'desktop' } } as unknown as MediaTrackConstraints)
             : false,
           video: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: source.id,
@@ -90,11 +93,9 @@ export function useRecording(): UseRecordingReturn {
           } as unknown as MediaTrackConstraints
         })
       } catch {
-        // Fallback: try without audio
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: source.id,
@@ -103,91 +104,68 @@ export function useRecording(): UseRecordingReturn {
           } as unknown as MediaTrackConstraints
         })
       }
-
+      streamsRef.current.screen = stream
       setScreenStream(stream)
 
-      // Acquire mic stream
+      // Mic
       let combinedStream = stream
       if (audio.micEnabled && audio.micDeviceId !== 'none') {
         try {
           const micStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              deviceId: audio.micDeviceId ?? undefined,
-              echoCancellation: true,
-              noiseSuppression: true
-            },
+            audio: { deviceId: audio.micDeviceId ?? undefined, echoCancellation: true, noiseSuppression: true },
             video: false
           })
-          // Merge tracks
-          const tracks = [...stream.getTracks(), ...micStream.getAudioTracks()]
-          combinedStream = new MediaStream(tracks)
-        } catch {
-          // mic unavailable, continue without
-        }
+          combinedStream = new MediaStream([...stream.getTracks(), ...micStream.getAudioTracks()])
+        } catch { /* ignore */ }
       }
 
-      // Acquire camera stream
+      // Camera
       if (camera.enabled && camera.deviceId && camera.deviceId !== 'none') {
         try {
           const camStream = await navigator.mediaDevices.getUserMedia({
             video: { deviceId: { exact: camera.deviceId } },
             audio: false
           })
+          streamsRef.current.cam = camStream
           setCameraStream(camStream)
-        } catch {
-          // camera unavailable
-        }
+        } catch { /* ignore */ }
       }
 
-      // Setup MediaRecorder
-      const mimeType = settings.format === 'webm' ? 'video/webm;codecs=vp9' : 'video/webm;codecs=vp8'
+      // MediaRecorder — always record as webm for editing compatibility
+      const mimeType = 'video/webm;codecs=vp8'
       const bitrate =
         settings.quality === 'high' ? 8_000_000 : settings.quality === 'medium' ? 4_000_000 : 2_000_000
 
-      const recorder = new MediaRecorder(combinedStream, {
-        mimeType,
-        videoBitsPerSecond: bitrate
-      })
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: bitrate })
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-
-      recorder.onstop = async () => {
+      recorder.onstop = () => {
         setRecordingState('processing')
         clearTimer()
-
         const blob = new Blob(chunksRef.current, { type: mimeType })
-        const buffer = await blob.arrayBuffer()
-        const fmt = settingsRef.current?.format ?? 'mp4'
-        const saveLocation = settingsRef.current?.saveLocation ?? 'downloads'
-
-        if (saveLocation === 'dialog') {
-          await window.electronAPI?.saveRecording(buffer, fmt)
-        } else {
-          await window.electronAPI?.saveToDownloads(buffer, fmt)
-        }
-
+        const finalDuration = durationRef.current
         stopAllStreams()
         setRecordingState('idle')
         setDuration(0)
+        durationRef.current = 0
+        // Hand off to editor instead of saving
+        onCompleteRef.current?.(blob, finalDuration)
       }
 
       mediaRecorderRef.current = recorder
-      recorder.start(1000) // collect data every 1s
+      recorder.start(1000)
       setRecordingState('recording')
       setDuration(0)
 
       timerRef.current = setInterval(() => {
+        durationRef.current += 1
         setDuration((d) => d + 1)
       }, 1000)
     },
     [clearTimer, stopAllStreams]
   )
 
-  const stopRecording = useCallback(() => {
-    mediaRecorderRef.current?.stop()
-  }, [])
+  const stopRecording = useCallback(() => { mediaRecorderRef.current?.stop() }, [])
 
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -200,32 +178,27 @@ export function useRecording(): UseRecordingReturn {
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current?.state === 'paused') {
       mediaRecorderRef.current.resume()
-      timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000)
+      timerRef.current = setInterval(() => { durationRef.current += 1; setDuration((d) => d + 1) }, 1000)
       setRecordingState('recording')
     }
   }, [])
 
   const cancelRecording = useCallback(() => {
+    onCompleteRef.current = null // discard
     mediaRecorderRef.current?.stop()
     clearTimer()
     stopAllStreams()
     chunksRef.current = []
     setRecordingState('idle')
     setDuration(0)
+    durationRef.current = 0
   }, [clearTimer, stopAllStreams])
 
   useEffect(() => () => clearTimer(), [clearTimer])
 
   return {
-    recordingState,
-    duration,
-    countdown,
-    startRecording,
-    stopRecording,
-    pauseRecording,
-    resumeRecording,
-    cancelRecording,
-    screenStream,
-    cameraStream
+    recordingState, duration, countdown,
+    startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording,
+    screenStream, cameraStream, onComplete
   }
 }

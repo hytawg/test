@@ -10,6 +10,7 @@ type Props = {
   audio: AudioSettings
   recordingSettings: RecordingSettings
   onStreamsChange: (screen: MediaStream | null, camera: MediaStream | null) => void
+  onRecordingComplete: (blob: Blob, durationSec: number) => void
 }
 
 function formatDuration(seconds: number): string {
@@ -20,21 +21,21 @@ function formatDuration(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export function RecordingBar({ source, camera, audio, recordingSettings, onStreamsChange }: Props) {
+export function RecordingBar({
+  source, camera, audio, recordingSettings, onStreamsChange, onRecordingComplete
+}: Props) {
   const {
-    recordingState,
-    duration,
-    countdown,
-    startRecording,
-    stopRecording,
-    pauseRecording,
-    resumeRecording,
-    cancelRecording,
-    screenStream,
-    cameraStream
+    recordingState, duration, countdown,
+    startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording,
+    screenStream, cameraStream, onComplete
   } = useRecording()
 
-  // Propagate streams to parent whenever they change
+  // Register completion callback → go to editor
+  useEffect(() => {
+    onComplete(onRecordingComplete)
+  }, [onComplete, onRecordingComplete])
+
+  // Propagate streams to parent
   useEffect(() => {
     onStreamsChange(screenStream, cameraStream)
   }, [screenStream, cameraStream, onStreamsChange])
@@ -52,7 +53,7 @@ export function RecordingBar({ source, camera, audio, recordingSettings, onStrea
 
   return (
     <div className="h-16 border-t border-white/5 bg-surface-950 flex items-center px-6 gap-4">
-      {/* Status indicator */}
+      {/* Status */}
       <div className="flex items-center gap-2 min-w-[120px]">
         {isRecording && (
           <>
@@ -70,7 +71,7 @@ export function RecordingBar({ source, camera, audio, recordingSettings, onStrea
           <span className="text-2xl font-bold text-white animate-bounce">{countdown}</span>
         )}
         {isProcessing && (
-          <span className="text-xs text-white/40 animate-pulse">Saving…</span>
+          <span className="text-xs text-white/40 animate-pulse">Opening editor…</span>
         )}
         {isIdle && source && (
           <span className="text-xs text-white/30 truncate max-w-[110px]">{source.name}</span>
@@ -80,74 +81,55 @@ export function RecordingBar({ source, camera, audio, recordingSettings, onStrea
         )}
       </div>
 
-      {/* Spacer */}
       <div className="flex-1" />
 
       {/* Controls */}
       <div className="flex items-center gap-2">
-        {/* Cancel (when recording or paused) */}
         {(isRecording || isPaused) && (
-          <button
-            onClick={cancelRecording}
+          <button onClick={cancelRecording}
             className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white/70 transition-all"
-            title="Cancel recording"
-          >
+            title="Cancel">
             <X size={16} />
           </button>
         )}
 
-        {/* Pause / Resume */}
         {isRecording && (
-          <button
-            onClick={pauseRecording}
-            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all"
-            title="Pause"
-          >
+          <button onClick={pauseRecording}
+            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all">
             <Pause size={16} />
           </button>
         )}
         {isPaused && (
-          <button
-            onClick={resumeRecording}
-            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all"
-            title="Resume"
-          >
+          <button onClick={resumeRecording}
+            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all">
             <Play size={16} />
           </button>
         )}
 
-        {/* Record / Stop button */}
         {isIdle && (
-          <button
-            onClick={handleStart}
-            disabled={!source}
+          <button onClick={handleStart} disabled={!source}
             className={clsx(
               'flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200',
               source
-                ? 'bg-red-500 hover:bg-red-400 text-white shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-105 active:scale-95'
+                ? 'bg-red-500 hover:bg-red-400 text-white shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95'
                 : 'bg-white/5 text-white/20 cursor-not-allowed'
-            )}
-          >
+            )}>
             <Circle size={12} className={source ? 'fill-white' : 'fill-white/20'} />
             Record
           </button>
         )}
 
         {(isRecording || isPaused) && (
-          <button
-            onClick={stopRecording}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-all"
-          >
+          <button onClick={stopRecording}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-all">
             <Square size={12} className="fill-white" />
-            Stop
+            Stop &amp; Edit
           </button>
         )}
 
         {isCountdown && (
-          <button
-            onClick={cancelRecording}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-white/50 font-semibold text-sm transition-all"
-          >
+          <button onClick={cancelRecording}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-white/50 font-semibold text-sm">
             Cancel
           </button>
         )}
