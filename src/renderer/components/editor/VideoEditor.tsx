@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap } from 'lucide-react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap, X } from 'lucide-react'
+import type { CutSegment } from '../../types'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
@@ -30,6 +31,7 @@ export function VideoEditor({
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
+    addCutSegment, updateCutSegment, removeCutSegment,
     updateCanvasSettings,
     exportVideo, exporting, exportProgress,
     setAutoZoomEnabled
@@ -112,7 +114,9 @@ export function VideoEditor({
           {state.activeTool === 'select' && (
             <TrimPanel trimStart={state.trimStart} trimEnd={state.trimEnd}
               duration={state.rawDuration} currentTime={currentTime}
-              onSetIn={() => setTrimStart(currentTime)} onSetOut={() => setTrimEnd(currentTime)} />
+              cutSegments={state.cutSegments}
+              onSetIn={() => setTrimStart(currentTime)} onSetOut={() => setTrimEnd(currentTime)}
+              onRemoveCut={removeCutSegment} />
           )}
           {state.activeTool === 'zoom' && (
             <ZoomPanel regions={state.zoomRegions} selectedId={state.selectedId}
@@ -219,6 +223,7 @@ export function VideoEditor({
           onSetTool={setActiveTool}
           onAddZoomAtTime={addZoomAtTime}
           onAddZoomRegion={addZoomRegion}
+          onUpdateZoomRegion={updateZoomRegion}
           onRemoveZoom={removeZoomRegion}
           onAddText={handleAddTextFromTimeline}
           onUpdateText={updateTextAnnotation}
@@ -226,6 +231,9 @@ export function VideoEditor({
           onAddSpeedSegment={addSpeedSegment}
           onUpdateSpeedSegment={updateSpeedSegment}
           onRemoveSpeedSegment={removeSpeedSegment}
+          onAddCutSegment={addCutSegment}
+          onUpdateCutSegment={updateCutSegment}
+          onRemoveCutSegment={removeCutSegment}
         />
       </div>
     </div>
@@ -238,25 +246,47 @@ function fmtDuration(s: number): string {
   return `${m}:${sec.padStart(4, '0')}`
 }
 
-function TrimPanel({ trimStart, trimEnd, duration, currentTime, onSetIn, onSetOut }: {
+function TrimPanel({ trimStart, trimEnd, duration, currentTime, cutSegments, onSetIn, onSetOut, onRemoveCut }: {
   trimStart: number; trimEnd: number; duration: number; currentTime: number
+  cutSegments: CutSegment[]
   onSetIn: () => void; onSetOut: () => void
+  onRemoveCut: (id: string) => void
 }) {
+  const totalCutDuration = cutSegments.reduce((acc, c) => acc + (c.endTime - c.startTime), 0)
+  const outputDuration = trimEnd - trimStart - totalCutDuration
+
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-sm font-semibold text-white/80">Trim</h2>
       <p className="text-xs text-white/40 leading-relaxed">
-        Drag the purple handles on the timeline, or set in/out points at the current playhead position.
+        Drag the purple handles on the timeline to set start/end, or use Set In/Out below.
       </p>
       <div className="flex flex-col gap-2">
         <TrimPoint label="In point" value={trimStart} hint="" onClick={onSetIn} btnLabel="Set In" />
         <TrimPoint label="Out point" value={trimEnd} hint="" onClick={onSetOut} btnLabel="Set Out" />
       </div>
       <div className="p-3 rounded-xl bg-white/3 border border-white/5">
-        <p className="text-[10px] text-white/30 mb-1">Duration after trim</p>
-        <p className="text-lg font-mono text-white/80">{fmtDuration(trimEnd - trimStart)}</p>
+        <p className="text-[10px] text-white/30 mb-1">Output duration</p>
+        <p className="text-lg font-mono text-white/80">{fmtDuration(Math.max(0, outputDuration))}</p>
         <p className="text-[10px] text-white/20 mt-0.5">of {fmtDuration(duration)} total</p>
       </div>
+      {cutSegments.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400/60">Cut segments</p>
+          {cutSegments.map((c) => (
+            <div key={c.id} className="flex items-center gap-2 p-2 rounded-lg bg-red-500/8 border border-red-500/15">
+              <div className="flex-1">
+                <p className="text-[10px] font-mono text-red-300/70">{fmtDuration(c.startTime)} → {fmtDuration(c.endTime)}</p>
+                <p className="text-[9px] text-red-400/40">{fmtDuration(c.endTime - c.startTime)} removed</p>
+              </div>
+              <button onClick={() => onRemoveCut(c.id)}
+                className="w-5 h-5 rounded flex items-center justify-center text-red-400/50 hover:text-red-300 hover:bg-red-500/20 transition-all">
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -110,7 +110,30 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   { id: 'indigo', name: 'Indigo', value: 'linear-gradient(135deg, #4776e6 0%, #8e54e9 100%)' },
   { id: 'emerald', name: 'Emerald', value: 'linear-gradient(135deg, #0ba360 0%, #3cba92 100%)' },
   { id: 'rose', name: 'Rose', value: 'linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%)' },
-  { id: 'cosmic', name: 'Cosmic', value: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }
+  { id: 'cosmic', name: 'Cosmic', value: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' },
+  // Extended presets
+  { id: 'blossom', name: 'Blossom', value: 'linear-gradient(135deg, #ffc3d0 0%, #ffb3c1 30%, #ffe4e9 70%, #fff0f3 100%)' },
+  { id: 'dusk', name: 'Dusk', value: 'linear-gradient(135deg, #f5a4a4 0%, #f0b8b2 50%, #f5d0c8 100%)' },
+  { id: 'ice', name: 'Ice', value: 'linear-gradient(135deg, #cce7ff 0%, #ddf0ff 50%, #eef8ff 100%)' },
+  { id: 'haze', name: 'Haze', value: 'linear-gradient(135deg, #e8d5f5 0%, #f2ddf9 50%, #f8eeff 100%)' },
+  { id: 'rainforest', name: 'Rainforest', value: 'radial-gradient(ellipse at 70% 30%, #0f4c29 0%, #2d7a4f 40%, #52b788 70%, #b7e4c7 100%)' },
+  { id: 'sapphire', name: 'Sapphire', value: 'linear-gradient(135deg, #1a3a8f 0%, #1e4fc4 50%, #2d6ae0 100%)' },
+  { id: 'citrus', name: 'Citrus', value: 'radial-gradient(ellipse at 50% 110%, #e85d04 0%, #f48c06 35%, #faa307 65%, #ffba08 100%)' },
+  { id: 'nebula', name: 'Nebula', value: 'radial-gradient(ellipse at 30% 60%, #6a0572 0%, #9b2699 40%, #c77dff 70%, #4361ee 100%)' },
+  { id: 'void', name: 'Void', value: 'linear-gradient(135deg, #11023b 0%, #200060 50%, #100040 100%)' },
+  { id: 'ember', name: 'Ember', value: 'linear-gradient(135deg, #230000 0%, #4a0a0a 50%, #200505 100%)' },
+  { id: 'wisteria', name: 'Wisteria', value: 'linear-gradient(135deg, #b8b8e8 0%, #c8c8f5 50%, #e0e0ff 100%)' },
+  { id: 'flame', name: 'Flame', value: 'radial-gradient(ellipse at 30% 40%, #d62828 0%, #f77f00 50%, #fcbf49 100%)' },
+  { id: 'denim', name: 'Denim', value: 'linear-gradient(150deg, #1a237e 0%, #283593 33%, #1a237e 66%, #0d1242 100%)' },
+  { id: 'tangerine', name: 'Tangerine', value: 'radial-gradient(ellipse at 20% 50%, #ff6d00 0%, #ff9100 35%, #ffab40 65%, #ffd180 100%)' },
+  { id: 'sky', name: 'Sky', value: 'linear-gradient(135deg, #48cae4 0%, #90e0ef 50%, #caf0f8 100%)' },
+  { id: 'mandarin', name: 'Mandarin', value: 'linear-gradient(135deg, #f77f00 0%, #fcbf49 50%, #ffd166 100%)' },
+  { id: 'spearmint', name: 'Spearmint', value: 'linear-gradient(135deg, #52d68a 0%, #a8efcd 50%, #ccffe5 100%)' },
+  { id: 'abyss', name: 'Abyss', value: 'linear-gradient(135deg, #000428 0%, #002060 50%, #001540 100%)' },
+  { id: 'slate', name: 'Slate', value: 'linear-gradient(135deg, #2c2c2e 0%, #3a3a3c 50%, #4a4a4c 100%)' },
+  { id: 'garnet', name: 'Garnet', value: 'linear-gradient(135deg, #b01a1a 0%, #d63031 50%, #ff6b6b 100%)' },
+  { id: 'blush', name: 'Blush', value: 'linear-gradient(135deg, #f8bbd0 0%, #fce4ec 50%, #fff0f5 100%)' },
+  { id: 'gold', name: 'Gold', value: 'linear-gradient(135deg, #f59e0b 0%, #fb923c 50%, #fbbf24 100%)' },
 ]
 
 export const DEFAULT_CANVAS: CanvasSettings = {
@@ -202,7 +225,14 @@ export type FocusLogRecord = {
   ts: number            // ms since recording start
   camera: { x: number; y: number; zoom: number }  // normalized 0–1
   mouse: { x: number; y: number }   // logical display pixels
+  mouseNorm?: { x: number; y: number }  // cursor position normalized 0–1 within display
   scaleFactor: number
+}
+
+export type CutSegment = {
+  id: string
+  startTime: number
+  endTime: number
 }
 
 export type EditState = {
@@ -213,6 +243,7 @@ export type EditState = {
   zoomRegions: ZoomRegion[]
   textAnnotations: TextAnnotation[]
   speedSegments: SpeedSegment[]
+  cutSegments: CutSegment[]           // ranges to be removed from output
   captureRegion: CaptureRegion | null
   canvasSettings: CanvasSettings
   activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed'

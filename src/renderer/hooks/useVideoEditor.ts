@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord } from '../types'
+import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment } from '../types'
 import { nanoid } from '../utils/nanoid'
 
 type UseVideoEditorReturn = {
@@ -28,6 +28,9 @@ type UseVideoEditorReturn = {
   addSpeedSegment: (startTime: number, endTime: number) => void
   updateSpeedSegment: (id: string, patch: Partial<SpeedSegment>) => void
   removeSpeedSegment: (id: string) => void
+  addCutSegment: (startTime: number, endTime: number) => void
+  updateCutSegment: (id: string, patch: Partial<CutSegment>) => void
+  removeCutSegment: (id: string) => void
   exportVideo: (format: string, quality: string, fps: number, saveLocation: string) => Promise<void>
   exporting: boolean
   exportProgress: number
@@ -170,6 +173,16 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     // 5 — Text annotations (positioned over full canvas)
     const activeTexts = st.textAnnotations.filter(a => a.startTime <= time && a.endTime >= time)
     for (const ann of activeTexts) drawText(ctx, ann, W, H)
+
+    // 6 — Cursor overlay (from focus log)
+    if (st.focusLog && st.focusLog.length > 0) {
+      const rec = interpolateFocusLog(st.focusLog, time)
+      if (rec.mouseNormX !== null && rec.mouseNormY !== null) {
+        const cursorVX = rec.mouseNormX * video.videoWidth
+        const cursorVY = rec.mouseNormY * video.videoHeight
+        drawCursorOverlay(ctx, cursorVX, cursorVY, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
+      }
+    }
   }, [])
 
   // ── Playback ──────────────────────────────────────────────────────────────
@@ -177,6 +190,14 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   const tick = useCallback(() => {
     const video = videoRef.current; if (!video) return
     const t = video.currentTime
+
+    // Skip cut segments during playback
+    const cut = stateRef.current.cutSegments.find(c => t >= c.startTime && t < c.endTime)
+    if (cut) {
+      video.currentTime = cut.endTime
+      video.onseeked = () => { rafRef.current = requestAnimationFrame(tick) }
+      return
+    }
 
     // Adjust playback speed based on speed segments
     const speedSeg = stateRef.current.speedSegments.find(s => t >= s.startTime && t <= s.endTime)
@@ -314,6 +335,26 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     setState(s => ({ ...s, speedSegments: s.speedSegments.filter(seg => seg.id !== id), selectedId: s.selectedId === id ? null : s.selectedId }))
   }, [])
 
+  // ── Cut segments ──────────────────────────────────────────────────────────
+
+  const addCutSegment = useCallback((startTime: number, endTime: number) => {
+    setState(s => {
+      if (s.cutSegments.some(c => startTime < c.endTime && endTime > c.startTime)) return s
+      const clampedEnd = Math.min(endTime, s.trimEnd)
+      if (clampedEnd <= startTime + 0.1) return s
+      const cut: CutSegment = { id: nanoid(), startTime: Math.max(startTime, s.trimStart), endTime: clampedEnd }
+      return { ...s, cutSegments: [...s.cutSegments, cut].sort((a, b) => a.startTime - b.startTime), selectedId: cut.id }
+    })
+  }, [])
+
+  const updateCutSegment = useCallback((id: string, patch: Partial<CutSegment>) => {
+    setState(s => ({ ...s, cutSegments: s.cutSegments.map(c => c.id === id ? { ...c, ...patch } : c) }))
+  }, [])
+
+  const removeCutSegment = useCallback((id: string) => {
+    setState(s => ({ ...s, cutSegments: s.cutSegments.filter(c => c.id !== id), selectedId: s.selectedId === id ? null : s.selectedId }))
+  }, [])
+
   // ── Export (Web Codecs → H.264 MP4) ──────────────────────────────────────
 
   const exportVideo = useCallback(async (format: string, quality: string, fps: number, saveLocation: string) => {
@@ -346,6 +387,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
+    addCutSegment, updateCutSegment, removeCutSegment,
     exportVideo, exporting, exportProgress,
     setAutoZoomEnabled
   }
@@ -353,10 +395,15 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
 // ── Focus log interpolation ────────────────────────────────────────────────────
 
-function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number): { x: number; y: number; zoom: number } {
+function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number): { x: number; y: number; zoom: number; mouseNormX: number | null; mouseNormY: number | null } {
   const tMs = videoTimeSec * 1000
-  if (tMs <= log[0].ts) return log[0].camera
-  if (tMs >= log[log.length - 1].ts) return log[log.length - 1].camera
+  const toResult = (rec: FocusLogRecord) => ({
+    ...rec.camera,
+    mouseNormX: rec.mouseNorm?.x ?? null,
+    mouseNormY: rec.mouseNorm?.y ?? null,
+  })
+  if (tMs <= log[0].ts) return toResult(log[0])
+  if (tMs >= log[log.length - 1].ts) return toResult(log[log.length - 1])
 
   // Binary search for bracketing records
   let lo = 0, hi = log.length - 1
@@ -368,10 +415,13 @@ function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number): { x: 
 
   const a = log[lo], b = log[hi]
   const t = (tMs - a.ts) / (b.ts - a.ts)
+  const hasMouse = a.mouseNorm && b.mouseNorm
   return {
     x:    a.camera.x    + (b.camera.x    - a.camera.x)    * t,
     y:    a.camera.y    + (b.camera.y    - a.camera.y)    * t,
     zoom: a.camera.zoom + (b.camera.zoom - a.camera.zoom) * t,
+    mouseNormX: hasMouse ? (a.mouseNorm!.x + (b.mouseNorm!.x - a.mouseNorm!.x) * t) : null,
+    mouseNormY: hasMouse ? (a.mouseNorm!.y + (b.mouseNorm!.y - a.mouseNorm!.y) * t) : null,
   }
 }
 
@@ -425,6 +475,10 @@ async function exportWithWebCodecs(
   let frameCount = 0
 
   while (srcT <= st.trimEnd + frameInterval / 2) {
+    // Skip cut segments
+    const cut = st.cutSegments.find(c => srcT >= c.startTime && srcT < c.endTime)
+    if (cut) { srcT = cut.endTime; continue }
+
     const clampedT = Math.min(srcT, st.trimEnd)
     video.currentTime = clampedT
     await waitForSeek(video)
@@ -475,6 +529,8 @@ async function exportWithMediaRecorder(
   const frameInterval = 1 / fps
   let srcT = st.trimStart; let fc = 0
   while (srcT <= st.trimEnd) {
+    const cut = st.cutSegments.find(c => srcT >= c.startTime && srcT < c.endTime)
+    if (cut) { srcT = cut.endTime; continue }
     video.currentTime = srcT; await waitForSeek(video); renderFrame(srcT)
     onProgress(Math.min(99, ((srcT - st.trimStart) / sourceDuration) * 100))
     const speed = getSpeedAt(srcT, st.speedSegments)
@@ -605,6 +661,42 @@ function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w:
   ctx.lineTo(x + clampedR, y + h); ctx.arcTo(x, y + h, x, y + h - clampedR, clampedR)
   ctx.lineTo(x, y + clampedR); ctx.arcTo(x, y, x + clampedR, y, clampedR)
   ctx.closePath()
+}
+
+/** Draw a cursor dot overlay in canvas coordinates */
+function drawCursorOverlay(
+  ctx: CanvasRenderingContext2D,
+  cursorVX: number, cursorVY: number,
+  sx: number, sy: number, sw: number, sh: number,
+  vdx: number, vdy: number, vdw: number, vdh: number
+) {
+  // Map from video physical pixel space → canvas destination space
+  const crX = (cursorVX - sx) / sw
+  const crY = (cursorVY - sy) / sh
+  if (crX < 0 || crX > 1 || crY < 0 || crY > 1) return
+  const cx = vdx + crX * vdw
+  const cy = vdy + crY * vdh
+
+  ctx.save()
+  // Outer glow
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'
+  ctx.shadowBlur = 12
+  // White circle
+  ctx.beginPath()
+  ctx.arc(cx, cy, 10, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  ctx.fill()
+  ctx.shadowBlur = 0
+  // Dark ring
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  // Inner dot
+  ctx.beginPath()
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'
+  ctx.fill()
+  ctx.restore()
 }
 
 function drawText(ctx: CanvasRenderingContext2D, ann: TextAnnotation, W: number, H: number) {

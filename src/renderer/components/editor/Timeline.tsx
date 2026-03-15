@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react'
-import type { EditState, ZoomRegion, TextAnnotation, SpeedSegment } from '../../types'
+import type { EditState, ZoomRegion, TextAnnotation, SpeedSegment, CutSegment } from '../../types'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 
@@ -14,6 +14,7 @@ type Props = {
   // Zoom lane
   onAddZoomAtTime: (time: number) => void
   onAddZoomRegion: (startTime: number, endTime: number) => void
+  onUpdateZoomRegion: (id: string, patch: Partial<ZoomRegion>) => void
   onRemoveZoom: (id: string) => void
   // Text lane
   onAddText: (time: number) => void
@@ -23,6 +24,10 @@ type Props = {
   onAddSpeedSegment: (startTime: number, endTime: number) => void
   onUpdateSpeedSegment: (id: string, patch: Partial<SpeedSegment>) => void
   onRemoveSpeedSegment: (id: string) => void
+  // Cut lane
+  onAddCutSegment: (startTime: number, endTime: number) => void
+  onUpdateCutSegment: (id: string, patch: Partial<CutSegment>) => void
+  onRemoveCutSegment: (id: string) => void
 }
 
 function fmt(s: number): string {
@@ -47,14 +52,16 @@ function speedColorSelected(speed: number): string {
 export function Timeline({
   state, currentTime,
   onSeek, onTrimStart, onTrimEnd, onSelectId, onSetTool,
-  onAddZoomAtTime, onAddZoomRegion, onRemoveZoom,
+  onAddZoomAtTime, onAddZoomRegion, onUpdateZoomRegion, onRemoveZoom,
   onAddText, onUpdateText, onRemoveText,
-  onAddSpeedSegment, onUpdateSpeedSegment, onRemoveSpeedSegment
+  onAddSpeedSegment, onUpdateSpeedSegment, onRemoveSpeedSegment,
+  onAddCutSegment, onUpdateCutSegment, onRemoveCutSegment
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const zoomLaneRef = useRef<HTMLDivElement>(null)
   const textLaneRef = useRef<HTMLDivElement>(null)
   const speedLaneRef = useRef<HTMLDivElement>(null)
+  const cutLaneRef = useRef<HTMLDivElement>(null)
   const duration = state.rawDuration
 
   const stateRef = useRef(state)
@@ -161,6 +168,40 @@ export function Timeline({
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }, [getTime, onAddZoomAtTime, onAddZoomRegion, onSetTool, onSelectId])
+
+  // ── Zoom segment resize/move ──────────────────────────────────────────────
+
+  const [zoomDragId, setZoomDragId] = useState<string | null>(null)
+
+  const startZoomDrag = useCallback((r: ZoomRegion, edge: 'start' | 'end' | 'move') =>
+    (e: React.MouseEvent) => {
+      e.preventDefault(); e.stopPropagation()
+      setZoomDragId(r.id)
+      onSetTool('zoom'); onSelectId(r.id)
+      const origStart = r.startTime; const origEnd = r.endTime
+      const origT = getTime(e.clientX, zoomLaneRef)
+
+      const move = (ev: MouseEvent) => {
+        const t = getTime(ev.clientX, zoomLaneRef)
+        const delta = t - origT
+        if (edge === 'start') {
+          onUpdateZoomRegion(r.id, { startTime: Math.max(0, Math.min(origStart + delta, origEnd - 0.1)) })
+        } else if (edge === 'end') {
+          onUpdateZoomRegion(r.id, { endTime: Math.min(duration, Math.max(origEnd + delta, origStart + 0.1)) })
+        } else {
+          const dur = origEnd - origStart
+          const ns = Math.max(0, Math.min(origStart + delta, duration - dur))
+          onUpdateZoomRegion(r.id, { startTime: ns, endTime: ns + dur })
+        }
+      }
+      const up = () => {
+        window.removeEventListener('mousemove', move)
+        window.removeEventListener('mouseup', up)
+        setZoomDragId(null)
+      }
+      window.addEventListener('mousemove', move)
+      window.addEventListener('mouseup', up)
+    }, [getTime, duration, onUpdateZoomRegion, onSetTool, onSelectId])
 
   // ── Text Lane ─────────────────────────────────────────────────────────────
 
@@ -276,6 +317,106 @@ export function Timeline({
     window.addEventListener('mouseup', up)
   }, [getTime, onAddSpeedSegment, onSetTool, onSelectId])
 
+  // ── Speed segment resize/move ─────────────────────────────────────────────
+
+  const [speedResizeDragId, setSpeedResizeDragId] = useState<string | null>(null)
+
+  const startSpeedDrag = useCallback((seg: SpeedSegment, edge: 'start' | 'end' | 'move') =>
+    (e: React.MouseEvent) => {
+      e.preventDefault(); e.stopPropagation()
+      setSpeedResizeDragId(seg.id)
+      onSetTool('speed'); onSelectId(seg.id)
+      const origStart = seg.startTime; const origEnd = seg.endTime
+      const origT = getTime(e.clientX, speedLaneRef)
+
+      const move = (ev: MouseEvent) => {
+        const t = getTime(ev.clientX, speedLaneRef)
+        const delta = t - origT
+        if (edge === 'start') {
+          onUpdateSpeedSegment(seg.id, { startTime: Math.max(0, Math.min(origStart + delta, origEnd - 0.1)) })
+        } else if (edge === 'end') {
+          onUpdateSpeedSegment(seg.id, { endTime: Math.min(duration, Math.max(origEnd + delta, origStart + 0.1)) })
+        } else {
+          const dur = origEnd - origStart
+          const ns = Math.max(0, Math.min(origStart + delta, duration - dur))
+          onUpdateSpeedSegment(seg.id, { startTime: ns, endTime: ns + dur })
+        }
+      }
+      const up = () => {
+        window.removeEventListener('mousemove', move)
+        window.removeEventListener('mouseup', up)
+        setSpeedResizeDragId(null)
+      }
+      window.addEventListener('mousemove', move)
+      window.addEventListener('mouseup', up)
+    }, [getTime, duration, onUpdateSpeedSegment, onSetTool, onSelectId])
+
+  // ── Cut Lane ──────────────────────────────────────────────────────────────
+
+  const [cutDragPreview, setCutDragPreview] = useState<{ start: number; end: number } | null>(null)
+  const [cutHover, setCutHover] = useState<number | null>(null)
+  const [isOverCutSeg, setIsOverCutSeg] = useState(false)
+  const [cutResizeDragId, setCutResizeDragId] = useState<string | null>(null)
+
+  const handleCutLaneMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    const startT = getTime(e.clientX, cutLaneRef)
+    let lastT = startT
+    let isDragging = false
+
+    const move = (ev: MouseEvent) => {
+      const t = getTime(ev.clientX, cutLaneRef)
+      if (Math.abs(t - startT) > 0.15) {
+        isDragging = true
+        setCutDragPreview({ start: Math.min(startT, t), end: Math.max(startT, t) })
+      }
+      lastT = t
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      setCutDragPreview(null)
+      if (isDragging && Math.abs(lastT - startT) > 0.15) {
+        onAddCutSegment(Math.min(startT, lastT), Math.max(startT, lastT))
+      } else {
+        const overCut = stateRef.current.cutSegments.find(c => startT >= c.startTime && startT <= c.endTime)
+        if (overCut) onSelectId(overCut.id)
+      }
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }, [getTime, onAddCutSegment, onSelectId])
+
+  const startCutDrag = useCallback((c: CutSegment, edge: 'start' | 'end' | 'move') =>
+    (e: React.MouseEvent) => {
+      e.preventDefault(); e.stopPropagation()
+      setCutResizeDragId(c.id)
+      onSelectId(c.id)
+      const origStart = c.startTime; const origEnd = c.endTime
+      const origT = getTime(e.clientX, cutLaneRef)
+
+      const move = (ev: MouseEvent) => {
+        const t = getTime(ev.clientX, cutLaneRef)
+        const delta = t - origT
+        if (edge === 'start') {
+          onUpdateCutSegment(c.id, { startTime: Math.max(0, Math.min(origStart + delta, origEnd - 0.1)) })
+        } else if (edge === 'end') {
+          onUpdateCutSegment(c.id, { endTime: Math.min(duration, Math.max(origEnd + delta, origStart + 0.1)) })
+        } else {
+          const dur = origEnd - origStart
+          const ns = Math.max(0, Math.min(origStart + delta, duration - dur))
+          onUpdateCutSegment(c.id, { startTime: ns, endTime: ns + dur })
+        }
+      }
+      const up = () => {
+        window.removeEventListener('mousemove', move)
+        window.removeEventListener('mouseup', up)
+        setCutResizeDragId(null)
+      }
+      window.addEventListener('mousemove', move)
+      window.addEventListener('mouseup', up)
+    }, [getTime, duration, onUpdateCutSegment, onSelectId])
+
   const trimmedStart = toPercent(state.trimStart)
   const trimmedEnd = toPercent(state.trimEnd)
   const playheadPct = toPercent(currentTime)
@@ -299,6 +440,16 @@ export function Timeline({
         <div className="absolute top-0 bottom-0 bg-black/60 rounded-r-lg" style={{ left: `${trimmedEnd}%`, right: 0 }} />
         <div className="absolute top-0 bottom-0 bg-white/5 border-t border-b border-white/10"
           style={{ left: `${trimmedStart}%`, width: `${trimmedEnd - trimmedStart}%` }} />
+
+        {/* Cut overlays on main track */}
+        {state.cutSegments.map((c) => (
+          <div key={c.id}
+            className="absolute top-0 bottom-0 pointer-events-none z-5"
+            style={{ left: `${toPercent(c.startTime)}%`, width: `${Math.max(0.3, toPercent(c.endTime) - toPercent(c.startTime))}%` }}>
+            <div className="absolute inset-0 bg-red-500/20 border-x border-red-500/40"
+              style={{ backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(239,68,68,0.08) 4px, rgba(239,68,68,0.08) 8px)' }} />
+          </div>
+        ))}
 
         {/* Playhead */}
         <div className="absolute top-0 bottom-0 w-0.5 bg-white z-20 pointer-events-none" style={{ left: `${playheadPct}%` }}>
@@ -344,7 +495,8 @@ export function Timeline({
         {state.zoomRegions.map((r) => (
           <div key={r.id}
             className={clsx(
-              'absolute top-1 bottom-1 rounded border group/item',
+              'absolute top-1 bottom-1 rounded border group/item flex items-center',
+              zoomDragId === r.id ? 'cursor-grabbing' : 'cursor-grab',
               state.selectedId === r.id
                 ? 'bg-amber-500/40 border-amber-400/60 ring-1 ring-amber-300/40'
                 : 'bg-amber-500/25 border-amber-500/35'
@@ -352,18 +504,26 @@ export function Timeline({
             style={{
               left: `${toPercent(r.startTime)}%`,
               width: `${Math.max(0.3, toPercent(r.endTime) - toPercent(r.startTime))}%`
-            }}>
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-amber-300/70 whitespace-nowrap pointer-events-none">
+            }}
+            onMouseDown={startZoomDrag(r, 'move')}
+          >
+            {/* Left resize handle */}
+            <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-amber-400/40 rounded-l z-10"
+              onMouseDown={(e) => { e.stopPropagation(); startZoomDrag(r, 'start')(e) }} />
+            <span className="absolute inset-x-2 text-[9px] text-amber-300/70 whitespace-nowrap pointer-events-none truncate px-0.5">
               {r.scale.toFixed(1)}×
             </span>
             {/* Delete button */}
             <button
-              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all pointer-events-auto z-10"
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all pointer-events-auto z-20"
               onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
               onClick={(e) => { e.stopPropagation(); onRemoveZoom(r.id) }}
             >
               <X size={9} />
             </button>
+            {/* Right resize handle */}
+            <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-amber-400/40 rounded-r z-10"
+              onMouseDown={(e) => { e.stopPropagation(); startZoomDrag(r, 'end')(e) }} />
           </div>
         ))}
 
@@ -500,24 +660,33 @@ export function Timeline({
         {state.speedSegments.map((seg) => (
           <div key={seg.id}
             className={clsx(
-              'absolute top-1 bottom-1 rounded border group/item',
+              'absolute top-1 bottom-1 rounded border group/item flex items-center',
+              speedResizeDragId === seg.id ? 'cursor-grabbing' : 'cursor-grab',
               state.selectedId === seg.id ? speedColorSelected(seg.speed) : speedColor(seg.speed)
             )}
             style={{
               left: `${toPercent(seg.startTime)}%`,
               width: `${Math.max(0.3, toPercent(seg.endTime) - toPercent(seg.startTime))}%`
-            }}>
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] text-white/70 whitespace-nowrap pointer-events-none">
+            }}
+            onMouseDown={startSpeedDrag(seg, 'move')}
+          >
+            {/* Left resize handle */}
+            <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-l z-10"
+              onMouseDown={(e) => { e.stopPropagation(); startSpeedDrag(seg, 'start')(e) }} />
+            <span className="absolute inset-x-2 text-[9px] text-white/70 whitespace-nowrap pointer-events-none truncate px-0.5">
               {seg.speed.toFixed(1)}×
             </span>
             {/* Delete button */}
             <button
-              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all pointer-events-auto z-10"
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/30 hover:text-red-300 text-white/40 transition-all pointer-events-auto z-20"
               onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
               onClick={(e) => { e.stopPropagation(); onRemoveSpeedSegment(seg.id) }}
             >
               <X size={9} />
             </button>
+            {/* Right resize handle */}
+            <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/20 rounded-r z-10"
+              onMouseDown={(e) => { e.stopPropagation(); startSpeedDrag(seg, 'end')(e) }} />
           </div>
         ))}
 
@@ -557,6 +726,81 @@ export function Timeline({
           style={{ left: `${playheadPct}%` }} />
       </div>
 
+      {/* ── Cut Lane ─────────────────────────────────────────────────────── */}
+      <LaneLabel color="text-red-400/50">Cut</LaneLabel>
+      <div ref={cutLaneRef}
+        className={clsx(
+          'relative h-7 rounded-lg group',
+          isOverCutSeg ? 'cursor-pointer' : 'cursor-crosshair'
+        )}
+        onMouseDown={handleCutLaneMouseDown}
+        onMouseMove={(e) => {
+          const t = getTime(e.clientX, cutLaneRef)
+          setCutHover(t)
+          setIsOverCutSeg(state.cutSegments.some((c) => t >= c.startTime && t <= c.endTime))
+        }}
+        onMouseLeave={() => { setCutHover(null); setIsOverCutSeg(false) }}
+      >
+        <div className="absolute inset-0 rounded-lg bg-red-950/20 border border-red-500/10 group-hover:border-red-500/25 transition-colors" />
+
+        {state.cutSegments.length === 0 && !cutDragPreview && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[10px] text-red-500/35">Drag to cut out a section</span>
+          </div>
+        )}
+
+        {/* Cut segment bars */}
+        {state.cutSegments.map((c) => (
+          <div key={c.id}
+            className={clsx(
+              'absolute top-1 bottom-1 rounded border group/item flex items-center',
+              cutResizeDragId === c.id ? 'cursor-grabbing' : 'cursor-grab',
+              state.selectedId === c.id
+                ? 'bg-red-500/50 border-red-400/70 ring-1 ring-red-300/40'
+                : 'bg-red-500/30 border-red-500/40'
+            )}
+            style={{
+              left: `${toPercent(c.startTime)}%`,
+              width: `${Math.max(0.3, toPercent(c.endTime) - toPercent(c.startTime))}%`
+            }}
+            onMouseDown={startCutDrag(c, 'move')}
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-red-300/30 rounded-l z-10"
+              onMouseDown={(e) => { e.stopPropagation(); startCutDrag(c, 'start')(e) }} />
+            <span className="absolute inset-x-2 text-[9px] text-red-200/70 whitespace-nowrap pointer-events-none truncate px-0.5">
+              {fmt(c.startTime)}–{fmt(c.endTime)}
+            </span>
+            <button
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-red-500/40 hover:text-red-200 text-white/40 transition-all pointer-events-auto z-20"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+              onClick={(e) => { e.stopPropagation(); onRemoveCutSegment(c.id) }}
+            >
+              <X size={9} />
+            </button>
+            <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-red-300/30 rounded-r z-10"
+              onMouseDown={(e) => { e.stopPropagation(); startCutDrag(c, 'end')(e) }} />
+          </div>
+        ))}
+
+        {/* Drag preview */}
+        {cutDragPreview && (
+          <div className="absolute top-1 bottom-1 rounded bg-red-400/40 border border-red-400/60 pointer-events-none"
+            style={{
+              left: `${toPercent(cutDragPreview.start)}%`,
+              width: `${Math.max(0.3, toPercent(cutDragPreview.end) - toPercent(cutDragPreview.start))}%`
+            }} />
+        )}
+
+        {/* Hover line */}
+        {cutHover !== null && !cutDragPreview && !isOverCutSeg && (
+          <div className="absolute top-0 bottom-0 w-px bg-red-400/30 pointer-events-none"
+            style={{ left: `${toPercent(cutHover)}%` }} />
+        )}
+
+        <div className="absolute top-0 bottom-0 w-px bg-white/20 pointer-events-none z-20"
+          style={{ left: `${playheadPct}%` }} />
+      </div>
+
       {/* Status row */}
       <div className="flex items-center gap-4 text-[10px] text-white/20 px-1 pt-0.5">
         <span>Duration: <span className="text-white/35">{fmt(state.trimEnd - state.trimStart)}</span></span>
@@ -568,6 +812,9 @@ export function Timeline({
         )}
         {state.speedSegments.length > 0 && (
           <span className="text-cyan-400/50">{state.speedSegments.length} speed</span>
+        )}
+        {state.cutSegments.length > 0 && (
+          <span className="text-red-400/50">{state.cutSegments.length} cut</span>
         )}
         <span className="text-white/15 ml-auto">hover item → ✕ to delete</span>
       </div>

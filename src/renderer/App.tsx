@@ -40,30 +40,39 @@ async function detectWindowContentRegion(thumbnailDataURL: string): Promise<Capt
       if (!ctx) { resolve(null); return }
       ctx.drawImage(img, 0, 0)
 
-      // Walk rows from top; find first row with high horizontal pixel variance.
-      // Uniform-color rows = title bar chrome. Varied rows = content.
+      // Walk rows from top. Browser chrome (title bar + tab bar + address bar +
+      // bookmarks bar) is typically 80–160 px on a 1× display. We look for the
+      // first group of 4 consecutive high-variance rows that signals real content,
+      // skipping isolated variance spikes caused by tab icons or toolbar buttons.
+      const maxRows = Math.min(H, Math.floor(H * 0.30))  // scan up to 30% of height
+      const step = Math.max(1, Math.floor(W / 80))
       let cropY = 0
-      const maxRows = Math.min(H, 120)
-      for (let y = 4; y < maxRows; y++) {
+      let consecutive = 0
+
+      for (let y = 2; y < maxRows; y++) {
         const d = ctx.getImageData(0, y, W, 1).data
         let diff = 0; let count = 0
-        const step = Math.max(1, Math.floor(W / 60))
         for (let x = step * 4; x < d.length - step * 4; x += step * 4) {
-          diff += Math.abs(d[x] - d[x - step * 4])
-            + Math.abs(d[x + 1] - d[x - step * 4 + 1])
-            + Math.abs(d[x + 2] - d[x - step * 4 + 2])
+          diff += Math.abs(d[x]   - d[x - step * 4])
+                + Math.abs(d[x+1] - d[x - step * 4 + 1])
+                + Math.abs(d[x+2] - d[x - step * 4 + 2])
           count++
         }
-        if (count > 0 && diff / count > 10) {
-          cropY = y
-          break
+        const variance = count > 0 ? diff / count : 0
+        if (variance > 12) {
+          if (consecutive === 0) cropY = y
+          consecutive++
+          if (consecutive >= 4) break  // 4 consecutive high-variance rows = content
+        } else {
+          consecutive = 0
+          cropY = 0
         }
       }
 
-      if (cropY < 4) { resolve(null); return }
+      if (cropY < 2 || consecutive < 4) { resolve(null); return }
       const normY = cropY / H
-      // Sanity check: crop must be between 2 % and 20 % of the window height
-      if (normY < 0.02 || normY > 0.20) { resolve(null); return }
+      // Sanity: chrome area must be 1.5%–28% of window height
+      if (normY < 0.015 || normY > 0.28) { resolve(null); return }
       resolve({ x: 0, y: normY, w: 1, h: 1 - normY })
     }
     img.onerror = () => resolve(null)
@@ -184,6 +193,7 @@ export default function App() {
       zoomRegions: [],
       textAnnotations: [],
       speedSegments: [],
+      cutSegments: [],
       captureRegion: captureRegionRef.current,
       canvasSettings: canvas,
       activeTool: 'select',

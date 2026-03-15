@@ -78,10 +78,16 @@ export function useRecording(): UseRecordingReturn {
       })
 
       // Screen stream
+      // Window sources (id starts with 'window:') cannot share a getUserMedia call
+      // with chromeMediaSource:'desktop' audio — that combination silently falls back
+      // to full-display capture on some platforms. Request them separately.
+      const isWindowSource = source.id.startsWith('window:')
       let stream: MediaStream
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: audio.systemAudioEnabled
+          // System audio requires chromeMediaSource:'desktop' which conflicts with
+          // window-specific video capture, so disable it for window sources.
+          audio: (audio.systemAudioEnabled && !isWindowSource)
             ? ({ mandatory: { chromeMediaSource: 'desktop' } } as unknown as MediaTrackConstraints)
             : false,
           video: {

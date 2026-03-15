@@ -13,6 +13,7 @@ export interface FocusLogRecord {
   ts: number            // ms since recording start
   camera: { x: number; y: number; zoom: number }
   mouse: { x: number; y: number }  // logical pixels
+  mouseNorm?: { x: number; y: number }  // cursor normalized 0–1 within display
   scaleFactor: number
 }
 
@@ -23,9 +24,14 @@ export class MouseTracker {
   private startMs = 0
   private scaleFactor = 1.0
 
+  private displayBoundsW = 1
+  private displayBoundsH = 1
+
   constructor() {
     const primary = screen.getPrimaryDisplay()
     this.scaleFactor = primary.scaleFactor ?? 1
+    this.displayBoundsW = primary.bounds.width   // logical pixels
+    this.displayBoundsH = primary.bounds.height
     // Physical pixel dimensions
     const dw = Math.round(primary.bounds.width  * this.scaleFactor)
     const dh = Math.round(primary.bounds.height * this.scaleFactor)
@@ -75,6 +81,7 @@ export class MouseTracker {
           ts:          Date.now() - this.startMs,
           camera:      { x: +result.x.toFixed(4), y: +result.y.toFixed(4), zoom: +result.zoom.toFixed(3) },
           mouse:       { x: pt.x, y: pt.y },
+          mouseNorm:   { x: +(pt.x / this.displayBoundsW).toFixed(5), y: +(pt.y / this.displayBoundsH).toFixed(5) },
           scaleFactor: this.scaleFactor,
         })
       }
