@@ -98,6 +98,25 @@ ipcMain.on('control:command', (_event, cmd: string) => {
   }
 })
 
+// ── IPC: control bar selects a source → forward to main renderer ──────────────
+
+ipcMain.on('control:set-source', (_event, source) => {
+  mainWindow?.webContents.send('remote:set-source', source)
+})
+
+// ── IPC: control bar resizes itself ───────────────────────────────────────────
+
+ipcMain.on('control:resize', (_event, height: number) => {
+  if (!controlBarWindow) return
+  const { bounds } = screen.getPrimaryDisplay()
+  const BAR_W = 740
+  controlBarWindow.setSize(BAR_W, height)
+  controlBarWindow.setPosition(
+    Math.round(bounds.x + (bounds.width - BAR_W) / 2),
+    bounds.y + 28
+  )
+})
+
 // ── IPC handlers ─────────────────────────────────────────────────────────────
 
 ipcMain.handle('get-sources', async () => {

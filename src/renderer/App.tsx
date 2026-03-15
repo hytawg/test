@@ -55,6 +55,15 @@ export default function App() {
     setActivePanel('canvas')
   }, [])
 
+  // Accept source selection from the floating control bar
+  useEffect(() => {
+    window.electronAPI?.onRemoteSetSource((raw) => {
+      const src = raw as CaptureSource
+      setSource(src)
+      setActivePanel('canvas')
+    })
+  }, [])
+
   // Called by RecordingBar when recording finishes → go to editor
   const handleRecordingComplete = useCallback((blob: Blob, durationSec: number) => {
     const state: EditState = {

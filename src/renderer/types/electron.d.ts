@@ -20,7 +20,10 @@ declare global {
       onRemoteResume: (cb: () => void) => void
       // Control bar window
       controlCommand:    (cmd: string) => void
+      setSource:         (source: unknown) => void
+      resizeControlBar:  (height: number) => void
       onControlStatus:   (cb: (status: RecordingStatus) => void) => void
+      onRemoteSetSource: (cb: (source: unknown) => void) => void
     }
   }
 }
