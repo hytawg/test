@@ -78,30 +78,37 @@ function createWindow(): void {
   }
 }
 
+function sendToMain(channel: string, ...args: unknown[]) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, ...args)
+}
+function sendToBar(channel: string, ...args: unknown[]) {
+  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.webContents.send(channel, ...args)
+}
+
 // ── IPC: recording status from renderer → forward to control bar ──────────────
 
 ipcMain.on('recording:status', (_event, status) => {
-  controlBarWindow?.webContents.send('control:status', status)
+  sendToBar('control:status', status)
 })
 
 // ── IPC: commands from control bar → forward to main renderer ─────────────────
 
 ipcMain.on('control:command', (_event, cmd: string) => {
   switch (cmd) {
-    case 'start':  mainWindow?.webContents.send('remote:start'); break
-    case 'stop':   mainWindow?.webContents.send('remote:stop'); break
-    case 'pause':  mainWindow?.webContents.send('remote:pause'); break
-    case 'resume': mainWindow?.webContents.send('remote:resume'); break
+    case 'start':     sendToMain('remote:start'); break
+    case 'stop':      sendToMain('remote:stop'); break
+    case 'pause':     sendToMain('remote:pause'); break
+    case 'resume':    sendToMain('remote:resume'); break
     case 'show-main': mainWindow?.show(); mainWindow?.focus(); break
-    case 'hide-bar': controlBarWindow?.hide(); break
-    case 'show-bar': controlBarWindow?.show(); break
+    case 'hide-bar':  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.hide(); break
+    case 'show-bar':  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.show(); break
   }
 })
 
 // ── IPC: control bar selects a source → forward to main renderer ──────────────
 
 ipcMain.on('control:set-source', (_event, source) => {
-  mainWindow?.webContents.send('remote:set-source', source)
+  sendToMain('remote:set-source', source)
 })
 
 // ── IPC: control bar resizes itself ───────────────────────────────────────────

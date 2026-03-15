@@ -243,13 +243,13 @@ function SourceSection({ title, icon, sources, onSelect, currentName }: {
             key={source.id}
             onClick={() => onSelect(source)}
             className={clsx(
-              'flex flex-col gap-1.5 p-1.5 rounded-xl border transition-all text-left hover:scale-[1.02] active:scale-95',
+              'flex flex-col gap-1.5 p-1.5 rounded-xl border transition-all text-left hover:scale-[1.02] active:scale-95 overflow-hidden min-w-0',
               source.name === currentName
                 ? 'border-purple-500/60 bg-purple-500/10'
                 : 'border-white/6 bg-white/3 hover:border-white/15 hover:bg-white/6'
             )}
           >
-            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/40">
+            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/40 shrink-0">
               {source.thumbnailDataURL ? (
                 <img src={source.thumbnailDataURL} alt={source.name} className="w-full h-full object-cover" />
               ) : (
@@ -258,7 +258,9 @@ function SourceSection({ title, icon, sources, onSelect, currentName }: {
                 </div>
               )}
             </div>
-            <span className="text-[10px] text-white/60 leading-tight truncate px-0.5">{source.name}</span>
+            <span className="text-[10px] text-white/60 leading-tight w-full overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {source.name}
+            </span>
           </button>
         ))}
       </div>
