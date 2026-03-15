@@ -195,7 +195,8 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     const cut = stateRef.current.cutSegments.find(c => t >= c.startTime && t < c.endTime)
     if (cut) {
       video.currentTime = cut.endTime
-      video.onseeked = () => { rafRef.current = requestAnimationFrame(tick) }
+      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); rafRef.current = requestAnimationFrame(tick) }
+      video.addEventListener('seeked', onSeeked)
       return
     }
 
@@ -360,6 +361,10 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   const exportVideo = useCallback(async (format: string, quality: string, fps: number, saveLocation: string) => {
     const video = videoRef.current; const canvas = canvasRef.current
     if (!video || !canvas) return
+    // Stop playback and RAF loop before export to prevent tick() interference
+    video.pause(); video.playbackRate = 1.0
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+    setPlaying(false)
     setExporting(true); setExportProgress(0)
     const st = stateRef.current
     const bitrate = quality === 'high' ? 8_000_000 : quality === 'medium' ? 4_000_000 : 2_000_000
@@ -449,11 +454,11 @@ async function exportWithWebCodecs(
   const target = new ArrayBufferTarget()
   const muxer = new Muxer({
     target,
-    video: { codec: 'avc', width: W, height: H },
+    video: { codec: 'avc', width: W, height: H, frameRate: fps },
     fastStart: 'in-memory'
   })
 
-  // Try H.264 High, fall back to Baseline
+  // Try H.264 High, fall back to Main, then Baseline
   const codecCandidates = ['avc1.640028', 'avc1.4D0028', 'avc1.42001E']
   let chosenCodec: string | null = null
   for (const c of codecCandidates) {
@@ -462,9 +467,11 @@ async function exportWithWebCodecs(
   }
   if (!chosenCodec) throw new Error('H.264 VideoEncoder not supported')
 
+  // Capture encoder errors so they propagate correctly out of the async callbacks
+  let encoderError: Error | null = null
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (e) => { throw e }
+    error: (e) => { encoderError = e }
   })
   encoder.configure({ codec: chosenCodec, width: W, height: H, bitrate, framerate: fps })
 
@@ -499,6 +506,7 @@ async function exportWithWebCodecs(
   }
 
   await encoder.flush()
+  if (encoderError) throw encoderError
   muxer.finalize()
   return target.buffer
 }
@@ -550,7 +558,11 @@ async function exportWithMediaRecorder(
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function waitForSeek(video: HTMLVideoElement): Promise<void> {
-  return new Promise(r => { if (!video.seeking) { r(); return }; video.onseeked = () => r() })
+  return new Promise<void>(resolve => {
+    if (!video.seeking) { resolve(); return }
+    const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve() }
+    video.addEventListener('seeked', onSeeked)
+  })
 }
 
 /** Compute zoom crop rect in video space (relative to captureRegion or full video) */
