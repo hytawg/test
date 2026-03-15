@@ -197,6 +197,14 @@ export type SpeedSegment = {
   speed: number   // 0.5 to 2.0
 }
 
+/** One camera keyframe emitted by MouseTracker / FocusEngine at ~10 Hz. */
+export type FocusLogRecord = {
+  ts: number            // ms since recording start
+  camera: { x: number; y: number; zoom: number }  // normalized 0–1
+  mouse: { x: number; y: number }   // logical display pixels
+  scaleFactor: number
+}
+
 export type EditState = {
   blob: Blob
   rawDuration: number   // seconds recorded
@@ -209,4 +217,6 @@ export type EditState = {
   canvasSettings: CanvasSettings
   activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed'
   selectedId: string | null
+  focusLog: FocusLogRecord[] | null    // camera log from MouseTracker; null = not available
+  autoZoomEnabled: boolean             // when true, focusLog overrides zoomRegions
 }

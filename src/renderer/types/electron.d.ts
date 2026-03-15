@@ -29,6 +29,8 @@ declare global {
       openRegionPicker: (bounds: { x: number; y: number; width: number; height: number }) => Promise<boolean>
       sendRegionPickerResult: (result: { x: number; y: number; w: number; h: number } | null) => void
       onRegionPickerResult: (cb: (result: { x: number; y: number; w: number; h: number } | null) => void) => void
+      // Focus log (auto-zoom)
+      getFocusLog: () => Promise<import('./index').FocusLogRecord[]>
     }
   }
 }

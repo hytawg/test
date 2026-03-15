@@ -58,7 +58,10 @@ const api = {
   onRegionPickerResult: (cb: (result: { x: number; y: number; w: number; h: number } | null) => void) => {
     ipcRenderer.removeAllListeners('remote:region-picker-result')
     ipcRenderer.on('remote:region-picker-result', (_event, result) => cb(result))
-  }
+  },
+
+  // Focus log from mouse tracker (collected during recording)
+  getFocusLog: () => ipcRenderer.invoke('get-focus-log')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

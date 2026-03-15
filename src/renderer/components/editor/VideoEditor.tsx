@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge } from 'lucide-react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap } from 'lucide-react'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
@@ -31,7 +31,8 @@ export function VideoEditor({
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
     updateCanvasSettings,
-    exportVideo, exporting, exportProgress
+    exportVideo, exporting, exportProgress,
+    setAutoZoomEnabled
   } = useVideoEditor(initialState)
 
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -155,10 +156,24 @@ export function VideoEditor({
 
       {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-10 shrink-0 flex items-center justify-center [-webkit-app-region:drag]">
-          <span className="text-[11px] text-white/20 font-medium">
+        <div className="h-10 shrink-0 flex items-center px-4 gap-3 [-webkit-app-region:drag]">
+          <span className="flex-1 text-center text-[11px] text-white/20 font-medium pointer-events-none">
             Editor — {fmtDuration(state.trimEnd - state.trimStart)}
           </span>
+          {state.focusLog && (
+            <button
+              onClick={() => setAutoZoomEnabled(!state.autoZoomEnabled)}
+              title="Auto Zoom — apply focus-tracked camera motion"
+              className={clsx(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all [-webkit-app-region:no-drag]',
+                state.autoZoomEnabled
+                  ? 'bg-purple-500/30 text-purple-300 border border-purple-500/40'
+                  : 'bg-white/5 text-white/30 hover:text-white/60 border border-transparent'
+              )}>
+              <Zap size={12} className={state.autoZoomEnabled ? 'fill-purple-400' : ''} />
+              Auto Zoom
+            </button>
+          )}
         </div>
 
         {/* Preview */}

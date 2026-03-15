@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment } from '../types'
+import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord } from '../types'
 import { nanoid } from '../utils/nanoid'
 
 type UseVideoEditorReturn = {
@@ -31,6 +31,7 @@ type UseVideoEditorReturn = {
   exportVideo: (format: string, quality: string, fps: number, saveLocation: string) => Promise<void>
   exporting: boolean
   exportProgress: number
+  setAutoZoomEnabled: (enabled: boolean) => void
 }
 
 // ── Done tone ─────────────────────────────────────────────────────────────────
@@ -102,10 +103,28 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       vH = st.captureRegion.h * video.videoHeight
     }
 
-    // Apply zoom within the capture region
-    const { sx: zsx, sy: zsy, sw, sh } = computeZoomCrop(st.zoomRegions, time, vW, vH)
-    const sx = vx0 + zsx
-    const sy = vy0 + zsy
+    // Auto-zoom: focusLog overrides both captureRegion and zoomRegions
+    let sx: number, sy: number, sw: number, sh: number
+    if (st.autoZoomEnabled && st.focusLog && st.focusLog.length > 0) {
+      const cam = interpolateFocusLog(st.focusLog, time)
+      const fullW = video.videoWidth
+      const fullH = video.videoHeight
+      const cropW = fullW / cam.zoom
+      const cropH = fullH / cam.zoom
+      const rawX = cam.x * fullW - cropW / 2
+      const rawY = cam.y * fullH - cropH / 2
+      sx = Math.max(0, Math.min(fullW - cropW, rawX))
+      sy = Math.max(0, Math.min(fullH - cropH, rawY))
+      sw = cropW
+      sh = cropH
+    } else {
+      // Apply zoom within the capture region
+      const { sx: zsx, sy: zsy, sw: zsw, sh: zsh } = computeZoomCrop(st.zoomRegions, time, vW, vH)
+      sx = vx0 + zsx
+      sy = vy0 + zsy
+      sw = zsw
+      sh = zsh
+    }
 
     ctx.clearRect(0, 0, W, H)
 
@@ -210,12 +229,13 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   useEffect(() => {
     if (!playing) renderFrame(currentTime)
-  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, playing, currentTime, renderFrame])
+  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, state.autoZoomEnabled, state.focusLog, playing, currentTime, renderFrame])
 
   // ── Edit actions ──────────────────────────────────────────────────────────
 
   const setTrimStart = useCallback((t: number) => setState(s => ({ ...s, trimStart: Math.min(t, s.trimEnd - 0.1) })), [])
   const setTrimEnd   = useCallback((t: number) => setState(s => ({ ...s, trimEnd:   Math.max(t, s.trimStart + 0.1) })), [])
+  const setAutoZoomEnabled = useCallback((enabled: boolean) => setState(s => ({ ...s, autoZoomEnabled: enabled })), [])
   const setActiveTool = useCallback((tool: EditState['activeTool']) => setState(s => ({ ...s, activeTool: tool })), [])
   const setSelectedId = useCallback((id: string | null) => setState(s => ({ ...s, selectedId: id })), [])
 
@@ -326,7 +346,32 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
-    exportVideo, exporting, exportProgress
+    exportVideo, exporting, exportProgress,
+    setAutoZoomEnabled
+  }
+}
+
+// ── Focus log interpolation ────────────────────────────────────────────────────
+
+function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number): { x: number; y: number; zoom: number } {
+  const tMs = videoTimeSec * 1000
+  if (tMs <= log[0].ts) return log[0].camera
+  if (tMs >= log[log.length - 1].ts) return log[log.length - 1].camera
+
+  // Binary search for bracketing records
+  let lo = 0, hi = log.length - 1
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1
+    if (log[mid].ts <= tMs) lo = mid
+    else hi = mid
+  }
+
+  const a = log[lo], b = log[hi]
+  const t = (tMs - a.ts) / (b.ts - a.ts)
+  return {
+    x:    a.camera.x    + (b.camera.x    - a.camera.x)    * t,
+    y:    a.camera.y    + (b.camera.y    - a.camera.y)    * t,
+    zoom: a.camera.zoom + (b.camera.zoom - a.camera.zoom) * t,
   }
 }
 

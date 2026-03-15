@@ -3,10 +3,16 @@ import { join } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { is } from '@electron-toolkit/utils'
+import { MouseTracker, FocusLogRecord } from './mouseTracker'
 
 let mainWindow: BrowserWindow | null = null
 let controlBarWindow: BrowserWindow | null = null
 let regionPickerWindow: BrowserWindow | null = null
+
+// ── Mouse / focus tracking ─────────────────────────────────────────────────────
+
+const mouseTracker = new MouseTracker()
+let lastFocusLog: FocusLogRecord[] = []
 
 // ── Control bar window ────────────────────────────────────────────────────────
 
@@ -90,7 +96,15 @@ function sendToBar(channel: string, ...args: unknown[]) {
 
 ipcMain.on('recording:status', (_event, status) => {
   sendToBar('control:status', status)
+  // Start/stop mouse tracker in sync with recording state
+  if (status.state === 'recording') {
+    mouseTracker.start()
+  } else if (status.state === 'processing') {
+    lastFocusLog = mouseTracker.stop()
+  }
 })
+
+ipcMain.handle('get-focus-log', () => lastFocusLog)
 
 // ── IPC: commands from control bar → forward to main renderer ─────────────────
 

@@ -173,7 +173,9 @@ export default function App() {
   }, [handleStartRegionPicker])
 
   // Called by RecordingBar when recording finishes → go to editor
-  const handleRecordingComplete = useCallback((blob: Blob, durationSec: number) => {
+  const handleRecordingComplete = useCallback(async (blob: Blob, durationSec: number) => {
+    // Fetch focus log recorded by MouseTracker in main process
+    const focusLog = await window.electronAPI?.getFocusLog() ?? null
     const state: EditState = {
       blob,
       rawDuration: durationSec,
@@ -185,7 +187,9 @@ export default function App() {
       captureRegion: captureRegionRef.current,
       canvasSettings: canvas,
       activeTool: 'select',
-      selectedId: null
+      selectedId: null,
+      focusLog: focusLog && focusLog.length > 0 ? focusLog : null,
+      autoZoomEnabled: false,
     }
     setEditState(state)
     setMode('editing')
