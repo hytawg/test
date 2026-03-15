@@ -22,12 +22,11 @@ import { ControlBar } from './components/ControlBar'
 
 type AppMode = 'capture' | 'editing'
 
-// Control bar runs in a separate BrowserWindow loaded with #control-bar hash
-if (window.location.hash === '#control-bar') {
-  return <ControlBar />
-}
-
 export default function App() {
+  // Control bar runs in a separate BrowserWindow loaded with #control-bar hash
+  if (window.location.hash === '#control-bar') {
+    return <ControlBar />
+  }
   const [mode, setMode] = useState<AppMode>('capture')
   const [editState, setEditState] = useState<EditState | null>(null)
 
