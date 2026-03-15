@@ -1,5 +1,5 @@
 import type { ZoomKeyframe } from '../../types'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Slider } from '../ui/Slider'
 import clsx from 'clsx'
 
@@ -7,7 +7,6 @@ type Props = {
   keyframes: ZoomKeyframe[]
   selectedId: string | null
   currentTime: number
-  onAdd: (time: number) => void
   onUpdate: (id: string, patch: Partial<ZoomKeyframe>) => void
   onRemove: (id: string) => void
   onSelect: (id: string | null) => void
@@ -19,27 +18,21 @@ function fmt(s: number) {
   return `${m}:${sec.padStart(4, '0')}`
 }
 
-export function ZoomPanel({ keyframes, selectedId, currentTime, onAdd, onUpdate, onRemove, onSelect }: Props) {
+export function ZoomPanel({ keyframes, selectedId, currentTime, onUpdate, onRemove, onSelect }: Props) {
   const selected = keyframes.find((k) => k.id === selectedId)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Zoom Keyframes</p>
-        <button
-          onClick={() => onAdd(currentTime)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs transition-all"
-        >
-          <Plus size={12} />
-          Add at {fmt(currentTime)}
-        </button>
+        <span className="text-[10px] text-amber-400/60">Click preview to add</span>
       </div>
 
       {/* Keyframe list */}
       <div className="flex flex-col gap-1">
         {keyframes.length === 0 && (
           <p className="text-xs text-white/20 text-center py-4">
-            No keyframes yet. Add one at the current time.
+            プレビューをクリックするとその位置に 150% ズームを追加します。
           </p>
         )}
         {keyframes.map((kf) => (

@@ -18,7 +18,7 @@ type UseVideoEditorReturn = {
   setActiveTool: (tool: EditState['activeTool']) => void
   setSelectedId: (id: string | null) => void
   // Zoom keyframes
-  addZoomKeyframe: (time: number) => void
+  addZoomKeyframe: (time: number, x?: number, y?: number) => void
   updateZoomKeyframe: (id: string, patch: Partial<ZoomKeyframe>) => void
   removeZoomKeyframe: (id: string) => void
   // Text annotations
@@ -153,8 +153,8 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     setState((s) => ({ ...s, selectedId: id }))
   }, [])
 
-  const addZoomKeyframe = useCallback((time: number) => {
-    const kf: ZoomKeyframe = { id: nanoid(), time, x: 0.5, y: 0.5, scale: 2.0, easing: 'ease-in-out' }
+  const addZoomKeyframe = useCallback((time: number, x = 0.5, y = 0.5) => {
+    const kf: ZoomKeyframe = { id: nanoid(), time, x, y, scale: 1.5, easing: 'ease-in-out' }
     setState((s) => ({
       ...s,
       zoomKeyframes: [...s.zoomKeyframes, kf].sort((a, b) => a.time - b.time),

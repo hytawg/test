@@ -46,11 +46,14 @@ export function VideoEditor({
   }, [state.blob])
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (state.activeTool !== 'text') return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = (e.clientX - rect.left) / rect.width
     const y = (e.clientY - rect.top) / rect.height
-    addTextAnnotation(x, y, currentTime)
+    if (state.activeTool === 'zoom') {
+      addZoomKeyframe(currentTime, x, y)
+    } else if (state.activeTool === 'text') {
+      addTextAnnotation(x, y, currentTime)
+    }
   }
 
   const handleExport = async () => {
@@ -113,7 +116,6 @@ export function VideoEditor({
               keyframes={state.zoomKeyframes}
               selectedId={state.selectedId}
               currentTime={currentTime}
-              onAdd={addZoomKeyframe}
               onUpdate={updateZoomKeyframe}
               onRemove={removeZoomKeyframe}
               onSelect={setSelectedId}
@@ -198,7 +200,7 @@ export function VideoEditor({
           {/* Canvas display */}
           <div className={clsx(
             'relative max-w-full max-h-full',
-            state.activeTool === 'text' ? 'cursor-crosshair' : 'cursor-default'
+            (state.activeTool === 'text' || state.activeTool === 'zoom') ? 'cursor-crosshair' : 'cursor-default'
           )}>
             <canvas
               ref={canvasRef}
@@ -216,8 +218,8 @@ export function VideoEditor({
               </div>
             )}
             {state.activeTool === 'zoom' && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-white/60 pointer-events-none">
-                Use the panel to add zoom keyframes
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-amber-400/70 pointer-events-none">
+                Click to zoom 150% at {fmtDuration(currentTime)}
               </div>
             )}
           </div>
