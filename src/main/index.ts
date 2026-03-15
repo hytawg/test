@@ -11,7 +11,7 @@ let regionPickerWindow: BrowserWindow | null = null
 
 // ── Mouse / focus tracking ─────────────────────────────────────────────────────
 
-const mouseTracker = new MouseTracker()
+let mouseTracker: MouseTracker | null = null
 let lastFocusLog: FocusLogRecord[] = []
 
 // ── Control bar window ────────────────────────────────────────────────────────
@@ -98,9 +98,10 @@ ipcMain.on('recording:status', (_event, status) => {
   sendToBar('control:status', status)
   // Start/stop mouse tracker in sync with recording state
   if (status.state === 'recording') {
+    if (!mouseTracker) mouseTracker = new MouseTracker()
     mouseTracker.start()
   } else if (status.state === 'processing') {
-    lastFocusLog = mouseTracker.stop()
+    lastFocusLog = mouseTracker?.stop() ?? []
   }
 })
 
