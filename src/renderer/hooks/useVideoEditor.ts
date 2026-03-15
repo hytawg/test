@@ -242,7 +242,13 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
       // Capture canvas stream
       const canvasStream = canvas.captureStream(fps)
-      const mimeType = 'video/webm;codecs=vp8'
+      // Prefer H.264 MP4 for QuickTime compatibility; fall back to VP9/VP8 WebM
+      const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
+        ? 'video/mp4;codecs=avc1'
+        : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9'
+          : 'video/webm;codecs=vp8'
+      const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm'
       const recorder = new MediaRecorder(canvasStream, { mimeType, videoBitsPerSecond: bitrate })
       const chunks: Blob[] = []
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
@@ -268,7 +274,6 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
       const blob = new Blob(chunks, { type: mimeType })
       const buffer = await blob.arrayBuffer()
-      const ext = format === 'mp4' ? 'mp4' : 'webm'
 
       if (saveLocation === 'dialog') {
         await window.electronAPI?.saveRecording(buffer, ext)
