@@ -6,6 +6,21 @@
  *
  * All x/y values are **normalized 0–1** relative to the capture display.
  * zoom is a scale factor (1.0 = no zoom, 1.5 = 150 %, etc.)
+ *
+ * ── Dynamic speed model ───────────────────────────────────────────────────────
+ *
+ *  • Click    → camera snaps quickly to click position  (λ boosted by clickSpeedBoost)
+ *  • Far dwell → camera pans slowly across the screen   (λ reduced by distance)
+ *  • Near dwell / already close → normal speed
+ *
+ *  Lambda multiplier (M):
+ *    Click:   M = clickSpeedBoost (e.g., 3.0)  →  fades back to 1.0 over clickBoostDurationMs
+ *    Dwell:   M = 1 / (1 + camDist × distanceSlowFactor)
+ *               camDist=0.0 → M=1.0 (normal),  camDist=0.5 → M≈0.33 (slow),  camDist=0.7 → M≈0.22 (very slow)
+ *
+ *  Effective lambdas used each tick:
+ *    smoothLambda × M  (position)
+ *    zoomLambda   × M  (zoom)
  */
 
 // ── Public types ────────────────────────────────────────────────────────────
@@ -23,10 +38,15 @@ export interface CameraFrame {
 
 export type EngineState = 'idle' | 'moving' | 'dwelling' | 'focused'
 
+/** What caused the current focus target to be set. */
+export type TriggerType = 'click' | 'dwell' | null
+
 export interface TickResult extends CameraFrame {
-  state:    EngineState
-  velocity: number      // px/s — instantaneous mouse speed
-  target:   FocusPoint  // where the camera is heading
+  state:       EngineState
+  velocity:    number       // px/s — instantaneous mouse speed
+  target:      FocusPoint   // where the camera is heading
+  triggerType: TriggerType  // what triggered the current focus
+  lambdaMult:  number       // current lambda multiplier (diagnostic; also written to log)
 }
 
 export interface EngineConfig {
@@ -38,13 +58,29 @@ export interface EngineConfig {
   deadZoneSpeed?: number
   /** target zoom while focused (default 1.5) */
   zoomInLevel?: number
-  /** higher = faster position smoothing; good range 3–8 (default 5) */
+  /** baseline position smoothing speed; good range 3–8 (default 5) */
   smoothLambda?: number
-  /** higher = faster zoom smoothing; good range 1.5–4 (default 2.5) */
+  /** baseline zoom smoothing speed; good range 1.5–4 (default 2.5) */
   zoomLambda?: number
-  /** display dimensions for velocity normalisation (default 1920 × 1080) */
+  /** display dimensions for velocity normalization (default 1920 × 1080) */
   displayWidth?: number
   displayHeight?: number
+  /**
+   * Lambda multiplier applied immediately after a click.
+   * Higher = camera snaps more quickly to the click point.  (default 3.0)
+   */
+  clickSpeedBoost?: number
+  /**
+   * How strongly the camera-to-target distance reduces zoom speed.
+   * effectiveLambda = baseLambda / (1 + dist × factor)
+   * where dist is Euclidean distance in 0–1 space.
+   * Higher = slower pan over large distances.  (default 4.0)
+   */
+  distanceSlowFactor?: number
+  /**
+   * Duration in ms over which the click boost fades back to normal.  (default 600)
+   */
+  clickBoostDurationMs?: number
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -55,7 +91,7 @@ function lerp(a: number, b: number, t: number) {
 
 /**
  * Frame-rate-independent exponential smoothing.
- * `alpha = 1 − e^(−λ·dt)` where dt is in seconds.
+ * alpha = 1 − e^(−λ·dt), where dt is in seconds.
  */
 function expSmooth(current: number, target: number, lambda: number, dtSec: number) {
   const alpha = 1 - Math.exp(-lambda * dtSec)
@@ -99,20 +135,31 @@ export class FocusEngine {
   private targetZoom = 1.0
 
   private state: EngineState = 'idle'
+  private prevState: EngineState = 'idle'
+
+  // ── Dynamic speed state ────────────────────────────────────────────────────
+  private triggerType: TriggerType = null
+  /**
+   * Countdown (ms) for click boost.
+   * Starts at clickBoostDurationMs on each click, ticks down to 0.
+   */
+  private clickBoostRemaining = 0
 
   constructor(cfg: EngineConfig = {}) {
     this.cfg = {
-      dwellRadius:    cfg.dwellRadius    ?? 20,
-      dwellMs:        cfg.dwellMs        ?? 500,
-      deadZoneSpeed:  cfg.deadZoneSpeed  ?? 400,
-      zoomInLevel:    cfg.zoomInLevel    ?? 1.5,
-      smoothLambda:   cfg.smoothLambda   ?? 5,
-      zoomLambda:     cfg.zoomLambda     ?? 2.5,
-      displayWidth:   cfg.displayWidth   ?? 1920,
-      displayHeight:  cfg.displayHeight  ?? 1080,
+      dwellRadius:          cfg.dwellRadius          ?? 20,
+      dwellMs:              cfg.dwellMs              ?? 500,
+      deadZoneSpeed:        cfg.deadZoneSpeed        ?? 400,
+      zoomInLevel:          cfg.zoomInLevel          ?? 1.5,
+      smoothLambda:         cfg.smoothLambda         ?? 5,
+      zoomLambda:           cfg.zoomLambda           ?? 2.5,
+      displayWidth:         cfg.displayWidth         ?? 1920,
+      displayHeight:        cfg.displayHeight        ?? 1080,
+      clickSpeedBoost:      cfg.clickSpeedBoost      ?? 3.0,
+      distanceSlowFactor:   cfg.distanceSlowFactor   ?? 4.0,
+      clickBoostDurationMs: cfg.clickBoostDurationMs ?? 600,
     }
 
-    // Initialise stable point to display center
     this.stableX = this.cfg.displayWidth  / 2
     this.stableY = this.cfg.displayHeight / 2
   }
@@ -127,10 +174,10 @@ export class FocusEngine {
     const dy = y - this.prevY
     const instantV = Math.sqrt(dx * dx + dy * dy) / dtSec
 
-    // Smooth velocity with a fast exponential filter (λ=20 → τ≈50 ms)
+    // Smooth velocity with a fast filter (λ=20 → τ≈50 ms)
     this.velocity = expSmooth(this.velocity, instantV, 20, dtSec)
 
-    // Dwell: if mouse drifted outside the stable radius, reset clock
+    // Dwell: reset stable clock when mouse drifts outside radius
     const driftSq = (x - this.stableX) ** 2 + (y - this.stableY) ** 2
     if (driftSq > this.cfg.dwellRadius ** 2) {
       this.stableX  = x
@@ -146,19 +193,23 @@ export class FocusEngine {
   }
 
   /**
-   * Call on every click (left or right button).
-   * Immediately sets the focus target — no dwell wait.
+   * Call on every click.
+   * Immediately sets the focus target (no dwell wait) and
+   * activates the click-speed boost so the camera snaps quickly.
    */
   onMouseClick(x: number, y: number) {
     this.stableX  = x
     this.stableY  = y
-    // Pretend the mouse has already been still for dwellMs → instant focus
     this.stableTs = Date.now() - this.cfg.dwellMs
 
     this.targetX    = x / this.cfg.displayWidth
     this.targetY    = y / this.cfg.displayHeight
     this.targetZoom = this.cfg.zoomInLevel
     this.state      = 'focused'
+
+    // Activate click boost
+    this.clickBoostRemaining = this.cfg.clickBoostDurationMs
+    this.triggerType         = 'click'
   }
 
   // ── Tick (called at ~60 fps) ─────────────────────────────────────────────
@@ -173,35 +224,65 @@ export class FocusEngine {
 
     // ── State machine ────────────────────────────────────────────────────
 
+    this.prevState = this.state
+
     if (this.velocity > this.cfg.deadZoneSpeed) {
-      // Fast movement: freeze the focus point, start zooming out
       this.state      = 'moving'
       this.targetZoom = 1.0
-      // Gently drift camera target toward the center of the screen
-      // so it doesn't stay stuck in a corner while the user pans
-      this.targetX = lerp(this.targetX, 0.5, 0.02)
-      this.targetY = lerp(this.targetY, 0.5, 0.02)
+      this.targetX    = lerp(this.targetX, 0.5, 0.02)
+      this.targetY    = lerp(this.targetY, 0.5, 0.02)
 
     } else if (dwell >= this.cfg.dwellMs) {
-      // Dwell complete: lock focus
       this.state      = 'focused'
       this.targetX    = this.stableX / this.cfg.displayWidth
       this.targetY    = this.stableY / this.cfg.displayHeight
       this.targetZoom = this.cfg.zoomInLevel
 
-    } else if (this.velocity > 0.5) {
-      // Slow movement, dwell clock running
-      this.state = 'dwelling'
+      // Mark trigger as dwell on the first frame we enter focused via dwell
+      if (this.prevState !== 'focused' && this.triggerType !== 'click') {
+        this.triggerType = 'dwell'
+      }
 
+    } else if (this.velocity > 0.5) {
+      this.state = 'dwelling'
     } else {
       this.state = 'idle'
     }
 
-    // ── Smooth camera toward target ───────────────────────────────────────
+    // ── Dynamic lambda multiplier ────────────────────────────────────────
+    //
+    //  Tick down the click boost timer.
+    //  After it expires, switch to the distance-based slow model.
 
-    this.camX    = expSmooth(this.camX,    this.targetX,    this.cfg.smoothLambda, dtSec)
-    this.camY    = expSmooth(this.camY,    this.targetY,    this.cfg.smoothLambda, dtSec)
-    this.camZoom = expSmooth(this.camZoom, this.targetZoom, this.cfg.zoomLambda,   dtSec)
+    const dtMs = dtSec * 1000
+    this.clickBoostRemaining = Math.max(0, this.clickBoostRemaining - dtMs)
+
+    let lambdaMult: number
+
+    if (this.clickBoostRemaining > 0) {
+      // Click boost: fade from clickSpeedBoost → 1.0 over the last 200 ms
+      const fadeRatio = Math.min(1, this.clickBoostRemaining / 200)
+      lambdaMult = 1 + (this.cfg.clickSpeedBoost - 1) * fadeRatio
+    } else {
+      // Distance-based slowdown:
+      //   lambdaMult = 1 / (1 + camDist × distanceSlowFactor)
+      //   Far target  → small M → slow pan (ease-in like behaviour)
+      //   Near target → M → 1   → normal speed (natural ease-out)
+      const camDist = Math.sqrt(
+        (this.camX - this.targetX) ** 2 +
+        (this.camY - this.targetY) ** 2
+      )
+      lambdaMult = 1 / (1 + camDist * this.cfg.distanceSlowFactor)
+    }
+
+    // ── Smooth camera toward target (with dynamic lambdas) ─────────────
+
+    const effSmooth = this.cfg.smoothLambda * lambdaMult
+    const effZoom   = this.cfg.zoomLambda   * lambdaMult
+
+    this.camX    = expSmooth(this.camX,    this.targetX,    effSmooth, dtSec)
+    this.camY    = expSmooth(this.camY,    this.targetY,    effSmooth, dtSec)
+    this.camZoom = expSmooth(this.camZoom, this.targetZoom, effZoom,   dtSec)
 
     // Prevent camera from showing outside the display at current zoom
     const cx = clampCenter(this.camX, this.camZoom)
@@ -210,18 +291,19 @@ export class FocusEngine {
     this.camY = cy
 
     return {
-      x:        cx,
-      y:        cy,
-      zoom:     this.camZoom,
-      state:    this.state,
-      velocity: Math.round(this.velocity),
-      target:   { x: this.targetX, y: this.targetY },
+      x:           cx,
+      y:           cy,
+      zoom:        this.camZoom,
+      state:       this.state,
+      velocity:    Math.round(this.velocity),
+      target:      { x: this.targetX, y: this.targetY },
+      triggerType: this.triggerType,
+      lambdaMult:  Math.round(lambdaMult * 100) / 100,
     }
   }
 
   // ── Utility ──────────────────────────────────────────────────────────────
 
-  /** Reset to initial state (e.g. between recordings). */
   reset() {
     const cx = this.cfg.displayWidth  / 2
     const cy = this.cfg.displayHeight / 2
@@ -233,5 +315,7 @@ export class FocusEngine {
     this.camX = 0.5;  this.camY = 0.5;  this.camZoom = 1.0
     this.targetX = 0.5; this.targetY = 0.5; this.targetZoom = 1.0
     this.state = 'idle'
+    this.triggerType = null
+    this.clickBoostRemaining = 0
   }
 }
