@@ -2,6 +2,8 @@ import type { CaptureSource, DisplayInfo } from './index'
 
 export {}
 
+type RecordingStatus = { state: string; duration: number; countdown: number; sourceName: string }
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -10,6 +12,15 @@ declare global {
       saveToDownloads: (buffer: ArrayBuffer, format: string) => Promise<{ success: boolean; filePath?: string }>
       checkScreenPermission: () => Promise<string>
       getDisplayInfo: () => Promise<DisplayInfo[]>
+      // Control bar ↔ main renderer communication
+      sendRecordingStatus: (status: RecordingStatus) => void
+      onRemoteStart:  (cb: () => void) => void
+      onRemoteStop:   (cb: () => void) => void
+      onRemotePause:  (cb: () => void) => void
+      onRemoteResume: (cb: () => void) => void
+      // Control bar window
+      controlCommand:    (cmd: string) => void
+      onControlStatus:   (cb: (status: RecordingStatus) => void) => void
     }
   }
 }

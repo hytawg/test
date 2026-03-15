@@ -8,15 +8,24 @@ const api = {
     ipcRenderer.invoke('save-to-downloads', buffer, format),
   checkScreenPermission: (): Promise<string> => ipcRenderer.invoke('check-screen-permission'),
   getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
-  // Chrome extension remote control
-  onRemoteStart: (cb: () => void) => {
-    ipcRenderer.on('remote:start', () => cb())
+
+  // Main renderer → main process: report recording status
+  sendRecordingStatus: (status: { state: string; duration: number; countdown: number; sourceName: string }) => {
+    ipcRenderer.send('recording:status', status)
   },
-  onRemoteStop: (cb: () => void) => {
-    ipcRenderer.on('remote:stop', () => cb())
-  },
-  sendStatus: (status: { state: string; duration: number; countdown?: number }) => {
-    ipcRenderer.send('remote:status-update', status)
+
+  // Main renderer → listen for commands from control bar (relayed via main process)
+  onRemoteStart:  (cb: () => void) => { ipcRenderer.on('remote:start',  () => cb()) },
+  onRemoteStop:   (cb: () => void) => { ipcRenderer.on('remote:stop',   () => cb()) },
+  onRemotePause:  (cb: () => void) => { ipcRenderer.on('remote:pause',  () => cb()) },
+  onRemoteResume: (cb: () => void) => { ipcRenderer.on('remote:resume', () => cb()) },
+
+  // Control bar → main process: send a command
+  controlCommand: (cmd: string) => { ipcRenderer.send('control:command', cmd) },
+
+  // Control bar → listen for status broadcasts from main process
+  onControlStatus: (cb: (status: { state: string; duration: number; countdown: number; sourceName: string }) => void) => {
+    ipcRenderer.on('control:status', (_event, status) => cb(status))
   }
 }
 

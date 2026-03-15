@@ -49,65 +49,68 @@ export function RecordingBar({
     screenStream, cameraStream, onComplete
   } = useRecording()
 
-  // Refs to avoid stale closures in remote-control effect
+  // Refs for stale-closure-safe IPC callbacks
   const sourceRef = useRef(source)
   const cameraRef = useRef(camera)
   const audioRef = useRef(audio)
-  const recordingSettingsRef = useRef(recordingSettings)
-  const recordingStateRef = useRef(recordingState)
+  const settingsRef = useRef(recordingSettings)
+  const stateRef = useRef(recordingState)
   sourceRef.current = source
   cameraRef.current = camera
   audioRef.current = audio
-  recordingSettingsRef.current = recordingSettings
-  recordingStateRef.current = recordingState
+  settingsRef.current = recordingSettings
+  stateRef.current = recordingState
 
   // Register completion callback → go to editor
-  useEffect(() => {
-    onComplete(onRecordingComplete)
-  }, [onComplete, onRecordingComplete])
+  useEffect(() => { onComplete(onRecordingComplete) }, [onComplete, onRecordingComplete])
 
   // Propagate streams to parent
-  useEffect(() => {
-    onStreamsChange(screenStream, cameraStream)
-  }, [screenStream, cameraStream, onStreamsChange])
+  useEffect(() => { onStreamsChange(screenStream, cameraStream) }, [screenStream, cameraStream, onStreamsChange])
 
-  // Listen for remote start/stop from Chrome extension (registered once, uses refs)
+  // Listen for commands relayed from control bar via main process
   useEffect(() => {
     window.electronAPI?.onRemoteStart(() => {
-      if (sourceRef.current && recordingStateRef.current === 'idle') {
-        startRecording(sourceRef.current, cameraRef.current, audioRef.current, recordingSettingsRef.current)
+      if (sourceRef.current && stateRef.current === 'idle') {
+        startRecording(sourceRef.current, cameraRef.current, audioRef.current, settingsRef.current)
       }
     })
     window.electronAPI?.onRemoteStop(() => {
-      if (recordingStateRef.current === 'recording' || recordingStateRef.current === 'paused') {
-        stopRecording()
-      }
+      if (stateRef.current === 'recording' || stateRef.current === 'paused') stopRecording()
     })
-  }, [startRecording, stopRecording])
+    window.electronAPI?.onRemotePause(() => {
+      if (stateRef.current === 'recording') pauseRecording()
+    })
+    window.electronAPI?.onRemoteResume(() => {
+      if (stateRef.current === 'paused') resumeRecording()
+    })
+  }, [startRecording, stopRecording, pauseRecording, resumeRecording])
 
-  // Play start tone when recording begins
-  const prevStateRef2 = useRef(recordingState)
+  // Play start tone on recording begin
+  const prevStateRef = useRef(recordingState)
   useEffect(() => {
-    if (prevStateRef2.current !== recordingState && recordingState === 'recording') {
-      playStartTone()
-    }
-    prevStateRef2.current = recordingState
+    if (prevStateRef.current !== recordingState && recordingState === 'recording') playStartTone()
+    prevStateRef.current = recordingState
   }, [recordingState])
 
-  // Report recording status (including countdown) to main process
+  // Broadcast status to control bar (via main process)
   useEffect(() => {
-    window.electronAPI?.sendStatus({ state: recordingState, duration, countdown })
-  }, [recordingState, duration, countdown])
+    window.electronAPI?.sendRecordingStatus({
+      state: recordingState,
+      duration,
+      countdown,
+      sourceName: source?.name ?? ''
+    })
+  }, [recordingState, duration, countdown, source])
 
   const handleStart = () => {
     if (!source) return
     startRecording(source, camera, audio, recordingSettings)
   }
 
-  const isIdle = recordingState === 'idle'
-  const isRecording = recordingState === 'recording'
-  const isPaused = recordingState === 'paused'
-  const isCountdown = recordingState === 'countdown'
+  const isIdle       = recordingState === 'idle'
+  const isRecording  = recordingState === 'recording'
+  const isPaused     = recordingState === 'paused'
+  const isCountdown  = recordingState === 'countdown'
   const isProcessing = recordingState === 'processing'
 
   return (
@@ -115,29 +118,17 @@ export function RecordingBar({
       {/* Status */}
       <div className="flex items-center gap-2 min-w-[120px]">
         {isRecording && (
-          <>
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-sm font-mono text-white/70">{formatDuration(duration)}</span>
-          </>
+          <><div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-sm font-mono text-white/70">{formatDuration(duration)}</span></>
         )}
         {isPaused && (
-          <>
-            <div className="w-2 h-2 rounded-full bg-amber-500" />
-            <span className="text-sm font-mono text-white/50">Paused {formatDuration(duration)}</span>
-          </>
+          <><div className="w-2 h-2 rounded-full bg-amber-500" />
+          <span className="text-sm font-mono text-white/50">Paused {formatDuration(duration)}</span></>
         )}
-        {isCountdown && (
-          <span className="text-2xl font-bold text-white animate-bounce">{countdown}</span>
-        )}
-        {isProcessing && (
-          <span className="text-xs text-white/40 animate-pulse">Opening editor…</span>
-        )}
-        {isIdle && source && (
-          <span className="text-xs text-white/30 truncate max-w-[110px]">{source.name}</span>
-        )}
-        {isIdle && !source && (
-          <span className="text-xs text-white/20">No source selected</span>
-        )}
+        {isCountdown && <span className="text-2xl font-bold text-white animate-bounce">{countdown}</span>}
+        {isProcessing && <span className="text-xs text-white/40 animate-pulse">Opening editor…</span>}
+        {isIdle && source && <span className="text-xs text-white/30 truncate max-w-[110px]">{source.name}</span>}
+        {isIdle && !source && <span className="text-xs text-white/20">No source selected</span>}
       </div>
 
       <div className="flex-1" />
@@ -151,7 +142,6 @@ export function RecordingBar({
             <X size={16} />
           </button>
         )}
-
         {isRecording && (
           <button onClick={pauseRecording}
             className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all">
@@ -164,7 +154,6 @@ export function RecordingBar({
             <Play size={16} />
           </button>
         )}
-
         {isIdle && (
           <button onClick={handleStart} disabled={!source}
             className={clsx(
@@ -177,7 +166,6 @@ export function RecordingBar({
             Record
           </button>
         )}
-
         {(isRecording || isPaused) && (
           <button onClick={stopRecording}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-all">
@@ -185,7 +173,6 @@ export function RecordingBar({
             Stop &amp; Edit
           </button>
         )}
-
         {isCountdown && (
           <button onClick={cancelRecording}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 text-white/50 font-semibold text-sm">
