@@ -1,4 +1,4 @@
-# ScreenStudio
+# Screen studio likeな画面収録アプリ
 
 Mac 向け画面収録・編集デスクトップアプリ。無音デモ動画（X へのポストなど）の作成に特化しています。
 
