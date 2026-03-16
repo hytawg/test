@@ -117,8 +117,10 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       const cropH = fullH / cam.zoom
       const rawX = cam.x * fullW - cropW / 2
       const rawY = cam.y * fullH - cropH / 2
-      sx = Math.max(0, Math.min(fullW - cropW, rawX))
-      sy = Math.max(0, Math.min(fullH - cropH, rawY))
+      // Clamp lower bound to captureRegion origin so the toolbar never appears
+      // in the zoomed frame (target_y = raw_mouse_y - toolbar_height).
+      sx = Math.max(vx0, Math.min(fullW - cropW, rawX))
+      sy = Math.max(vy0, Math.min(fullH - cropH, rawY))
       sw = cropW
       sh = cropH
     } else {
