@@ -135,21 +135,23 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     // 1 — Background
     drawBackground(ctx, W, H, cs, video, sx, sy, sw, sh, bgImageRef.current)
 
-    // 2 — Compute video destination (padded, aspect-ratio-correct)
+    // 2 — Compute video destination: fit in padded area, center in canvas
+    //     x = (W - w) / 2,  y = (H - h) / 2  (always truly centered)
     const pad = cs.padding
-    const r = Math.min(cs.cornerRadius, pad)
-    const areaW = W - pad * 2
-    const areaH = H - pad * 2
+    const maxW = W - pad * 2
+    const maxH = H - pad * 2
     const videoAR = sw / sh
-    const areaAR = areaW / areaH
-    let vdx: number, vdy: number, vdw: number, vdh: number
-    if (videoAR > areaAR) {
-      vdw = areaW; vdh = areaW / videoAR
-      vdx = pad;   vdy = pad + (areaH - vdh) / 2
+    let vdw: number, vdh: number
+    if (videoAR > maxW / maxH) {
+      // video wider than area: constrain by width
+      vdw = maxW; vdh = maxW / videoAR
     } else {
-      vdh = areaH; vdw = areaH * videoAR
-      vdy = pad;   vdx = pad + (areaW - vdw) / 2
+      // video taller or equal: constrain by height
+      vdh = maxH; vdw = maxH * videoAR
     }
+    const vdx = (W - vdw) / 2
+    const vdy = (H - vdh) / 2
+    const r = Math.min(cs.cornerRadius, Math.min(vdx, vdy))
 
     // 3 — Drop shadow
     if (cs.shadowEnabled && r > 0) {

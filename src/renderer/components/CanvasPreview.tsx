@@ -227,7 +227,10 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
             <div
               className="absolute overflow-hidden"
               style={{
-                inset: canvas.padding,
+                top: canvas.padding,
+                right: canvas.padding,
+                bottom: canvas.padding,
+                left: canvas.padding,
                 borderRadius: canvas.cornerRadius,
                 ...shadowStyle
               }}
