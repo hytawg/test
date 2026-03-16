@@ -200,8 +200,25 @@ export default function App() {
     const durationSec = await new Promise<number>((resolve) => {
       const v = document.createElement('video')
       v.preload = 'metadata'
-      v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(isFinite(v.duration) ? v.duration : 0) }
-      v.onerror = () => { URL.revokeObjectURL(url); resolve(0) }
+      let settled = false
+      const finish = (dur: number) => {
+        if (settled) return
+        settled = true
+        URL.revokeObjectURL(url)
+        resolve(dur)
+      }
+      v.onloadedmetadata = () => {
+        if (isFinite(v.duration)) {
+          finish(v.duration)
+        } else {
+          // MediaRecorder WebM files report Infinity until seeked to the end.
+          // Seeking to a very large time forces the browser to determine the
+          // real duration, which is then read in the onseeked handler.
+          v.onseeked = () => finish(isFinite(v.duration) ? v.duration : 0)
+          v.currentTime = 1e10
+        }
+      }
+      v.onerror = () => finish(0)
       v.src = url
     })
     const state: EditState = {
@@ -214,7 +231,11 @@ export default function App() {
       speedSegments: [],
       cutSegments: [],
       captureRegion: null,
-      canvasSettings: { ...canvas },
+      // Use a clean "viewer" canvas for imported files: no decorative background
+      // frame, no padding. This prevents the "doubled background" visual that
+      // occurs when re-editing an already-exported video that has the same
+      // gradient/image baked into its content. Users can add a frame via Canvas panel.
+      canvasSettings: { ...DEFAULT_CANVAS, backgroundType: 'none', padding: 0, cornerRadius: 0, shadowEnabled: false },
       activeTool: 'select',
       selectedId: null,
       focusLog: null,
