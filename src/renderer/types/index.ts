@@ -238,6 +238,35 @@ export type FocusLogRecord = {
   scaleFactor: number
 }
 
+/** A mouse click captured during recording. */
+export type ClickEvent = {
+  ts: number   // ms since recording start
+  x: number    // normalized 0–1 within display
+  y: number    // normalized 0–1 within display
+}
+
+/** A key press captured during recording. */
+export type KeyEvent = {
+  ts: number   // ms since recording start
+  key: string  // human-readable label, e.g. "⌘C", "Space", "Shift+A"
+}
+
+export type OverlaySettings = {
+  clickEffectEnabled: boolean
+  spotlightEnabled: boolean
+  spotlightOpacity: number    // 0–1
+  keyboardDisplayEnabled: boolean
+  cursorSmoothEnabled: boolean
+}
+
+export const DEFAULT_OVERLAY: OverlaySettings = {
+  clickEffectEnabled: true,
+  spotlightEnabled: false,
+  spotlightOpacity: 0.55,
+  keyboardDisplayEnabled: true,
+  cursorSmoothEnabled: true,
+}
+
 export type CutSegment = {
   id: string
   startTime: number
@@ -255,8 +284,11 @@ export type EditState = {
   cutSegments: CutSegment[]           // ranges to be removed from output
   captureRegion: CaptureRegion | null
   canvasSettings: CanvasSettings
-  activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed'
+  activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed' | 'overlay'
   selectedId: string | null
   focusLog: FocusLogRecord[] | null    // camera log from MouseTracker; null = not available
   autoZoomEnabled: boolean             // when true, focusLog overrides zoomRegions
+  clickEvents: ClickEvent[]            // mouse clicks captured during recording
+  keyEvents: KeyEvent[]                // key presses captured during recording
+  overlaySettings: OverlaySettings     // visual overlay options
 }

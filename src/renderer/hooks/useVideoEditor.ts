@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment } from '../types'
+import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment, OverlaySettings } from '../types'
 import { nanoid } from '../utils/nanoid'
 
 type UseVideoEditorReturn = {
@@ -35,6 +35,7 @@ type UseVideoEditorReturn = {
   exporting: boolean
   exportProgress: number
   setAutoZoomEnabled: (enabled: boolean) => void
+  updateOverlaySettings: (patch: Partial<OverlaySettings>) => void
 }
 
 // ── Done tone ─────────────────────────────────────────────────────────────────
@@ -174,14 +175,32 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     const activeTexts = st.textAnnotations.filter(a => a.startTime <= time && a.endTime >= time)
     for (const ann of activeTexts) drawText(ctx, ann, W, H)
 
-    // 6 — Cursor overlay (from focus log)
+    // 6 — Cursor + overlay effects (from focus log)
     if (st.focusLog && st.focusLog.length > 0) {
-      const rec = interpolateFocusLog(st.focusLog, time)
+      const ov = st.overlaySettings
+      const rec = interpolateFocusLog(st.focusLog, time, ov.cursorSmoothEnabled)
       if (rec.mouseNormX !== null && rec.mouseNormY !== null) {
         const cursorVX = rec.mouseNormX * video.videoWidth
         const cursorVY = rec.mouseNormY * video.videoHeight
+
+        // 6a — Spotlight mode (drawn before cursor so cursor appears on top)
+        if (ov.spotlightEnabled) {
+          drawSpotlight(ctx, cursorVX, cursorVY, sx, sy, sw, sh, vdx, vdy, vdw, vdh, ov.spotlightOpacity)
+        }
+
+        // 6b — Click ripple effects
+        if (ov.clickEffectEnabled && st.clickEvents.length > 0) {
+          drawClickEffects(ctx, st.clickEvents, time, video.videoWidth, video.videoHeight, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
+        }
+
+        // 6c — Cursor dot
         drawCursorOverlay(ctx, cursorVX, cursorVY, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
       }
+    }
+
+    // 7 — Keyboard badge (independent of cursor; drawn over everything)
+    if (st.overlaySettings.keyboardDisplayEnabled && st.keyEvents.length > 0) {
+      drawKeyBadge(ctx, st.keyEvents, time, W, H)
     }
   }, [])
 
@@ -251,13 +270,16 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   useEffect(() => {
     if (!playing) renderFrame(currentTime)
-  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, state.autoZoomEnabled, state.focusLog, playing, currentTime, renderFrame])
+  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, state.autoZoomEnabled, state.focusLog, state.overlaySettings, playing, currentTime, renderFrame])
 
   // ── Edit actions ──────────────────────────────────────────────────────────
 
   const setTrimStart = useCallback((t: number) => setState(s => ({ ...s, trimStart: Math.min(t, s.trimEnd - 0.1) })), [])
   const setTrimEnd   = useCallback((t: number) => setState(s => ({ ...s, trimEnd:   Math.max(t, s.trimStart + 0.1) })), [])
   const setAutoZoomEnabled = useCallback((enabled: boolean) => setState(s => ({ ...s, autoZoomEnabled: enabled })), [])
+  const updateOverlaySettings = useCallback((patch: Partial<OverlaySettings>) => {
+    setState(s => ({ ...s, overlaySettings: { ...s.overlaySettings, ...patch } }))
+  }, [])
   const setActiveTool = useCallback((tool: EditState['activeTool']) => setState(s => ({ ...s, activeTool: tool })), [])
   const setSelectedId = useCallback((id: string | null) => setState(s => ({ ...s, selectedId: id })), [])
 
@@ -397,13 +419,13 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
     addCutSegment, updateCutSegment, removeCutSegment,
     exportVideo, exporting, exportProgress,
-    setAutoZoomEnabled
+    setAutoZoomEnabled, updateOverlaySettings
   }
 }
 
 // ── Focus log interpolation ────────────────────────────────────────────────────
 
-function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number): { x: number; y: number; zoom: number; mouseNormX: number | null; mouseNormY: number | null } {
+function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number, smooth = false): { x: number; y: number; zoom: number; mouseNormX: number | null; mouseNormY: number | null } {
   const tMs = videoTimeSec * 1000
   const toResult = (rec: FocusLogRecord) => ({
     ...rec.camera,
@@ -424,12 +446,33 @@ function interpolateFocusLog(log: FocusLogRecord[], videoTimeSec: number): { x: 
   const a = log[lo], b = log[hi]
   const t = (tMs - a.ts) / (b.ts - a.ts)
   const hasMouse = a.mouseNorm && b.mouseNorm
+  let mx = hasMouse ? (a.mouseNorm!.x + (b.mouseNorm!.x - a.mouseNorm!.x) * t) : null
+  let my = hasMouse ? (a.mouseNorm!.y + (b.mouseNorm!.y - a.mouseNorm!.y) * t) : null
+
+  // Smooth cursor: blend with a weighted average of nearby samples (±3 frames)
+  if (smooth && hasMouse && mx !== null && my !== null) {
+    const WIN = 3
+    const WEIGHTS = [1, 2, 3, 4, 3, 2, 1]  // symmetric Gaussian-like kernel, center at index 3
+    let wx = 0, wy = 0, wSum = 0
+    for (let d = -WIN; d <= WIN; d++) {
+      const idx = lo + d
+      if (idx < 0 || idx >= log.length) continue
+      const rec = log[idx]
+      if (!rec.mouseNorm) continue
+      const w = WEIGHTS[d + WIN]
+      wx += rec.mouseNorm.x * w
+      wy += rec.mouseNorm.y * w
+      wSum += w
+    }
+    if (wSum > 0) { mx = wx / wSum; my = wy / wSum }
+  }
+
   return {
     x:    a.camera.x    + (b.camera.x    - a.camera.x)    * t,
     y:    a.camera.y    + (b.camera.y    - a.camera.y)    * t,
     zoom: a.camera.zoom + (b.camera.zoom - a.camera.zoom) * t,
-    mouseNormX: hasMouse ? (a.mouseNorm!.x + (b.mouseNorm!.x - a.mouseNorm!.x) * t) : null,
-    mouseNormY: hasMouse ? (a.mouseNorm!.y + (b.mouseNorm!.y - a.mouseNorm!.y) * t) : null,
+    mouseNormX: mx,
+    mouseNormY: my,
   }
 }
 
@@ -713,6 +756,169 @@ function drawCursorOverlay(
   ctx.arc(cx, cy, 3, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(0,0,0,0.4)'
   ctx.fill()
+  ctx.restore()
+}
+
+// ── Spotlight overlay ─────────────────────────────────────────────────────────
+
+/**
+ * Dims the area around the cursor with a radial gradient,
+ * keeping a bright circle in the center to guide the viewer's eye.
+ */
+function drawSpotlight(
+  ctx: CanvasRenderingContext2D,
+  cursorVX: number, cursorVY: number,
+  sx: number, sy: number, sw: number, sh: number,
+  vdx: number, vdy: number, vdw: number, vdh: number,
+  opacity: number
+) {
+  const crX = (cursorVX - sx) / sw
+  const crY = (cursorVY - sy) / sh
+  if (crX < 0 || crX > 1 || crY < 0 || crY > 1) return
+  const cx = vdx + crX * vdw
+  const cy = vdy + crY * vdh
+
+  const W = ctx.canvas.width
+  const H = ctx.canvas.height
+  const maxR = Math.sqrt(W * W + H * H)
+  const innerR = Math.min(vdw, vdh) * 0.18  // ~18% of the shorter dimension
+
+  const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, maxR)
+  grad.addColorStop(0,    `rgba(0,0,0,0)`)
+  grad.addColorStop(0.25, `rgba(0,0,0,${opacity * 0.5})`)
+  grad.addColorStop(1,    `rgba(0,0,0,${opacity})`)
+
+  ctx.save()
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, W, H)
+  ctx.restore()
+}
+
+// ── Click ripple effects ──────────────────────────────────────────────────────
+
+function drawClickEffects(
+  ctx: CanvasRenderingContext2D,
+  clickEvents: Array<{ ts: number; x: number; y: number }>,
+  timeSec: number,
+  videoWidth: number, videoHeight: number,
+  sx: number, sy: number, sw: number, sh: number,
+  vdx: number, vdy: number, vdw: number, vdh: number
+) {
+  const ANIM_DUR = 0.65  // seconds
+  const tMs = timeSec * 1000
+
+  for (const ev of clickEvents) {
+    const age = (tMs - ev.ts) / 1000
+    if (age < 0 || age > ANIM_DUR) continue
+
+    // Map normalized click position → canvas coordinates
+    const cvX = ev.x * videoWidth
+    const cvY = ev.y * videoHeight
+    const crX = (cvX - sx) / sw
+    const crY = (cvY - sy) / sh
+    if (crX < -0.05 || crX > 1.05 || crY < -0.05 || crY > 1.05) continue
+    const cx = vdx + crX * vdw
+    const cy = vdy + crY * vdh
+
+    const p = age / ANIM_DUR  // 0 → 1
+    const eased = 1 - Math.pow(1 - p, 2)  // ease-out quad
+
+    // Outer expanding ring
+    const maxR = 28
+    const r = eased * maxR
+    const alpha = (1 - p) * 0.75
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, Math.max(1, r), 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`
+    ctx.lineWidth = 2.5
+    ctx.stroke()
+
+    // Secondary smaller ring (slightly delayed)
+    if (age > 0.08) {
+      const r2 = eased * maxR * 0.55
+      const a2 = (1 - p) * 0.45
+      ctx.beginPath()
+      ctx.arc(cx, cy, Math.max(1, r2), 0, Math.PI * 2)
+      ctx.strokeStyle = `rgba(255,255,255,${a2})`
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+}
+
+// ── Keyboard badge ────────────────────────────────────────────────────────────
+
+function drawKeyBadge(
+  ctx: CanvasRenderingContext2D,
+  keyEvents: Array<{ ts: number; key: string }>,
+  timeSec: number,
+  W: number, H: number
+) {
+  const SHOW_DUR = 1.4   // how long badge stays fully visible
+  const FADE_IN  = 0.08  // quick fade-in
+  const FADE_OUT = 0.35  // fade-out at end
+  const tMs = timeSec * 1000
+
+  // Find last key event that should be visible
+  let best: { ts: number; key: string } | null = null
+  for (const ev of keyEvents) {
+    const age = (tMs - ev.ts) / 1000
+    if (age >= 0 && age <= SHOW_DUR) {
+      best = ev  // take last matching (most recent)
+    }
+  }
+  if (!best) return
+
+  const age = (tMs - best.ts) / 1000
+  let alpha = 1
+  if (age < FADE_IN) alpha = age / FADE_IN
+  else if (age > SHOW_DUR - FADE_OUT) alpha = (SHOW_DUR - age) / FADE_OUT
+  if (alpha <= 0) return
+
+  const label = best.key
+  const fs = Math.round(W * 0.022)   // ~22px on 1920-wide canvas
+  ctx.save()
+  ctx.font = `600 ${fs}px -apple-system, SF Pro Display, sans-serif`
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = 'center'
+
+  const tw = ctx.measureText(label).width
+  const padX = fs * 0.7
+  const padY = fs * 0.45
+  const bw = tw + padX * 2
+  const bh = fs + padY * 2
+  const bx = W / 2 - bw / 2
+  const by = H - bh - H * 0.06   // 6% from the bottom
+
+  // Shadow
+  ctx.shadowColor = `rgba(0,0,0,${0.5 * alpha})`
+  ctx.shadowBlur = 16
+  ctx.shadowOffsetY = 4
+
+  // Background pill
+  const r = bh / 2
+  ctx.beginPath()
+  ctx.moveTo(bx + r, by)
+  ctx.lineTo(bx + bw - r, by);       ctx.arcTo(bx + bw, by, bx + bw, by + r, r)
+  ctx.lineTo(bx + bw, by + bh - r);  ctx.arcTo(bx + bw, by + bh, bx + bw - r, by + bh, r)
+  ctx.lineTo(bx + r, by + bh);       ctx.arcTo(bx, by + bh, bx, by + bh - r, r)
+  ctx.lineTo(bx, by + r);            ctx.arcTo(bx, by, bx + r, by, r)
+  ctx.closePath()
+  ctx.fillStyle = `rgba(20,20,20,${0.82 * alpha})`
+  ctx.fill()
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+
+  // Border
+  ctx.strokeStyle = `rgba(255,255,255,${0.15 * alpha})`
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  // Label text
+  ctx.fillStyle = `rgba(255,255,255,${alpha})`
+  ctx.fillText(label, W / 2, by + bh / 2)
   ctx.restore()
 }
 

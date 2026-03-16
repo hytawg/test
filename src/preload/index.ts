@@ -60,8 +60,10 @@ const api = {
     ipcRenderer.on('remote:region-picker-result', (_event, result) => cb(result))
   },
 
-  // Focus log from mouse tracker (collected during recording)
+  // Focus / click / key logs from mouse tracker (collected during recording)
   getFocusLog: () => ipcRenderer.invoke('get-focus-log'),
+  getClickLog: () => ipcRenderer.invoke('get-click-log'),
+  getKeyLog:   () => ipcRenderer.invoke('get-key-log'),
 
   // Video file import & recording history
   openFileByPath: (filePath: string) =>

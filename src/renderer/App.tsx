@@ -3,7 +3,8 @@ import {
   DEFAULT_CANVAS,
   DEFAULT_CAMERA,
   DEFAULT_AUDIO,
-  DEFAULT_RECORDING
+  DEFAULT_RECORDING,
+  DEFAULT_OVERLAY,
 } from './types'
 import type {
   CanvasSettings, CameraSettings, AudioSettings, RecordingSettings,
@@ -207,6 +208,9 @@ export default function App() {
       selectedId: null,
       focusLog: null,
       autoZoomEnabled: false,
+      clickEvents: [],
+      keyEvents: [],
+      overlaySettings: { ...DEFAULT_OVERLAY },
     }
     setEditState(state)
     setMode('editing')
@@ -214,8 +218,12 @@ export default function App() {
 
   // Called by RecordingBar when recording finishes → go to editor
   const handleRecordingComplete = useCallback(async (blob: Blob, durationSec: number) => {
-    // Fetch focus log recorded by MouseTracker in main process
-    const focusLog = await window.electronAPI?.getFocusLog() ?? null
+    // Fetch focus / click / key logs recorded by MouseTracker in main process
+    const [focusLog, clickEvents, keyEvents] = await Promise.all([
+      window.electronAPI?.getFocusLog() ?? Promise.resolve(null),
+      window.electronAPI?.getClickLog() ?? Promise.resolve([]),
+      window.electronAPI?.getKeyLog()   ?? Promise.resolve([]),
+    ])
     const state: EditState = {
       blob,
       rawDuration: durationSec,
@@ -231,6 +239,9 @@ export default function App() {
       selectedId: null,
       focusLog: focusLog && focusLog.length > 0 ? focusLog : null,
       autoZoomEnabled: false,
+      clickEvents: clickEvents ?? [],
+      keyEvents:   keyEvents ?? [],
+      overlaySettings: { ...DEFAULT_OVERLAY },
     }
     setEditState(state)
     setMode('editing')

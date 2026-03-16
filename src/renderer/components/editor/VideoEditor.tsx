@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap, X } from 'lucide-react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap, X, Sparkles } from 'lucide-react'
 import type { CutSegment } from '../../types'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
@@ -7,6 +7,7 @@ import { Timeline } from './Timeline'
 import { ZoomPanel } from './ZoomPanel'
 import { TextPanel } from './TextPanel'
 import { SpeedPanel } from './SpeedPanel'
+import { OverlayPanel } from './OverlayPanel'
 import { CanvasPanel } from '../CanvasPanel'
 import clsx from 'clsx'
 
@@ -34,7 +35,7 @@ export function VideoEditor({
     addCutSegment, updateCutSegment, removeCutSegment,
     updateCanvasSettings,
     exportVideo, exporting, exportProgress,
-    setAutoZoomEnabled
+    setAutoZoomEnabled, updateOverlaySettings
   } = useVideoEditor(initialState)
 
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
@@ -75,11 +76,12 @@ export function VideoEditor({
   }
 
   const TOOLS = [
-    { id: 'select' as const, Icon: Scissors, label: 'Trim' },
-    { id: 'zoom' as const, Icon: ZoomIn, label: 'Zoom' },
-    { id: 'text' as const, Icon: Type, label: 'Text' },
-    { id: 'canvas' as const, Icon: Layers, label: 'Canvas' },
-    { id: 'speed' as const, Icon: Gauge, label: 'Speed' }
+    { id: 'select'  as const, Icon: Scissors,  label: 'Trim'    },
+    { id: 'zoom'    as const, Icon: ZoomIn,     label: 'Zoom'    },
+    { id: 'text'    as const, Icon: Type,       label: 'Text'    },
+    { id: 'canvas'  as const, Icon: Layers,     label: 'Canvas'  },
+    { id: 'speed'   as const, Icon: Gauge,      label: 'Speed'   },
+    { id: 'overlay' as const, Icon: Sparkles,   label: 'Overlay' },
   ]
 
   // Always render video element so loadedmetadata can fire even during loading screen
@@ -147,6 +149,15 @@ export function VideoEditor({
             <SpeedPanel segments={state.speedSegments} selectedId={state.selectedId}
               currentTime={currentTime} onUpdate={updateSpeedSegment}
               onRemove={removeSpeedSegment} onSelect={setSelectedId} />
+          )}
+          {state.activeTool === 'overlay' && (
+            <OverlayPanel
+              settings={state.overlaySettings}
+              hasClickData={state.clickEvents.length > 0}
+              hasKeyData={state.keyEvents.length > 0}
+              hasCursorData={state.focusLog !== null && state.focusLog.length > 0}
+              onChange={updateOverlaySettings}
+            />
           )}
         </div>
 

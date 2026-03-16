@@ -29,8 +29,10 @@ declare global {
       openRegionPicker: (bounds: { x: number; y: number; width: number; height: number }) => Promise<boolean>
       sendRegionPickerResult: (result: { x: number; y: number; w: number; h: number } | null) => void
       onRegionPickerResult: (cb: (result: { x: number; y: number; w: number; h: number } | null) => void) => void
-      // Focus log (auto-zoom)
+      // Focus / click / key logs (auto-zoom + overlays)
       getFocusLog: () => Promise<import('./index').FocusLogRecord[]>
+      getClickLog: () => Promise<import('./index').ClickEvent[]>
+      getKeyLog:   () => Promise<import('./index').KeyEvent[]>
       // Video file import & recording history
       openFileByPath: (filePath: string) => Promise<{ fileName: string; filePath: string; buffer: ArrayBuffer } | null>
       getRecordingHistory: () => Promise<import('./index').RecordingHistoryEntry[]>

@@ -3,7 +3,7 @@ import { join, basename } from 'path'
 import { writeFile, readFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { is } from '@electron-toolkit/utils'
-import { MouseTracker, FocusLogRecord } from './mouseTracker'
+import { MouseTracker, FocusLogRecord, ClickEventRecord, KeyEventRecord } from './mouseTracker'
 import Store from 'electron-store'
 
 // ── Persistent storage ────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ let regionPickerWindow: BrowserWindow | null = null
 
 let mouseTracker: MouseTracker | null = null
 let lastFocusLog: FocusLogRecord[] = []
+let lastClickLog: ClickEventRecord[] = []
+let lastKeyLog: KeyEventRecord[] = []
 
 // ── Control bar window ────────────────────────────────────────────────────────
 
@@ -115,11 +117,16 @@ ipcMain.on('recording:status', (_event, status) => {
     if (!mouseTracker) mouseTracker = new MouseTracker()
     mouseTracker.start()
   } else if (status.state === 'processing') {
-    lastFocusLog = mouseTracker?.stop() ?? []
+    const result = mouseTracker?.stop() ?? { focusLog: [], clickLog: [], keyLog: [] }
+    lastFocusLog = result.focusLog
+    lastClickLog = result.clickLog
+    lastKeyLog   = result.keyLog
   }
 })
 
 ipcMain.handle('get-focus-log', () => lastFocusLog)
+ipcMain.handle('get-click-log', () => lastClickLog)
+ipcMain.handle('get-key-log',   () => lastKeyLog)
 
 // ── IPC: commands from control bar → forward to main renderer ─────────────────
 
