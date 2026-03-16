@@ -123,6 +123,15 @@ function MainApp() {
   // Keep refs in sync so callbacks always read latest values
   useEffect(() => { captureRegionRef.current = captureRegion }, [captureRegion])
 
+  const sourceRef = useRef<CaptureSource | null>(null)
+  useEffect(() => { sourceRef.current = source }, [source])
+
+  // Declare streams before any effect that references them in deps arrays
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const streamsRef = useRef({ screenStream, cameraStream })
+  streamsRef.current = { screenStream, cameraStream }
+
   // ── Phase 2: stream-based browser crop ──────────────────────────────────────
   // When the capture stream becomes available we know the exact physical pixel
   // resolution of the window.  For recognised browsers we compute a precise
@@ -157,14 +166,6 @@ function MainApp() {
       if (region) setCaptureRegion(region)
     })()
   }, [screenStream, source])
-
-  const sourceRef = useRef<CaptureSource | null>(null)
-  useEffect(() => { sourceRef.current = source }, [source])
-
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
-  const streamsRef = useRef({ screenStream, cameraStream })
-  streamsRef.current = { screenStream, cameraStream }
 
   const handleStreamsChange = useCallback(
     (screen: MediaStream | null, cam: MediaStream | null) => {
