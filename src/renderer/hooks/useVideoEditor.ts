@@ -504,11 +504,13 @@ async function exportWithWebCodecs(
     fastStart: 'in-memory'
   })
 
-  // Try H.264 High, fall back to Main, then Baseline
+  // Try H.264 High, fall back to Main, then Baseline.
+  // Use latencyMode:'realtime' to disable B-frames — B-frames cause DTS/PTS
+  // ordering issues in mp4-muxer that make QuickTime Player reject the file.
   const codecCandidates = ['avc1.640028', 'avc1.4D0028', 'avc1.42001E']
   let chosenCodec: string | null = null
   for (const c of codecCandidates) {
-    const support = await VideoEncoder.isConfigSupported({ codec: c, width: W, height: H, bitrate, framerate: fps })
+    const support = await VideoEncoder.isConfigSupported({ codec: c, width: W, height: H, bitrate, framerate: fps, latencyMode: 'realtime' })
     if (support.supported) { chosenCodec = c; break }
   }
   if (!chosenCodec) throw new Error('H.264 VideoEncoder not supported')
@@ -519,7 +521,7 @@ async function exportWithWebCodecs(
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: (e) => { encoderError = e }
   })
-  encoder.configure({ codec: chosenCodec, width: W, height: H, bitrate, framerate: fps })
+  encoder.configure({ codec: chosenCodec, width: W, height: H, bitrate, framerate: fps, latencyMode: 'realtime' })
 
   const frameInterval = 1 / fps
   // Walk through source time; each output frame advances source by frameInterval * speed

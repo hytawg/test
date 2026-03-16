@@ -170,7 +170,7 @@ ipcMain.on('control:resize', (_event, height: number) => {
 ipcMain.handle('get-sources', async () => {
   const sources = await desktopCapturer.getSources({
     types: ['screen', 'window'],
-    thumbnailSize: { width: 320, height: 200 },
+    thumbnailSize: { width: 640, height: 400 },
     fetchWindowIcons: true
   })
   return sources.map((s) => ({

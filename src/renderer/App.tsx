@@ -42,16 +42,17 @@ async function detectWindowContentRegion(thumbnailDataURL: string): Promise<Capt
       if (!ctx) { resolve(null); return }
       ctx.drawImage(img, 0, 0)
 
-      // Walk rows from top. Browser chrome (title bar + tab bar + address bar +
-      // bookmarks bar) is typically 80–160 px on a 1× display. We look for the
-      // first group of 4 consecutive high-variance rows that signals real content,
-      // skipping isolated variance spikes caused by tab icons or toolbar buttons.
-      const maxRows = Math.min(H, Math.floor(H * 0.30))  // scan up to 30% of height
-      const step = Math.max(1, Math.floor(W / 80))
-      let cropY = 0
-      let consecutive = 0
+      // Build a per-row variance profile for the top 30% of the thumbnail.
+      // Browser chrome (title bar + tab bar + address bar) ends with a thin
+      // uniform separator line before real content begins. We find the LAST
+      // low-variance separator row that is followed by sustained high-variance
+      // content — this is more reliable than looking for the first high-variance
+      // row, which fires prematurely on tab-bar favicons and toolbar icons.
+      const maxRows = Math.min(H, Math.floor(H * 0.35))  // scan up to 35% of height
+      const step = Math.max(1, Math.floor(W / 120))
+      const rawVar: number[] = []
 
-      for (let y = 2; y < maxRows; y++) {
+      for (let y = 0; y < maxRows; y++) {
         const d = ctx.getImageData(0, y, W, 1).data
         let diff = 0; let count = 0
         for (let x = step * 4; x < d.length - step * 4; x += step * 4) {
@@ -60,21 +61,31 @@ async function detectWindowContentRegion(thumbnailDataURL: string): Promise<Capt
                 + Math.abs(d[x+2] - d[x - step * 4 + 2])
           count++
         }
-        const variance = count > 0 ? diff / count : 0
-        if (variance > 12) {
-          if (consecutive === 0) cropY = y
-          consecutive++
-          if (consecutive >= 4) break  // 4 consecutive high-variance rows = content
-        } else {
-          consecutive = 0
-          cropY = 0
+        rawVar.push(count > 0 ? diff / count : 0)
+      }
+
+      // Smooth with a ±2-row window to suppress single-pixel spikes
+      const smoothed = rawVar.map((_, i) => {
+        const slice = rawVar.slice(Math.max(0, i - 2), Math.min(rawVar.length, i + 3))
+        return slice.reduce((a, b) => a + b, 0) / slice.length
+      })
+
+      // Find the last separator: a low-variance row (≤8) that is immediately
+      // followed by at least 6 high-variance rows (≥14) = start of content
+      const HIGH = 14, LOW = 8
+      let cropY = 0
+      for (let i = smoothed.length - 1; i >= 1; i--) {
+        if (smoothed[i] <= LOW) {
+          const after = smoothed.slice(i + 1, Math.min(smoothed.length, i + 10))
+          const highCount = after.filter(v => v >= HIGH).length
+          if (highCount >= 6) { cropY = i + 1; break }
         }
       }
 
-      if (cropY < 2 || consecutive < 4) { resolve(null); return }
+      if (cropY < 1) { resolve(null); return }
       const normY = cropY / H
-      // Sanity: chrome area must be 1.5%–28% of window height
-      if (normY < 0.015 || normY > 0.28) { resolve(null); return }
+      // Sanity: chrome area must be 1%–32% of window height
+      if (normY < 0.01 || normY > 0.32) { resolve(null); return }
       resolve({ x: 0, y: normY, w: 1, h: 1 - normY })
     }
     img.onerror = () => resolve(null)
