@@ -40,3 +40,9 @@ Thumbs.db
 
 # Electron packager cache
 .cache/
+
+# Prototype / experimental code (not part of production build)
+prototype/
+
+# Claude Code agent config
+.claude/
