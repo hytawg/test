@@ -361,13 +361,14 @@ app.whenReady().then(() => {
 
   // Dock icon click: toggle main window
   app.on('activate', () => {
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isVisible()) {
         mainWindow.focus()
       } else {
         mainWindow.show()
       }
     } else {
+      mainWindow = null
       createWindow()
     }
     // Always ensure control bar is visible
