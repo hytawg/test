@@ -140,7 +140,10 @@ ipcMain.on('control:command', (_event, cmd: string) => {
     case 'hide-bar':  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.hide(); break
     case 'show-bar':  if (controlBarWindow && !controlBarWindow.isDestroyed()) controlBarWindow.show(); break
     case 'region':
-      mainWindow?.show(); mainWindow?.focus()
+      // Do NOT force the main window to the front here. For screen sources the
+      // region-picker overlay is a separate full-screen window so the main window
+      // does not need to be visible. For window sources, App.tsx will show the
+      // main window itself after receiving remote:region-mode.
       sendToMain('remote:region-mode')
       break
   }

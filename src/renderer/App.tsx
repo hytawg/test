@@ -42,14 +42,16 @@ async function detectWindowContentRegion(thumbnailDataURL: string): Promise<Capt
       if (!ctx) { resolve(null); return }
       ctx.drawImage(img, 0, 0)
 
-      // Build a per-row variance profile for the top 30% of the thumbnail.
+      // Build a per-row variance profile for the top ~40% of the thumbnail.
       // Browser chrome (title bar + tab bar + address bar) ends with a thin
       // uniform separator line before real content begins. We find the LAST
       // low-variance separator row that is followed by sustained high-variance
       // content — this is more reliable than looking for the first high-variance
       // row, which fires prematurely on tab-bar favicons and toolbar icons.
-      const maxRows = Math.min(H, Math.floor(H * 0.35))  // scan up to 35% of height
-      const step = Math.max(1, Math.floor(W / 120))
+      // Chrome with many toolbar rows or large UI scaling can exceed 35%, so
+      // scan up to 40% and allow crop up to 38% of height.
+      const maxRows = Math.min(H, Math.floor(H * 0.42))  // scan up to 42% of height
+      const step = Math.max(1, Math.floor(W / 160))       // finer sampling for accuracy
       const rawVar: number[] = []
 
       for (let y = 0; y < maxRows; y++) {
@@ -64,28 +66,29 @@ async function detectWindowContentRegion(thumbnailDataURL: string): Promise<Capt
         rawVar.push(count > 0 ? diff / count : 0)
       }
 
-      // Smooth with a ±2-row window to suppress single-pixel spikes
+      // Smooth with a ±3-row window to suppress single-pixel spikes
       const smoothed = rawVar.map((_, i) => {
-        const slice = rawVar.slice(Math.max(0, i - 2), Math.min(rawVar.length, i + 3))
+        const slice = rawVar.slice(Math.max(0, i - 3), Math.min(rawVar.length, i + 4))
         return slice.reduce((a, b) => a + b, 0) / slice.length
       })
 
-      // Find the last separator: a low-variance row (≤8) that is immediately
-      // followed by at least 6 high-variance rows (≥14) = start of content
-      const HIGH = 14, LOW = 8
+      // Find the last separator: a low-variance row (≤10) immediately
+      // followed by at least 5 high-variance rows (≥12) = start of content.
+      // Lowered HIGH threshold: Chrome page content often starts less abruptly.
+      const HIGH = 12, LOW = 10
       let cropY = 0
       for (let i = smoothed.length - 1; i >= 1; i--) {
         if (smoothed[i] <= LOW) {
           const after = smoothed.slice(i + 1, Math.min(smoothed.length, i + 10))
           const highCount = after.filter(v => v >= HIGH).length
-          if (highCount >= 6) { cropY = i + 1; break }
+          if (highCount >= 5) { cropY = i + 1; break }
         }
       }
 
       if (cropY < 1) { resolve(null); return }
       const normY = cropY / H
-      // Sanity: chrome area must be 1%–32% of window height
-      if (normY < 0.01 || normY > 0.32) { resolve(null); return }
+      // Sanity: chrome area must be 1%–38% of window height
+      if (normY < 0.01 || normY > 0.38) { resolve(null); return }
       resolve({ x: 0, y: normY, w: 1, h: 1 - normY })
     }
     img.onerror = () => resolve(null)
@@ -164,7 +167,12 @@ export default function App() {
     })
   }, [])
 
-  // Open region picker: overlay for screen sources, in-app picker for window sources
+  // Open region picker: overlay for screen sources, in-app picker for window sources.
+  // For screen sources the picker is a full-screen transparent overlay window —
+  // the main window does NOT need to be visible, so we skip showing it (avoids
+  // disrupting the recording workflow when triggered from the ControlBar).
+  // For window sources the in-app CanvasPreview picker is used, which requires
+  // the main window to be visible.
   const handleStartRegionPicker = useCallback(async () => {
     const src = sourceRef.current
     if (!src) return
@@ -176,6 +184,8 @@ export default function App() {
       if (!display) return
       await window.electronAPI?.openRegionPicker(display.bounds)
     } else {
+      // In-app picker: make the main window visible so the user can draw the region
+      window.electronAPI?.showMainWindow()
       setRegionPickerTrigger(true)
     }
   }, [])

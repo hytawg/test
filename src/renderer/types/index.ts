@@ -199,12 +199,13 @@ export type CaptureRegion = {
 
 export type ZoomRegion = {
   id: string
-  startTime: number   // region start (seconds)
-  endTime: number     // region end (seconds)
-  x: number           // zoom center X (0–1)
-  y: number           // zoom center Y (0–1)
-  scale: number       // 1.5 = 150% zoom
+  startTime: number     // region start (seconds)
+  endTime: number       // region end (seconds)
+  x: number             // zoom center X (0–1)
+  y: number             // zoom center Y (0–1)
+  scale: number         // 1.5 = 150% zoom
   easing: 'linear' | 'ease-in-out'
+  easingDuration: number  // ramp time in seconds for zoom-in / zoom-out (default 0.4)
 }
 
 export type TextAnnotation = {

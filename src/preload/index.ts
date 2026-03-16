@@ -65,6 +65,9 @@ const api = {
   getClickLog: () => ipcRenderer.invoke('get-click-log'),
   getKeyLog:   () => ipcRenderer.invoke('get-key-log'),
 
+  // Main renderer → ask main process to show/focus the main window
+  showMainWindow: () => { ipcRenderer.send('control:command', 'show-main') },
+
   // Video file import & recording history
   openFileByPath: (filePath: string) =>
     ipcRenderer.invoke('open-file-by-path', filePath),

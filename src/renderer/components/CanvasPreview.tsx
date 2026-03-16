@@ -109,7 +109,7 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
     if (!canvas.shadowEnabled) return {}
     const alpha = (canvas.shadowIntensity / 100) * 0.7
     return {
-      boxShadow: `0 ${canvas.padding * 0.5}px ${canvas.padding * 1.5}px rgba(0,0,0,${alpha})`
+      boxShadow: `0 0 ${canvas.padding * 1.2}px rgba(0,0,0,${alpha})`
     }
   }, [canvas.shadowEnabled, canvas.shadowIntensity, canvas.padding])
 

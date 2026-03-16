@@ -125,6 +125,19 @@ export function ZoomPanel({ regions, selectedId, currentTime, onUpdate, onRemove
               ))}
             </div>
           </div>
+
+          {/* Animation speed */}
+          <div>
+            <p className="text-[10px] text-white/30 mb-1.5">Animation speed</p>
+            <Slider
+              min={1}
+              max={20}
+              step={1}
+              value={Math.round((selected.easingDuration ?? 0.4) * 10)}
+              onChange={(v) => onUpdate(selected.id, { easingDuration: v / 10 })}
+              label={`${(selected.easingDuration ?? 0.4).toFixed(1)}s`}
+            />
+          </div>
         </div>
       )}
 

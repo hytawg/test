@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap, X, Sparkles } from 'lucide-react'
-import type { CutSegment } from '../../types'
+import type { CutSegment, AspectRatio } from '../../types'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
@@ -140,7 +140,15 @@ export function VideoEditor({
           {state.activeTool === 'text' && (
             <TextPanel annotations={state.textAnnotations} selectedId={state.selectedId}
               trimEnd={state.trimEnd} onUpdate={updateTextAnnotation}
-              onRemove={removeTextAnnotation} onSelect={setSelectedId} />
+              onRemove={removeTextAnnotation}
+              onSelect={(id) => {
+                setSelectedId(id)
+                // Seek to the annotation so the user immediately sees it on canvas
+                if (id) {
+                  const ann = state.textAnnotations.find(a => a.id === id)
+                  if (ann) seek(ann.startTime)
+                }
+              }} />
           )}
           {state.activeTool === 'canvas' && (
             <CanvasPanel canvas={state.canvasSettings} onChange={(c) => updateCanvasSettings(c)} />
@@ -214,7 +222,10 @@ export function VideoEditor({
             'relative max-w-full max-h-full',
             (state.activeTool === 'text' || state.activeTool === 'zoom') ? 'cursor-crosshair' : 'cursor-default'
           )}>
-            <canvas ref={canvasRef} width={1920} height={1080} onClick={handleCanvasClick}
+            <canvas ref={canvasRef}
+              width={canvasDimensions(state.canvasSettings.aspectRatio).W}
+              height={canvasDimensions(state.canvasSettings.aspectRatio).H}
+              onClick={handleCanvasClick}
               className="max-w-full max-h-full rounded-lg shadow-2xl shadow-black/60"
               style={{ maxHeight: 'calc(100vh - 260px)' }} />
           </div>
@@ -261,6 +272,15 @@ export function VideoEditor({
       </div>
     </div>
   )
+}
+
+function canvasDimensions(ar: AspectRatio): { W: number; H: number } {
+  switch (ar) {
+    case '4:3':  return { W: 1440, H: 1080 }
+    case '1:1':  return { W: 1080, H: 1080 }
+    case '9:16': return { W: 1080, H: 1920 }
+    default:     return { W: 1920, H: 1080 }  // 16:9 and fill
+  }
 }
 
 function fmtDuration(s: number): string {

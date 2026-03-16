@@ -25,6 +25,7 @@ declare global {
       onControlStatus:   (cb: (status: RecordingStatus) => void) => void
       onRemoteSetSource: (cb: (source: unknown) => void) => void
       onRemoteRegionMode: (cb: () => void) => void
+      showMainWindow: () => void
       // Region picker overlay
       openRegionPicker: (bounds: { x: number; y: number; width: number; height: number }) => Promise<boolean>
       sendRegionPickerResult: (result: { x: number; y: number; w: number; h: number } | null) => void

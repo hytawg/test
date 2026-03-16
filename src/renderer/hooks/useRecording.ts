@@ -146,6 +146,15 @@ export function useRecording(): UseRecordingReturn {
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
 
       recorder.onstop = () => {
+        // Notify the main process *synchronously* (before React re-renders) so
+        // MouseTracker is stopped and logs are saved before the async
+        // getFocusLog / getClickLog / getKeyLog IPC calls fire in
+        // handleRecordingComplete. React 18 batches the two setState calls below
+        // into a single render pass (skipping 'processing'), so we can't rely on
+        // the RecordingBar status-broadcast effect to trigger this in time.
+        window.electronAPI?.sendRecordingStatus({
+          state: 'processing', duration: durationRef.current, countdown: 0, sourceName: ''
+        })
         setRecordingState('processing')
         clearTimer()
         const blob = new Blob(chunksRef.current, { type: mimeType })

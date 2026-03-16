@@ -157,7 +157,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       ctx.save()
       ctx.shadowColor = `rgba(0,0,0,${alpha})`
       ctx.shadowBlur = 30 + cs.shadowIntensity / 5
-      ctx.shadowOffsetY = 6
+      ctx.shadowOffsetY = 0
       ctx.fillStyle = 'rgba(0,0,0,0.001)'
       roundedRectPath(ctx, vdx, vdy, vdw, vdh, r)
       ctx.fill()
@@ -294,7 +294,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       if (s.zoomRegions.some(r => startTime < r.endTime && endTime > r.startTime)) return s
       const clampedEnd = Math.min(endTime, s.trimEnd)
       if (clampedEnd <= startTime + 0.2) return s
-      const region: ZoomRegion = { id: nanoid(), startTime, endTime: clampedEnd, x, y, scale: 1.5, easing: 'ease-in-out' }
+      const region: ZoomRegion = { id: nanoid(), startTime, endTime: clampedEnd, x, y, scale: 1.5, easing: 'ease-in-out', easingDuration: 0.4 }
       return { ...s, zoomRegions: [...s.zoomRegions, region].sort((a, b) => a.startTime - b.startTime), selectedId: region.id }
     })
   }
@@ -623,7 +623,7 @@ function computeZoomCrop(regions: ZoomRegion[], time: number, videoW: number, vi
   if (!active) return full
 
   const dur = active.endTime - active.startTime
-  const ramp = Math.min(0.4, dur / 4)
+  const ramp = Math.min(active.easingDuration ?? 0.4, dur / 2)
   const t = time - active.startTime
   let zoom: number
 
