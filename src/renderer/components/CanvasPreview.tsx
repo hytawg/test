@@ -29,6 +29,16 @@ function aspectRatioCSS(ar: CanvasSettings['aspectRatio']): string {
   }
 }
 
+// Canvas-space pixel dimensions — must match VideoEditor.tsx:canvasDimensions
+function canvasDims(ar: CanvasSettings['aspectRatio']): { W: number; H: number } {
+  switch (ar) {
+    case '4:3':  return { W: 1440, H: 1080 }
+    case '1:1':  return { W: 1080, H: 1080 }
+    case '9:16': return { W: 1080, H: 1920 }
+    default:     return { W: 1920, H: 1080 }
+  }
+}
+
 function cameraPositionStyle(
   pos: CameraSettings['position'],
   size: number
@@ -53,6 +63,7 @@ function cameraClipPath(shape: CameraSettings['shape']): string {
 
 export function CanvasPreview({ canvas, camera, source, screenStream, cameraStream, captureRegion, onRegionChange, externalPickerActive, onExternalPickerDone, onStartRegionPicker }: Props) {
   const screenVideoRef = useRef<HTMLVideoElement>(null)
+  const blurVideoRef   = useRef<HTMLVideoElement>(null)  // blur background layer
   const cameraVideoRef = useRef<HTMLVideoElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
 
@@ -70,16 +81,26 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
     }
   }, [externalPickerActive, source, onExternalPickerDone])
 
-  // Attach screen stream
+  // Attach screen stream to both the main and blur video elements
   useEffect(() => {
-    if (!screenVideoRef.current) return
-    if (screenStream) {
-      screenVideoRef.current.srcObject = screenStream
-      screenVideoRef.current.play().catch(() => {})
-    } else {
-      screenVideoRef.current.srcObject = null
+    for (const ref of [screenVideoRef, blurVideoRef]) {
+      if (!ref.current) continue
+      if (screenStream) {
+        ref.current.srcObject = screenStream
+        ref.current.play().catch(() => {})
+      } else {
+        ref.current.srcObject = null
+      }
     }
   }, [screenStream])
+
+  // Re-attach blur video when background type switches to 'blur'
+  useEffect(() => {
+    if (canvas.backgroundType === 'blur' && blurVideoRef.current && screenStream) {
+      blurVideoRef.current.srcObject = screenStream
+      blurVideoRef.current.play().catch(() => {})
+    }
+  }, [canvas.backgroundType, screenStream])
 
   // Attach camera stream
   useEffect(() => {
@@ -100,8 +121,8 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
       case 'image':     return canvas.backgroundImageDataUrl
         ? { backgroundImage: `url(${canvas.backgroundImageDataUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
         : { background: '#1a1a1a' }
-      case 'blur':      return { background: '#1a1a1a', backdropFilter: 'blur(40px)' }
-      case 'none':      return { background: 'transparent' }
+      case 'blur':      return { background: '#000' }  // actual blur comes from blurVideoRef
+      case 'none':      return { background: '#000' }
     }
   }, [canvas.backgroundType, canvas.backgroundGradient, canvas.backgroundWallpaper, canvas.backgroundColor, canvas.backgroundImageDataUrl])
 
@@ -112,6 +133,12 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
       boxShadow: `0 0 ${canvas.padding * 1.2}px rgba(0,0,0,${alpha})`
     }
   }, [canvas.shadowEnabled, canvas.shadowIntensity, canvas.padding])
+
+  // Convert canvas-space padding (px) → percentage of canvas dimensions.
+  // This makes the preview match the export exactly regardless of preview size.
+  const { W: cW, H: cH } = canvasDims(canvas.aspectRatio)
+  const padXPct = (canvas.padding / cW) * 100
+  const padYPct = (canvas.padding / cH) * 100
 
   const camPositionStyle = cameraPositionStyle(camera.position, camera.size)
   const camClip = cameraClipPath(camera.shape)
@@ -222,33 +249,44 @@ export function CanvasPreview({ canvas, camera, source, screenStream, cameraStre
           className="absolute inset-0 rounded-2xl overflow-hidden"
           style={background}
         >
-          {/* Inner screen frame */}
-          {canvas.backgroundType !== 'none' ? (
-            <div
-              className="absolute overflow-hidden"
+          {/* Blur background: actual video blurred & scaled to fill the canvas */}
+          {canvas.backgroundType === 'blur' && (
+            <video
+              ref={blurVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 w-full h-full object-cover"
               style={{
-                top: canvas.padding,
-                right: canvas.padding,
-                bottom: canvas.padding,
-                left: canvas.padding,
-                borderRadius: canvas.cornerRadius,
-                ...shadowStyle
+                filter: 'blur(40px) brightness(0.55) saturate(1.3)',
+                transform: 'scale(1.08)',
+                transformOrigin: 'center'
               }}
-            >
-              <ScreenContent
-                source={source}
-                screenStream={screenStream}
-                videoRef={screenVideoRef}
-              />
-            </div>
-          ) : (
+            />
+          )}
+
+          {/* Inner screen frame
+              - Inset expressed as % of canvas dimensions so the preview
+                matches the export pixel-for-pixel at any display scale.
+              - flex centering replicates x=(W-w)/2 : y=(H-h)/2 from renderFrame.
+              - Video uses object-contain (not cover) — no cropping, same as export. */}
+          <div
+            className="absolute flex items-center justify-center overflow-hidden"
+            style={{
+              top: `${padYPct}%`,
+              right: `${padXPct}%`,
+              bottom: `${padYPct}%`,
+              left: `${padXPct}%`,
+              borderRadius: canvas.cornerRadius,
+              ...shadowStyle
+            }}
+          >
             <ScreenContent
               source={source}
               screenStream={screenStream}
               videoRef={screenVideoRef}
-              style={{ position: 'absolute', inset: 0 }}
             />
-          )}
+          </div>
 
           {/* Camera overlay */}
           {camera.enabled && (
@@ -372,23 +410,24 @@ function ScreenContent({
 }) {
   return (
     <div
-      className="w-full h-full bg-surface-900"
+      className="w-full h-full flex items-center justify-center"
       style={style}
     >
       {screenStream ? (
+        // max-w/h-full + no object-fit override → browser uses intrinsic AR,
+        // contained within the padded frame — matches export renderFrame behavior.
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className="w-full h-full object-cover"
+          className="max-w-full max-h-full block"
         />
       ) : source ? (
-        // Show thumbnail as placeholder
         <img
           src={source.thumbnailDataURL}
           alt={source.name}
-          className="w-full h-full object-cover opacity-60"
+          className="max-w-full max-h-full opacity-60"
         />
       ) : null}
     </div>
