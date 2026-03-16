@@ -22,6 +22,7 @@ import { VideoEditor } from './components/editor/VideoEditor'
 import { ControlBar } from './components/ControlBar'
 import { RegionPickerOverlay } from './components/RegionPickerOverlay'
 import { FilesPanel } from './components/FilesPanel'
+import { detectBrowserType, calcBrowserContentRegion } from './utils/browserChrome'
 
 type AppMode = 'capture' | 'editing'
 
@@ -122,6 +123,41 @@ export default function App() {
   // Keep refs in sync so callbacks always read latest values
   useEffect(() => { captureRegionRef.current = captureRegion }, [captureRegion])
 
+  // ── Phase 2: stream-based browser crop ──────────────────────────────────────
+  // When the capture stream becomes available we know the exact physical pixel
+  // resolution of the window.  For recognised browsers we compute a precise
+  // CaptureRegion using the constant toolbar-height table instead of relying on
+  // the thumbnail-variance estimate from Phase 1.
+  //
+  // We only fire this logic when screenStream first appears (transitions from
+  // null → MediaStream).  We do NOT override a region that the user has set
+  // manually via the region picker (that region is intentional).
+  useEffect(() => {
+    if (!screenStream || !source || !source.id.startsWith('window:')) return
+
+    const track = screenStream.getVideoTracks()[0]
+    if (!track) return
+    const { width, height } = track.getSettings()
+    if (!width || !height) return
+
+    // Not a recognised browser → keep whatever Phase 1 produced
+    if (detectBrowserType(source.name) === 'unknown') return
+
+    ;(async () => {
+      // Resolve display scale factor for this source
+      const displays = await window.electronAPI?.getDisplayInfo() ?? []
+      const display =
+        displays.find(d => d.id.toString() === source.display_id) ??
+        displays.find(d => d.isPrimary) ??
+        displays[0]
+      const scaleFactor = display?.scaleFactor ?? 1
+
+      // Calculate content region: (x, y, width, height) in normalised 0-1 coords
+      const region = calcBrowserContentRegion(source.name, width, height, scaleFactor)
+      if (region) setCaptureRegion(region)
+    })()
+  }, [screenStream, source])
+
   const sourceRef = useRef<CaptureSource | null>(null)
   useEffect(() => { sourceRef.current = source }, [source])
 
@@ -142,10 +178,19 @@ export default function App() {
     setSource(src)
     setActivePanel('canvas')
 
-    // For window sources, auto-detect and crop out the title bar
     if (src.id.startsWith('window:') && src.thumbnailDataURL) {
-      const region = await detectWindowContentRegion(src.thumbnailDataURL)
-      setCaptureRegion(region)
+      // Phase 1 – no stream yet, use thumbnail variance as initial estimate.
+      // If the source is a recognised browser, skip the slower thumbnail scan:
+      // Phase 2 (stream-based) will produce a pixel-accurate result shortly
+      // after recording starts.  For unknown apps, thumbnail analysis is the
+      // only option.
+      if (detectBrowserType(src.name) !== 'unknown') {
+        // Known browser: clear any stale region so Phase 2 sets it fresh
+        setCaptureRegion(null)
+      } else {
+        const region = await detectWindowContentRegion(src.thumbnailDataURL)
+        setCaptureRegion(region)
+      }
     } else {
       // For full-screen sources, clear any previous window crop
       setCaptureRegion(prev => (prev && src.id.startsWith('screen:') ? null : prev))
@@ -159,8 +204,12 @@ export default function App() {
       setSource(src)
       setActivePanel('canvas')
       if (src.id.startsWith('window:') && src.thumbnailDataURL) {
-        const region = await detectWindowContentRegion(src.thumbnailDataURL)
-        setCaptureRegion(region)
+        if (detectBrowserType(src.name) !== 'unknown') {
+          setCaptureRegion(null)  // Phase 2 will refine once stream is live
+        } else {
+          const region = await detectWindowContentRegion(src.thumbnailDataURL)
+          setCaptureRegion(region)
+        }
       } else if (src.id.startsWith('screen:')) {
         setCaptureRegion(null)
       }
