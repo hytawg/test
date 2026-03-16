@@ -1,10 +1,11 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, dialog, screen, systemPreferences } from 'electron'
 import { join, basename } from 'path'
-import { writeFile, readFile, mkdir } from 'fs/promises'
+import { writeFile, readFile, mkdir, unlink } from 'fs/promises'
 import { existsSync } from 'fs'
 import { is } from '@electron-toolkit/utils'
 import { MouseTracker, FocusLogRecord, ClickEventRecord, KeyEventRecord } from './mouseTracker'
 import Store from 'electron-store'
+import { findFfmpegBin, buildFfmpegArgs, runFfmpeg, ScreenStudioOptions } from './ffmpegProcessor'
 
 // ── Persistent storage ────────────────────────────────────────────────────────
 
@@ -283,6 +284,73 @@ ipcMain.handle('add-recording-history', (_event, entry: RecordingHistoryEntry) =
 ipcMain.handle('remove-recording-history', (_event, id: string) => {
   const history = store.get('recordingHistory', [])
   store.set('recordingHistory', history.filter((e) => e.id !== id))
+})
+
+// ── IPC: FFmpeg Screen Studio export ──────────────────────────────────────────
+
+/** Check whether a usable FFmpeg binary exists. Returns the path or null. */
+ipcMain.handle('ffmpeg-find', () => {
+  const bin = findFfmpegBin()
+  if (!bin || bin === 'ffmpeg') {
+    // Verify the bare "ffmpeg" name is actually on PATH by checking common
+    // locations — findFfmpegBin() returns 'ffmpeg' as a last resort even when
+    // the binary may not be present.
+    const pathCandidates = [
+      '/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg',
+      'C:\\ffmpeg\\bin\\ffmpeg.exe',
+    ]
+    const found = pathCandidates.find(p => existsSync(p))
+    return found ?? null   // null = not found
+  }
+  return bin
+})
+
+/**
+ * Run the Screen Studio FFmpeg pipeline on a raw video blob.
+ * Workflow:
+ *   1. Write the incoming ArrayBuffer to a temp .mp4 in the OS temp dir
+ *   2. Open a save-file dialog for the output path
+ *   3. Spawn FFmpeg; stream progress back via 'ffmpeg-progress' IPC event
+ *   4. Delete the temp file and return the result
+ */
+ipcMain.handle('ffmpeg-process', async (
+  event,
+  blobBuffer: ArrayBuffer,
+  opts: Omit<ScreenStudioOptions, 'inputPath' | 'outputPath'>,
+) => {
+  const bin = findFfmpegBin()
+  if (!bin) return { success: false, error: 'FFmpeg binary not found' }
+
+  // ── Prompt user for output path ────────────────────────────────────────────
+  const saveResult = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Save Screen Studio Export',
+    defaultPath: `ScreenStudio-Export-${Date.now()}.mp4`,
+    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
+  })
+  if (saveResult.canceled || !saveResult.filePath) return { success: false, canceled: true }
+  const outputPath = saveResult.filePath
+
+  // ── Write raw recording to a temp file ────────────────────────────────────
+  const tmpPath = join(app.getPath('temp'), `ss_raw_${Date.now()}.mp4`)
+  await writeFile(tmpPath, Buffer.from(blobBuffer))
+
+  const args = buildFfmpegArgs({ inputPath: tmpPath, outputPath, ...opts })
+
+  return new Promise<{ success: boolean; error?: string; filePath?: string }>((resolve) => {
+    const cancel = runFfmpeg(bin, args, {
+      onProgress: (pct) => {
+        if (!event.sender.isDestroyed()) event.sender.send('ffmpeg-progress', pct)
+      },
+      onDone: async (result) => {
+        // Clean up temp file regardless of success
+        unlink(tmpPath).catch(() => {})
+        if (result.success) resolve({ success: true, filePath: outputPath })
+        else resolve(result)
+      },
+    })
+    // Kill FFmpeg if the renderer is destroyed before completion
+    event.sender.once('destroyed', cancel)
+  })
 })
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────

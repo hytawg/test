@@ -68,6 +68,23 @@ const api = {
   // Main renderer → ask main process to show/focus the main window
   showMainWindow: () => { ipcRenderer.send('control:command', 'show-main') },
 
+  // FFmpeg Screen Studio export
+  ffmpegFind: (): Promise<string | null> =>
+    ipcRenderer.invoke('ffmpeg-find'),
+  ffmpegProcess: (
+    blobBuffer: ArrayBuffer,
+    opts: {
+      canvasWidth?: number; canvasHeight?: number
+      cropTopPx?: number; scalePct?: number
+      cornerRadius?: number; backgroundColor?: string; fps?: number
+    },
+  ): Promise<{ success: boolean; error?: string; filePath?: string; canceled?: boolean }> =>
+    ipcRenderer.invoke('ffmpeg-process', blobBuffer, opts),
+  onFfmpegProgress: (cb: (pct: number) => void) => {
+    ipcRenderer.removeAllListeners('ffmpeg-progress')
+    ipcRenderer.on('ffmpeg-progress', (_e, pct) => cb(pct))
+  },
+
   // Video file import & recording history
   openFileByPath: (filePath: string) =>
     ipcRenderer.invoke('open-file-by-path', filePath),

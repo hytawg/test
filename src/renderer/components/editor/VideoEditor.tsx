@@ -9,6 +9,7 @@ import { TextPanel } from './TextPanel'
 import { SpeedPanel } from './SpeedPanel'
 import { OverlayPanel } from './OverlayPanel'
 import { CanvasPanel } from '../CanvasPanel'
+import { FfmpegExportButton } from './FfmpegExportButton'
 import clsx from 'clsx'
 
 type Props = {
@@ -170,7 +171,8 @@ export function VideoEditor({
         </div>
 
         {/* Export */}
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-white/5 flex flex-col gap-1">
+          {/* WebCodecs export (existing) */}
           <button onClick={handleExport} disabled={exporting}
             className={clsx(
               'w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all',
@@ -186,6 +188,9 @@ export function VideoEditor({
                 style={{ width: `${exportProgress}%` }} />
             </div>
           )}
+
+          {/* FFmpeg Screen Studio export */}
+          <FfmpegExportButton state={state} videoRef={videoRef} />
         </div>
       </div>
 
