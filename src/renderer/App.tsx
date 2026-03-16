@@ -97,15 +97,15 @@ async function detectWindowContentRegion(thumbnailDataURL: string): Promise<Capt
   })
 }
 
+// Top-level router — keeps conditional returns BEFORE any hook calls so the
+// Rules of Hooks are never violated regardless of which branch is taken.
 export default function App() {
-  // Control bar runs in a separate BrowserWindow loaded with #control-bar hash
-  if (window.location.hash === '#control-bar') {
-    return <ControlBar />
-  }
-  // Region picker overlay runs in a separate BrowserWindow
-  if (window.location.hash === '#region-picker') {
-    return <RegionPickerOverlay />
-  }
+  if (window.location.hash === '#control-bar') return <ControlBar />
+  if (window.location.hash === '#region-picker') return <RegionPickerOverlay />
+  return <MainApp />
+}
+
+function MainApp() {
   const [mode, setMode] = useState<AppMode>('capture')
   const [editState, setEditState] = useState<EditState | null>(null)
 
