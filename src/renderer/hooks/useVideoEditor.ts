@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment, OverlaySettings } from '../types'
+import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment } from '../types'
 import { nanoid } from '../utils/nanoid'
 
 type UseVideoEditorReturn = {
@@ -35,7 +35,6 @@ type UseVideoEditorReturn = {
   exporting: boolean
   exportProgress: number
   setAutoZoomEnabled: (enabled: boolean) => void
-  updateOverlaySettings: (patch: Partial<OverlaySettings>) => void
 }
 
 // ── Done tone ─────────────────────────────────────────────────────────────────
@@ -178,34 +177,6 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     // 5 — Text annotations (positioned over full canvas)
     const activeTexts = st.textAnnotations.filter(a => a.startTime <= time && a.endTime >= time)
     for (const ann of activeTexts) drawText(ctx, ann, W, H)
-
-    // 6 — Cursor + overlay effects (from focus log)
-    if (st.focusLog && st.focusLog.length > 0) {
-      const ov = st.overlaySettings
-      const rec = interpolateFocusLog(st.focusLog, time, ov.cursorSmoothEnabled)
-      if (rec.mouseNormX !== null && rec.mouseNormY !== null) {
-        const cursorVX = rec.mouseNormX * video.videoWidth
-        const cursorVY = rec.mouseNormY * video.videoHeight
-
-        // 6a — Spotlight mode (drawn before cursor so cursor appears on top)
-        if (ov.spotlightEnabled) {
-          drawSpotlight(ctx, cursorVX, cursorVY, sx, sy, sw, sh, vdx, vdy, vdw, vdh, ov.spotlightOpacity)
-        }
-
-        // 6b — Click ripple effects
-        if (ov.clickEffectEnabled && st.clickEvents.length > 0) {
-          drawClickEffects(ctx, st.clickEvents, time, video.videoWidth, video.videoHeight, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
-        }
-
-        // 6c — Cursor dot
-        drawCursorOverlay(ctx, cursorVX, cursorVY, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
-      }
-    }
-
-    // 7 — Keyboard badge (independent of cursor; drawn over everything)
-    if (st.overlaySettings.keyboardDisplayEnabled && st.keyEvents.length > 0) {
-      drawKeyBadge(ctx, st.keyEvents, time, W, H)
-    }
   }, [])
 
   // ── Playback ──────────────────────────────────────────────────────────────
@@ -274,16 +245,13 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   useEffect(() => {
     if (!playing) renderFrame(currentTime)
-  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, state.autoZoomEnabled, state.focusLog, state.overlaySettings, playing, currentTime, renderFrame])
+  }, [state.zoomRegions, state.textAnnotations, state.canvasSettings, state.captureRegion, state.autoZoomEnabled, state.focusLog, playing, currentTime, renderFrame])
 
   // ── Edit actions ──────────────────────────────────────────────────────────
 
   const setTrimStart = useCallback((t: number) => setState(s => ({ ...s, trimStart: Math.min(t, s.trimEnd - 0.1) })), [])
   const setTrimEnd   = useCallback((t: number) => setState(s => ({ ...s, trimEnd:   Math.max(t, s.trimStart + 0.1) })), [])
   const setAutoZoomEnabled = useCallback((enabled: boolean) => setState(s => ({ ...s, autoZoomEnabled: enabled })), [])
-  const updateOverlaySettings = useCallback((patch: Partial<OverlaySettings>) => {
-    setState(s => ({ ...s, overlaySettings: { ...s.overlaySettings, ...patch } }))
-  }, [])
   const setActiveTool = useCallback((tool: EditState['activeTool']) => setState(s => ({ ...s, activeTool: tool })), [])
   const setSelectedId = useCallback((id: string | null) => setState(s => ({ ...s, selectedId: id })), [])
 
@@ -423,7 +391,7 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
     addCutSegment, updateCutSegment, removeCutSegment,
     exportVideo, exporting, exportProgress,
-    setAutoZoomEnabled, updateOverlaySettings
+    setAutoZoomEnabled
   }
 }
 

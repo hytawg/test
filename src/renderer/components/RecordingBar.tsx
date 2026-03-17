@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Circle, Square, Pause, Play, X } from 'lucide-react'
 import clsx from 'clsx'
-import type { CaptureSource, CameraSettings, AudioSettings, RecordingSettings } from '../types'
+import type { CaptureSource, CameraSettings, AudioSettings, RecordingSettings, CaptureRegion } from '../types'
 import { useRecording } from '../hooks/useRecording'
 
 type Props = {
@@ -9,8 +9,9 @@ type Props = {
   camera: CameraSettings
   audio: AudioSettings
   recordingSettings: RecordingSettings
+  captureRegion: CaptureRegion | null
   onStreamsChange: (screen: MediaStream | null, camera: MediaStream | null) => void
-  onRecordingComplete: (blob: Blob, durationSec: number) => void
+  onRecordingComplete: (blob: Blob, durationSec: number, captureRegionBaked: boolean) => void
 }
 
 function playStartTone() {
@@ -41,7 +42,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function RecordingBar({
-  source, camera, audio, recordingSettings, onStreamsChange, onRecordingComplete
+  source, camera, audio, recordingSettings, captureRegion, onStreamsChange, onRecordingComplete
 }: Props) {
   const {
     recordingState, duration, countdown,
@@ -54,10 +55,12 @@ export function RecordingBar({
   const cameraRef = useRef(camera)
   const audioRef = useRef(audio)
   const settingsRef = useRef(recordingSettings)
+  const captureRegionRef = useRef(captureRegion)
   const stateRef = useRef(recordingState)
   sourceRef.current = source
   cameraRef.current = camera
   audioRef.current = audio
+  captureRegionRef.current = captureRegion
   settingsRef.current = recordingSettings
   stateRef.current = recordingState
 
@@ -71,7 +74,7 @@ export function RecordingBar({
   useEffect(() => {
     window.electronAPI?.onRemoteStart(() => {
       if (sourceRef.current && stateRef.current === 'idle') {
-        startRecording(sourceRef.current, cameraRef.current, audioRef.current, settingsRef.current)
+        startRecording(sourceRef.current, cameraRef.current, audioRef.current, settingsRef.current, captureRegionRef.current)
       }
     })
     window.electronAPI?.onRemoteStop(() => {
@@ -104,7 +107,7 @@ export function RecordingBar({
 
   const handleStart = () => {
     if (!source) return
-    startRecording(source, camera, audio, recordingSettings)
+    startRecording(source, camera, audio, recordingSettings, captureRegion)
   }
 
   const isIdle       = recordingState === 'idle'

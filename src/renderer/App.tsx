@@ -4,7 +4,6 @@ import {
   DEFAULT_CAMERA,
   DEFAULT_AUDIO,
   DEFAULT_RECORDING,
-  DEFAULT_OVERLAY,
 } from './types'
 import type {
   CanvasSettings, CameraSettings, AudioSettings, RecordingSettings,
@@ -302,14 +301,13 @@ function MainApp() {
       autoZoomEnabled: false,
       clickEvents: [],
       keyEvents: [],
-      overlaySettings: { ...DEFAULT_OVERLAY },
     }
     setEditState(state)
     setMode('editing')
   }, [canvas])
 
   // Called by RecordingBar when recording finishes → go to editor
-  const handleRecordingComplete = useCallback(async (blob: Blob, durationSec: number) => {
+  const handleRecordingComplete = useCallback(async (blob: Blob, durationSec: number, captureRegionBaked: boolean) => {
     // Fetch focus / click / key logs recorded by MouseTracker in main process
     const [focusLog, clickEvents, keyEvents] = await Promise.all([
       window.electronAPI?.getFocusLog() ?? Promise.resolve(null),
@@ -325,7 +323,9 @@ function MainApp() {
       textAnnotations: [],
       speedSegments: [],
       cutSegments: [],
-      captureRegion: captureRegionRef.current,
+      // If captureRegion was applied during canvas compositing (camera overlay baked),
+      // don't apply it again in the editor.
+      captureRegion: captureRegionBaked ? null : captureRegionRef.current,
       canvasSettings: canvas,
       activeTool: 'select',
       selectedId: null,
@@ -333,7 +333,6 @@ function MainApp() {
       autoZoomEnabled: false,
       clickEvents: clickEvents ?? [],
       keyEvents:   keyEvents ?? [],
-      overlaySettings: { ...DEFAULT_OVERLAY },
     }
     setEditState(state)
     setMode('editing')
@@ -414,6 +413,7 @@ function MainApp() {
           camera={camera}
           audio={audio}
           recordingSettings={recordingSettings}
+          captureRegion={captureRegion}
           onStreamsChange={handleStreamsChange}
           onRecordingComplete={handleRecordingComplete}
         />
