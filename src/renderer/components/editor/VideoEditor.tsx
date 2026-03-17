@@ -101,7 +101,21 @@ export function VideoEditor({
   }
 
   return (
-    <div className="flex h-screen bg-surface-950 text-white overflow-hidden select-none">
+    <div className="flex h-screen bg-surface-950 text-white overflow-hidden select-none relative">
+      {/* Exporting overlay — blocks all interaction, auto-navigates home when done */}
+      {exporting && (
+        <div className="absolute inset-0 bg-surface-950/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-5">
+          <Loader2 size={36} className="animate-spin text-white/40" />
+          <div className="text-center">
+            <p className="text-white/70 text-sm font-medium">Exporting…</p>
+            <p className="text-white/35 text-xs mt-1">{Math.round(exportProgress)}%</p>
+          </div>
+          <div className="w-56 h-1 bg-white/8 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300"
+              style={{ width: `${exportProgress}%` }} />
+          </div>
+        </div>
+      )}
       {/* Left toolbar */}
       <div className="w-[72px] flex flex-col items-center pt-10 pb-4 gap-2 bg-surface-950 border-r border-white/5">
         <button onClick={onBack}
@@ -217,7 +231,7 @@ export function VideoEditor({
             height={canvasDimensions(state.canvasSettings.aspectRatio).H}
             onClick={handleCanvasClick}
             className={clsx(
-              'max-w-full max-h-full rounded-lg shadow-2xl shadow-black/60',
+              'max-w-full max-h-full',
               (state.activeTool === 'text' || state.activeTool === 'zoom') ? 'cursor-crosshair' : 'cursor-default'
             )} />
         </div>
