@@ -212,17 +212,14 @@ export function VideoEditor({
 
           <video ref={videoRef} src={blobUrl ?? undefined} className="hidden" preload="auto" />
 
-          <div className={clsx(
-            'relative max-w-full max-h-full',
-            (state.activeTool === 'text' || state.activeTool === 'zoom') ? 'cursor-crosshair' : 'cursor-default'
-          )}>
-            <canvas ref={canvasRef}
-              width={canvasDimensions(state.canvasSettings.aspectRatio).W}
-              height={canvasDimensions(state.canvasSettings.aspectRatio).H}
-              onClick={handleCanvasClick}
-              className="max-w-full max-h-full rounded-lg shadow-2xl shadow-black/60"
-              style={{ maxHeight: 'calc(100vh - 260px)' }} />
-          </div>
+          <canvas ref={canvasRef}
+            width={canvasDimensions(state.canvasSettings.aspectRatio).W}
+            height={canvasDimensions(state.canvasSettings.aspectRatio).H}
+            onClick={handleCanvasClick}
+            className={clsx(
+              'max-w-full max-h-full rounded-lg shadow-2xl shadow-black/60',
+              (state.activeTool === 'text' || state.activeTool === 'zoom') ? 'cursor-crosshair' : 'cursor-default'
+            )} />
         </div>
 
         {/* Playback controls */}

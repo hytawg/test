@@ -68,6 +68,9 @@ export function FfmpegExportButton({ state, videoRef }: Props) {
 
   const isAvailable = ffmpegPath && ffmpegPath !== 'checking'
 
+  // Hide entirely when FFmpeg is not installed or still checking
+  if (!isAvailable) return null
+
   return (
     <div className="flex flex-col gap-2 mt-2">
       {/* Main action button */}
