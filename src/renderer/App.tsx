@@ -346,6 +346,7 @@ function MainApp() {
         exportQuality={recordingSettings.quality}
         exportFps={recordingSettings.fps}
         exportSaveLocation={recordingSettings.saveLocation}
+        onCanvasChange={(c) => setCanvas(c)}
         onBack={() => setMode('capture')}
         onExportDone={() => setMode('capture')}
       />

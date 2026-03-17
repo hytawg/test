@@ -72,6 +72,8 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   // Cache for background image (when backgroundType === 'image')
   const bgImageRef = useRef<HTMLImageElement | null>(null)
   const bgImageSrcRef = useRef<string | null>(null)
+  // Persistent offscreen canvas for high-quality rounded corner compositing
+  const tmpCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -98,12 +100,14 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     }
 
     // Apply capture region first (defines the "full source" viewport)
+    // Inset by 2px to eliminate 1-pixel artifact rows/columns at the crop boundary
     let vx0 = 0, vy0 = 0, vW = video.videoWidth, vH = video.videoHeight
     if (st.captureRegion) {
-      vx0 = st.captureRegion.x * video.videoWidth
-      vy0 = st.captureRegion.y * video.videoHeight
-      vW = st.captureRegion.w * video.videoWidth
-      vH = st.captureRegion.h * video.videoHeight
+      const inset = 2
+      vx0 = st.captureRegion.x * video.videoWidth + inset
+      vy0 = st.captureRegion.y * video.videoHeight + inset
+      vW = st.captureRegion.w * video.videoWidth - inset * 2
+      vH = st.captureRegion.h * video.videoHeight - inset * 2
     }
 
     // Auto-zoom: focusLog overrides both captureRegion and zoomRegions
@@ -152,27 +156,48 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
     }
     const vdx = (W - vdw) / 2
     const vdy = (H - vdh) / 2
-    const r = Math.min(cs.cornerRadius, Math.min(vdx, vdy))
+    // Clamp only to half the video dimensions (not to vdx/vdy) so corner
+    // radius works even when padding=0 (video touching canvas edges)
+    const r = Math.min(cs.cornerRadius, vdw / 2, vdh / 2)
 
-    // 3 — Drop shadow
-    if (cs.shadowEnabled && r > 0) {
-      const alpha = (cs.shadowIntensity / 100) * 0.7
-      ctx.save()
-      ctx.shadowColor = `rgba(0,0,0,${alpha})`
-      ctx.shadowBlur = 30 + cs.shadowIntensity / 5
-      ctx.shadowOffsetY = 0
-      ctx.fillStyle = 'rgba(0,0,0,0.001)'
-      roundedRectPath(ctx, vdx, vdy, vdw, vdh, r)
-      ctx.fill()
-      ctx.restore()
+    // 3+4 — High-quality anti-aliased rounded corners + drop shadow
+    // Composite the video onto a persistent offscreen canvas, apply rounded
+    // mask via destination-in (gives smooth sub-pixel alpha at corners), then
+    // draw onto the main canvas — optionally with a ctx.shadow for depth.
+    if (!tmpCanvasRef.current) tmpCanvasRef.current = document.createElement('canvas')
+    const tmp = tmpCanvasRef.current
+    const tw = Math.round(vdw), th = Math.round(vdh)
+    if (tmp.width !== tw || tmp.height !== th) { tmp.width = tw; tmp.height = th }
+
+    const tmpCtx = tmp.getContext('2d')!
+    tmpCtx.clearRect(0, 0, tw, th)
+    tmpCtx.drawImage(video, sx, sy, sw, sh, 0, 0, tw, th)
+
+    // Apply rounded mask — destination-in preserves only the pixels inside the
+    // path, giving hardware-accelerated anti-aliased corner blending
+    if (r > 0) {
+      tmpCtx.globalCompositeOperation = 'destination-in'
+      // 0.5px inset keeps the mask strictly inside the pixel grid, avoiding
+      // a 1-pixel aliased edge artifact at the boundary
+      roundedRectPath(tmpCtx, 0.5, 0.5, tw - 1, th - 1, r)
+      tmpCtx.fillStyle = '#fff'
+      tmpCtx.fill()
+      tmpCtx.globalCompositeOperation = 'source-over'
     }
 
-    // 4 — Video (clipped to rounded rect)
-    ctx.save()
-    roundedRectPath(ctx, vdx, vdy, vdw, vdh, r)
-    ctx.clip()
-    ctx.drawImage(video, sx, sy, sw, sh, vdx, vdy, vdw, vdh)
-    ctx.restore()
+    // Pass 1 — cast shadow from the alpha-masked video shape
+    if (cs.shadowEnabled) {
+      const alpha = (cs.shadowIntensity / 100) * 0.65
+      ctx.save()
+      ctx.shadowColor = `rgba(0,0,0,${alpha})`
+      ctx.shadowBlur = 16 + cs.shadowIntensity * 0.4
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 4 + cs.shadowIntensity * 0.05
+      ctx.drawImage(tmp, vdx, vdy)
+      ctx.restore()
+    }
+    // Pass 2 — draw video crisply on top of shadow
+    ctx.drawImage(tmp, vdx, vdy)
 
     // 5 — Text annotations (positioned over full canvas)
     const activeTexts = st.textAnnotations.filter(a => a.startTime <= time && a.endTime >= time)
@@ -689,12 +714,18 @@ function parseStops(s: string): { pos: number; color: string }[] {
 function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   const clampedR = Math.min(r, w / 2, h / 2)
   ctx.beginPath()
-  ctx.moveTo(x + clampedR, y)
-  ctx.lineTo(x + w - clampedR, y); ctx.arcTo(x + w, y, x + w, y + clampedR, clampedR)
-  ctx.lineTo(x + w, y + h - clampedR); ctx.arcTo(x + w, y + h, x + w - clampedR, y + h, clampedR)
-  ctx.lineTo(x + clampedR, y + h); ctx.arcTo(x, y + h, x, y + h - clampedR, clampedR)
-  ctx.lineTo(x, y + clampedR); ctx.arcTo(x, y, x + clampedR, y, clampedR)
-  ctx.closePath()
+  // Use native roundRect (Chromium 99+) for hardware-accelerated anti-aliasing
+  if (typeof (ctx as unknown as { roundRect?: unknown }).roundRect === 'function') {
+    (ctx as unknown as { roundRect: (x: number, y: number, w: number, h: number, r: number) => void })
+      .roundRect(x, y, w, h, clampedR)
+  } else {
+    ctx.moveTo(x + clampedR, y)
+    ctx.lineTo(x + w - clampedR, y); ctx.arcTo(x + w, y, x + w, y + clampedR, clampedR)
+    ctx.lineTo(x + w, y + h - clampedR); ctx.arcTo(x + w, y + h, x + w - clampedR, y + h, clampedR)
+    ctx.lineTo(x + clampedR, y + h); ctx.arcTo(x, y + h, x, y + h - clampedR, clampedR)
+    ctx.lineTo(x, y + clampedR); ctx.arcTo(x, y, x + clampedR, y, clampedR)
+    ctx.closePath()
+  }
 }
 
 /** Draw a cursor dot overlay in canvas coordinates */

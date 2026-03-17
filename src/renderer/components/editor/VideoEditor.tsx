@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap } from 'lucide-react'
-import type { CutSegment, AspectRatio } from '../../types'
+import type { CutSegment, AspectRatio, CanvasSettings } from '../../types'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
@@ -17,12 +17,13 @@ type Props = {
   exportQuality: string
   exportFps: number
   exportSaveLocation: string
+  onCanvasChange: (canvas: CanvasSettings) => void
   onBack: () => void
   onExportDone: () => void
 }
 
 export function VideoEditor({
-  initialState, exportFormat, exportQuality, exportFps, exportSaveLocation, onBack, onExportDone
+  initialState, exportFormat, exportQuality, exportFps, exportSaveLocation, onCanvasChange, onBack, onExportDone
 }: Props) {
   const {
     state, videoRef, canvasRef, videoLoaded,
@@ -164,7 +165,7 @@ export function VideoEditor({
               }} />
           )}
           {state.activeTool === 'canvas' && (
-            <CanvasPanel canvas={state.canvasSettings} onChange={(c) => updateCanvasSettings(c)} />
+            <CanvasPanel canvas={state.canvasSettings} onChange={(c) => { updateCanvasSettings(c); onCanvasChange(c) }} />
           )}
           {state.activeTool === 'speed' && (
             <SpeedPanel segments={state.speedSegments} selectedId={state.selectedId}

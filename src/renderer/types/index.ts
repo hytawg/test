@@ -146,11 +146,11 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
 ]
 
 export const DEFAULT_CANVAS: CanvasSettings = {
-  padding: 0,
-  cornerRadius: 0,
-  shadowEnabled: false,
-  shadowIntensity: 60,
-  backgroundType: 'none',
+  padding: 80,
+  cornerRadius: 16,
+  shadowEnabled: true,
+  shadowIntensity: 40,
+  backgroundType: 'gradient',
   backgroundGradient: GRADIENT_PRESETS[0].value,
   backgroundColor: '#1a1a2e',
   backgroundWallpaper: WALLPAPER_PRESETS[0].css,
