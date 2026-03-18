@@ -1,0 +1,101 @@
+import { contextBridge, ipcRenderer } from 'electron'
+
+const api = {
+  getSources: () => ipcRenderer.invoke('get-sources'),
+  saveRecording: (buffer: ArrayBuffer, format: string) =>
+    ipcRenderer.invoke('save-recording', buffer, format),
+  saveToDownloads: (buffer: ArrayBuffer, format: string) =>
+    ipcRenderer.invoke('save-to-downloads', buffer, format),
+  checkScreenPermission: (): Promise<string> => ipcRenderer.invoke('check-screen-permission'),
+  getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
+
+  // Main renderer → main process: report recording status
+  sendRecordingStatus: (status: { state: string; duration: number; countdown: number; sourceName: string }) => {
+    ipcRenderer.send('recording:status', status)
+  },
+
+  // Main renderer → listen for commands from control bar (each channel has at most one listener)
+  onRemoteStart:  (cb: () => void) => { ipcRenderer.removeAllListeners('remote:start');  ipcRenderer.on('remote:start',  () => cb()) },
+  onRemoteStop:   (cb: () => void) => { ipcRenderer.removeAllListeners('remote:stop');   ipcRenderer.on('remote:stop',   () => cb()) },
+  onRemotePause:  (cb: () => void) => { ipcRenderer.removeAllListeners('remote:pause');  ipcRenderer.on('remote:pause',  () => cb()) },
+  onRemoteResume: (cb: () => void) => { ipcRenderer.removeAllListeners('remote:resume'); ipcRenderer.on('remote:resume', () => cb()) },
+
+  // Control bar → main process: send a command
+  controlCommand: (cmd: string) => { ipcRenderer.send('control:command', cmd) },
+
+  // Control bar → select a source (relayed to main renderer)
+  setSource: (source: unknown) => { ipcRenderer.send('control:set-source', source) },
+
+  // Control bar → resize its own window
+  resizeControlBar: (height: number) => { ipcRenderer.send('control:resize', height) },
+
+  // Control bar → listen for status broadcasts from main process
+  onControlStatus: (cb: (status: { state: string; duration: number; countdown: number; sourceName: string }) => void) => {
+    ipcRenderer.removeAllListeners('control:status')
+    ipcRenderer.on('control:status', (_event, status) => cb(status))
+  },
+
+  // Main renderer → listen for source set from control bar
+  onRemoteSetSource: (cb: (source: unknown) => void) => {
+    ipcRenderer.removeAllListeners('remote:set-source')
+    ipcRenderer.on('remote:set-source', (_event, source) => cb(source))
+  },
+
+  // Main renderer → listen for region-picker activation from control bar
+  onRemoteRegionMode: (cb: () => void) => {
+    ipcRenderer.removeAllListeners('remote:region-mode')
+    ipcRenderer.on('remote:region-mode', () => cb())
+  },
+
+  // Region picker overlay window
+  openRegionPicker: (bounds: { x: number; y: number; width: number; height: number }) =>
+    ipcRenderer.invoke('open-region-picker', bounds),
+
+  sendRegionPickerResult: (result: { x: number; y: number; w: number; h: number } | null) => {
+    ipcRenderer.send('region-picker:result', result)
+  },
+
+  onRegionPickerResult: (cb: (result: { x: number; y: number; w: number; h: number } | null) => void) => {
+    ipcRenderer.removeAllListeners('remote:region-picker-result')
+    ipcRenderer.on('remote:region-picker-result', (_event, result) => cb(result))
+  },
+
+  // Focus / click / key logs from mouse tracker (collected during recording)
+  getFocusLog: () => ipcRenderer.invoke('get-focus-log'),
+  getClickLog: () => ipcRenderer.invoke('get-click-log'),
+  getKeyLog:   () => ipcRenderer.invoke('get-key-log'),
+
+  // Main renderer → ask main process to show/focus the main window
+  showMainWindow: () => { ipcRenderer.send('control:command', 'show-main') },
+
+  // FFmpeg Screen Studio export
+  ffmpegFind: (): Promise<string | null> =>
+    ipcRenderer.invoke('ffmpeg-find'),
+  ffmpegProcess: (
+    blobBuffer: ArrayBuffer,
+    opts: {
+      canvasWidth?: number; canvasHeight?: number
+      cropTopPx?: number; scalePct?: number
+      cornerRadius?: number; backgroundColor?: string; fps?: number
+    },
+  ): Promise<{ success: boolean; error?: string; filePath?: string; canceled?: boolean }> =>
+    ipcRenderer.invoke('ffmpeg-process', blobBuffer, opts),
+  onFfmpegProgress: (cb: (pct: number) => void) => {
+    ipcRenderer.removeAllListeners('ffmpeg-progress')
+    ipcRenderer.on('ffmpeg-progress', (_e, pct) => cb(pct))
+  },
+
+  // Video file import & recording history
+  openFileByPath: (filePath: string) =>
+    ipcRenderer.invoke('open-file-by-path', filePath),
+  getRecordingHistory: () =>
+    ipcRenderer.invoke('get-recording-history'),
+  addRecordingHistory: (entry: {
+    id: string; filePath: string; fileName: string
+    savedAt: number; durationSec: number; format: string
+  }) => ipcRenderer.invoke('add-recording-history', entry),
+  removeRecordingHistory: (id: string) =>
+    ipcRenderer.invoke('remove-recording-history', id)
+}
+
+contextBridge.exposeInMainWorld('electronAPI', api)

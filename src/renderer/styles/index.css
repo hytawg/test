@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Range input reset */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+
+  /* Color input reset */
+  input[type='color'] {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  input[type='color']::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type='color']::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+  }
+
+  /* Select reset */
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .bg-white\/3 {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  /* macOS window drag region */
+  .[-webkit-app-region\:drag] {
+    -webkit-app-region: drag;
+  }
+}
