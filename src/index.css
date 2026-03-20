@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Courier New', Courier, monospace;
+  overflow-x: hidden;
+}
