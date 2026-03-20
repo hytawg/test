@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // ============================================================
 // CHARACTER DATA: stroke points for ゆ・ず・き
-// Each point must be tapped in order (id = tap order)
+// Points are waypoints the user must trace through in order
 // SVG coordinate space: 200x200
 // ============================================================
 const CHARACTERS = [
@@ -12,13 +12,13 @@ const CHARACTERS = [
     color: "#00BFFF",
     shadowColor: "#0066FF",
     points: [
-      { id: 0, x: 100, y: 42, label: "①" }, // top center
-      { id: 1, x: 152, y: 78, label: "②" }, // right curve
-      { id: 2, x: 148, y: 128, label: "③" }, // right bottom
-      { id: 3, x: 100, y: 155, label: "④" }, // bottom
-      { id: 4, x: 52,  y: 120, label: "⑤" }, // left bottom
-      { id: 5, x: 56,  y: 72,  label: "⑥" }, // left top curve
-      { id: 6, x: 100, y: 175, label: "⑦" }, // tail
+      { id: 0, x: 100, y: 42, label: "①" },
+      { id: 1, x: 152, y: 78, label: "②" },
+      { id: 2, x: 148, y: 128, label: "③" },
+      { id: 3, x: 100, y: 155, label: "④" },
+      { id: 4, x: 52,  y: 120, label: "⑤" },
+      { id: 5, x: 56,  y: 72,  label: "⑥" },
+      { id: 6, x: 100, y: 175, label: "⑦" },
     ],
     strokePath:
       "M 100 42 C 138 42 158 65 152 78 C 148 98 148 118 100 155 " +
@@ -31,14 +31,14 @@ const CHARACTERS = [
     color: "#FF6B35",
     shadowColor: "#CC3300",
     points: [
-      { id: 0, x: 52,  y: 68,  label: "①" }, // left horizontal start
-      { id: 1, x: 148, y: 68,  label: "②" }, // right horizontal end
-      { id: 2, x: 100, y: 92,  label: "③" }, // body top
-      { id: 3, x: 148, y: 118, label: "④" }, // right of body
-      { id: 4, x: 100, y: 152, label: "⑤" }, // body bottom
-      { id: 5, x: 52,  y: 120, label: "⑥" }, // left of body
-      { id: 6, x: 128, y: 42,  label: "⑦" }, // dakuten 1
-      { id: 7, x: 152, y: 36,  label: "⑧" }, // dakuten 2
+      { id: 0, x: 52,  y: 68,  label: "①" },
+      { id: 1, x: 148, y: 68,  label: "②" },
+      { id: 2, x: 100, y: 92,  label: "③" },
+      { id: 3, x: 148, y: 118, label: "④" },
+      { id: 4, x: 100, y: 152, label: "⑤" },
+      { id: 5, x: 52,  y: 120, label: "⑥" },
+      { id: 6, x: 128, y: 42,  label: "⑦" },
+      { id: 7, x: 152, y: 36,  label: "⑧" },
     ],
     strokePath:
       "M 52 68 L 148 68 " +
@@ -52,14 +52,14 @@ const CHARACTERS = [
     color: "#7CFC00",
     shadowColor: "#228B00",
     points: [
-      { id: 0, x: 52,  y: 68,  label: "①" }, // 1st line left
-      { id: 1, x: 148, y: 68,  label: "②" }, // 1st line right
-      { id: 2, x: 52,  y: 100, label: "③" }, // 2nd line left
-      { id: 3, x: 148, y: 100, label: "④" }, // 2nd line right
-      { id: 4, x: 100, y: 52,  label: "⑤" }, // vertical top
-      { id: 5, x: 100, y: 118, label: "⑥" }, // vertical bottom
-      { id: 6, x: 148, y: 154, label: "⑦" }, // curve right
-      { id: 7, x: 84,  y: 168, label: "⑧" }, // curve end
+      { id: 0, x: 52,  y: 68,  label: "①" },
+      { id: 1, x: 148, y: 68,  label: "②" },
+      { id: 2, x: 52,  y: 100, label: "③" },
+      { id: 3, x: 148, y: 100, label: "④" },
+      { id: 4, x: 100, y: 52,  label: "⑤" },
+      { id: 5, x: 100, y: 118, label: "⑥" },
+      { id: 6, x: 148, y: 154, label: "⑦" },
+      { id: 7, x: 84,  y: 168, label: "⑧" },
     ],
     strokePath:
       "M 52 68 L 148 68 " +
@@ -69,11 +69,62 @@ const CHARACTERS = [
 ];
 
 // ============================================================
+// ULTRAMAN SVG CHARACTER
+// ============================================================
+function UltramanSVG({ glowing }) {
+  return (
+    <svg width="48" height="74" viewBox="0 0 48 74" xmlns="http://www.w3.org/2000/svg">
+      {/* Head fin/crest */}
+      <polygon points="24,1 30,11 18,11" fill="#CC0000" />
+      {/* Head */}
+      <ellipse cx="24" cy="19" rx="12" ry="11" fill="#D8D8D8" />
+      {/* Eyes - compound, amber/orange */}
+      <ellipse cx="17.5" cy="16" rx="6.5" ry="4" fill="#FF8800" />
+      <ellipse cx="30.5" cy="16" rx="6.5" ry="4" fill="#FF8800" />
+      {/* Eye inner glow */}
+      <ellipse cx="17.5" cy="15" rx="3" ry="1.8" fill="#FFDD44" opacity="0.75" />
+      <ellipse cx="30.5" cy="15" rx="3" ry="1.8" fill="#FFDD44" opacity="0.75" />
+      {/* Neck */}
+      <rect x="19" y="29" width="10" height="5" fill="#D8D8D8" />
+      {/* Body */}
+      <rect x="13" y="33" width="22" height="23" rx="4" fill="#D8D8D8" />
+      {/* Red upper chest stripe */}
+      <rect x="13" y="37" width="22" height="6" fill="#CC0000" />
+      {/* Color timer (chest) */}
+      <circle
+        cx="24"
+        cy="49"
+        r="5"
+        fill={glowing ? "#22CCFF" : "#0055BB"}
+        style={glowing ? { filter: "drop-shadow(0 0 6px #00AAFF)" } : {}}
+      />
+      {/* Arms */}
+      <rect x="3"  cy="33" x="3"  y="33" width="10" height="20" rx="5" fill="#D8D8D8" />
+      <rect x="35" y="33" width="10" height="20" rx="5" fill="#D8D8D8" />
+      {/* Arm red stripes */}
+      <rect x="3"  y="43" width="10" height="5" fill="#CC0000" />
+      <rect x="35" y="43" width="10" height="5" fill="#CC0000" />
+      {/* Waist belt */}
+      <rect x="13" y="55" width="22" height="5" fill="#CC0000" />
+      {/* Legs */}
+      <rect x="13" y="59" width="10" height="13" rx="3" fill="#D8D8D8" />
+      <rect x="25" y="59" width="10" height="13" rx="3" fill="#D8D8D8" />
+      {/* Leg red stripes */}
+      <rect x="13" y="66" width="10" height="4" fill="#CC0000" />
+      <rect x="25" y="66" width="10" height="4" fill="#CC0000" />
+      {/* Feet */}
+      <ellipse cx="18" cy="72" rx="8" ry="3.5" fill="#D8D8D8" />
+      <ellipse cx="30" cy="72" rx="8" ry="3.5" fill="#D8D8D8" />
+    </svg>
+  );
+}
+
+// ============================================================
 // STAR FIELD
 // ============================================================
 const STAR_DATA = Array.from({ length: 90 }, (_, i) => ({
   id: i,
-  x: ((i * 137.508) % 100).toFixed(2), // golden angle distribution
+  x: ((i * 137.508) % 100).toFixed(2),
   y: ((i * 97.3) % 100).toFixed(2),
   size: ((i % 3) + 1).toFixed(1),
   dur: (2 + (i % 4)).toFixed(1),
@@ -104,7 +155,7 @@ function StarField({ fastScroll }) {
 }
 
 // ============================================================
-// COLOR TIMER (3 dots, blue ↔ red blink)
+// COLOR TIMER
 // ============================================================
 function ColorTimer() {
   return (
@@ -155,23 +206,90 @@ function RetroFrame({ children, color = "#4488FF", style = {} }) {
 }
 
 // ============================================================
-// SVG CHARACTER PRACTICE AREA
+// SVG CHARACTER DRAWING AREA
 // ============================================================
-function CharacterSVG({ charData, completedPoints, nextPointId, phase, hitPointId, onPointTap }) {
-  const totalPoints = charData.points.length;
+const HIT_RADIUS = 28;
 
-  // Compute stroke dash progress based on completed points
+function CharacterSVG({ charData, completedPoints, nextPointId, phase, hitPointId, onPointReached }) {
+  const svgRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const hitCooldownRef = useRef(false);
+  const [userStroke, setUserStroke] = useState([]);
+
+  // Clear user stroke when character changes
+  useEffect(() => {
+    setUserStroke([]);
+    isDrawingRef.current = false;
+    hitCooldownRef.current = false;
+  }, [charData]);
+
+  const totalPoints = charData.points.length;
   const progress = completedPoints.length / totalPoints;
 
+  const getSVGCoords = (e) => {
+    const svg = svgRef.current;
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (200 / rect.width),
+      y: (e.clientY - rect.top) * (200 / rect.height),
+    };
+  };
+
+  const tryHitPoint = (pos) => {
+    if (phase !== "practice" || hitCooldownRef.current) return;
+    const point = charData.points.find((p) => p.id === nextPointId);
+    if (!point) return;
+    const dx = pos.x - point.x;
+    const dy = pos.y - point.y;
+    if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) {
+      hitCooldownRef.current = true;
+      onPointReached(nextPointId);
+      setTimeout(() => { hitCooldownRef.current = false; }, 420);
+    }
+  };
+
+  const handlePointerDown = (e) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDrawingRef.current = true;
+    const pos = getSVGCoords(e);
+    setUserStroke([pos]);
+    tryHitPoint(pos);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDrawingRef.current) return;
+    const pos = getSVGCoords(e);
+    setUserStroke((prev) => [...prev.slice(-80), pos]);
+    tryHitPoint(pos);
+  };
+
+  const handlePointerUp = () => {
+    isDrawingRef.current = false;
+    setUserStroke([]);
+  };
+
+  const pathD =
+    userStroke.length > 1
+      ? userStroke
+          .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+          .join(" ")
+      : null;
+
   return (
-    <div className="relative" style={{ width: "200px", height: "200px" }}>
+    <div className="relative" style={{ width: "200px", height: "200px", touchAction: "none" }}>
       <svg
+        ref={svgRef}
         width="200"
         height="200"
         viewBox="0 0 200 200"
         className="absolute inset-0"
+        style={{ touchAction: "none", cursor: "crosshair", userSelect: "none" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
-        {/* Grid background */}
         <defs>
           <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
             <circle cx="10" cy="10" r="0.8" fill="rgba(100,150,255,0.25)" />
@@ -183,20 +301,27 @@ function CharacterSVG({ charData, completedPoints, nextPointId, phase, hitPointI
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="userGlow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         <rect width="200" height="200" fill="url(#dotGrid)" />
 
-        {/* Guide stroke (faint) */}
+        {/* Guide stroke (faint background) */}
         <path
           d={charData.strokePath}
           fill="none"
           stroke={`${charData.color}28`}
-          strokeWidth="10"
+          strokeWidth="12"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
-        {/* Progress stroke (lights up as points are completed) */}
+        {/* Progress stroke (lights up as points are hit) */}
         {progress > 0 && (
           <path
             d={charData.strokePath}
@@ -214,58 +339,90 @@ function CharacterSVG({ charData, completedPoints, nextPointId, phase, hitPointI
             }}
           />
         )}
+
+        {/* Target point circles */}
+        {charData.points.map((point) => {
+          const isDone = completedPoints.includes(point.id);
+          const isNext = point.id === nextPointId && phase === "practice";
+          const isHit = point.id === hitPointId;
+
+          return (
+            <g key={point.id} style={{ pointerEvents: "none" }}>
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r={18}
+                fill={
+                  isDone
+                    ? "rgba(0, 255, 100, 0.85)"
+                    : isHit
+                    ? "rgba(255, 80, 0, 0.95)"
+                    : isNext
+                    ? "rgba(255, 220, 0, 0.88)"
+                    : "rgba(60, 90, 160, 0.4)"
+                }
+                stroke={
+                  isDone
+                    ? "#00FF80"
+                    : isNext
+                    ? "#FFD700"
+                    : "rgba(140, 180, 255, 0.45)"
+                }
+                strokeWidth="2"
+                style={
+                  isNext
+                    ? {
+                        animation: "svgPointPulse 0.75s ease-in-out infinite",
+                        transformBox: "fill-box",
+                        transformOrigin: "center",
+                      }
+                    : isDone
+                    ? {
+                        animation: "svgPointDone 1.8s ease-in-out infinite",
+                      }
+                    : isHit
+                    ? {
+                        transformBox: "fill-box",
+                        transformOrigin: "center",
+                        transform: "scale(1.4)",
+                      }
+                    : {}
+                }
+              />
+              <text
+                x={point.x}
+                y={point.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill={isDone ? "#003820" : "#000"}
+                style={{
+                  fontFamily: "monospace",
+                  fontWeight: "bold",
+                  fontSize: "11px",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              >
+                {isDone ? "✓" : point.label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* User's drawing trail */}
+        {pathD && (
+          <path
+            d={pathD}
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.9)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter="url(#userGlow)"
+            style={{ pointerEvents: "none" }}
+          />
+        )}
       </svg>
-
-      {/* Tap Points */}
-      {charData.points.map((point) => {
-        const isDone = completedPoints.includes(point.id);
-        const isNext = point.id === nextPointId && phase === "practice";
-        const isHit = point.id === hitPointId;
-
-        return (
-          <button
-            key={point.id}
-            onPointerDown={() => onPointTap(point.id)}
-            className="absolute flex items-center justify-center rounded-full select-none"
-            style={{
-              left: `${point.x - 20}px`,
-              top: `${point.y - 20}px`,
-              width: "40px",
-              height: "40px",
-              background: isDone
-                ? "rgba(0, 255, 100, 0.9)"
-                : isHit
-                ? "rgba(255, 80, 0, 0.95)"
-                : isNext
-                ? "rgba(255, 220, 0, 0.92)"
-                : "rgba(60, 90, 160, 0.45)",
-              border: isDone
-                ? "2px solid #00FF80"
-                : isNext
-                ? "2px solid #FFD700"
-                : "2px solid rgba(140, 180, 255, 0.5)",
-              animation: isNext
-                ? "pointPulse 0.75s ease-in-out infinite"
-                : isDone
-                ? "completedGlow 1.8s ease-in-out infinite"
-                : "none",
-              cursor: isNext ? "pointer" : "default",
-              color: isDone ? "#003820" : "#000",
-              fontFamily: "monospace",
-              fontWeight: 900,
-              fontSize: "0.75rem",
-              zIndex: 20,
-              transition: "background 0.15s, transform 0.1s",
-              transform: isHit ? "scale(1.4)" : "scale(1)",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              touchAction: "manipulation",
-            }}
-          >
-            {isDone ? "✓" : point.label}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -286,12 +443,11 @@ export default function App() {
   const totalPoints = currentChar.points.length;
   const nextPointId = completedPoints.length;
 
-  const handlePointTap = useCallback(
+  const handlePointReached = useCallback(
     (pointId) => {
       if (phase !== "practice") return;
       if (pointId !== nextPointId) return;
 
-      console.log(`SE: Attack Hit! Point ${pointId + 1}/${totalPoints}`);
       setHitPointId(pointId);
       setPhase("hit");
 
@@ -301,24 +457,16 @@ export default function App() {
         setHitPointId(null);
 
         if (newCompleted.length === totalPoints) {
-          // ===== CHARACTER COMPLETE =====
-          console.log(`SE: Character Complete! 「${currentChar.char}」`);
           setPhase("complete");
 
-          // 1. White flash
           setWhiteFlash(true);
           setTimeout(() => {
             setWhiteFlash(false);
-
-            // 2. Shuwatch text appears
             setShowShuwatch(true);
-            console.log("SE: Shuwatch!");
 
-            // 3. Flying animation starts
             setTimeout(() => {
               setPhase("flying");
 
-              // 4. Reset to next character
               setTimeout(() => {
                 const nextIndex = (charIndex + 1) % CHARACTERS.length;
                 setCharIndex(nextIndex);
@@ -333,7 +481,7 @@ export default function App() {
         }
       }, 380);
     },
-    [phase, nextPointId, completedPoints, totalPoints, charIndex, currentChar.char]
+    [phase, nextPointId, completedPoints, totalPoints, charIndex]
   );
 
   const isFlying = phase === "flying";
@@ -382,15 +530,13 @@ export default function App() {
           75%  { transform: scale(0.95) rotate(-1deg); opacity: 1; }
           100% { transform: scale(1) rotate(0deg);     opacity: 1; }
         }
-        @keyframes pointPulse {
-          0%, 100% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(255, 220, 0, 0.7);
-          }
-          50% {
-            transform: scale(1.15);
-            box-shadow: 0 0 0 8px rgba(255, 220, 0, 0);
-          }
+        @keyframes svgPointPulse {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.2); }
+        }
+        @keyframes svgPointDone {
+          0%, 100% { filter: drop-shadow(0 0 3px rgba(0,255,120,0.7)); }
+          50%       { filter: drop-shadow(0 0 7px rgba(0,255,120,1)); }
         }
         @keyframes completedGlow {
           0%, 100% { box-shadow: 0 0 6px 2px rgba(0, 255, 120, 0.7); }
@@ -410,6 +556,14 @@ export default function App() {
           0%   { transform: translateY(0); }
           100% { transform: translateY(4px); }
         }
+        @keyframes ultramanGlow {
+          0%, 100% { filter: drop-shadow(0 0 8px #00AAFF) drop-shadow(0 0 18px #0044FF); }
+          50%       { filter: drop-shadow(0 0 14px #44CCFF) drop-shadow(0 0 28px #0066FF); }
+        }
+        @keyframes ultramanWin {
+          0%, 100% { filter: drop-shadow(0 0 10px #FFD700) drop-shadow(0 0 24px #FF6600); }
+          50%       { filter: drop-shadow(0 0 20px #FFD700) drop-shadow(0 0 40px #FF9900); }
+        }
       `}</style>
 
       {/* ── ROOT ── */}
@@ -417,7 +571,6 @@ export default function App() {
         className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-start"
         style={{ background: "linear-gradient(180deg, #000318 0%, #000C30 60%, #001050 100%)" }}
       >
-        {/* STARFIELD */}
         <StarField fastScroll={isFlying} />
 
         {/* SCANLINE OVERLAY */}
@@ -435,10 +588,7 @@ export default function App() {
         {whiteFlash && (
           <div
             className="absolute inset-0 bg-white pointer-events-none"
-            style={{
-              animation: "whiteFlashAnim 0.4s ease-out forwards",
-              zIndex: 60,
-            }}
+            style={{ animation: "whiteFlashAnim 0.4s ease-out forwards", zIndex: 60 }}
           />
         )}
 
@@ -508,14 +658,17 @@ export default function App() {
               className="flex flex-col items-center gap-1"
               style={{
                 animation: isFlying ? "ultramanFlyOut 1.6s ease-in forwards" : "none",
-                filter: isComplete && !isFlying
-                  ? "drop-shadow(0 0 16px #FFD700) drop-shadow(0 0 30px #FF6600)"
-                  : "drop-shadow(0 0 12px #00AAFF) drop-shadow(0 0 24px #0044FF)",
                 minWidth: "72px",
                 textAlign: "center",
               }}
             >
-              <div style={{ fontSize: "clamp(2.5rem, 10vw, 4rem)", lineHeight: 1 }}>🦸</div>
+              <div
+                style={{
+                  animation: isComplete && !isFlying ? "ultramanWin 0.6s ease-in-out infinite" : "ultramanGlow 3s ease-in-out infinite",
+                }}
+              >
+                <UltramanSVG glowing={isComplete} />
+              </div>
               <div
                 style={{
                   color: isComplete ? "#FFD700" : "#88CCFF",
@@ -523,7 +676,7 @@ export default function App() {
                   fontSize: "0.58rem",
                   letterSpacing: "0.05em",
                   textShadow: isComplete ? "0 0 8px #FFD700" : "0 0 6px #88CCFF",
-                  animation: isComplete && !isFlying ? "pointPulse 0.6s ease-in-out infinite" : "none",
+                  animation: isComplete && !isFlying ? "svgPointPulse 0.6s ease-in-out infinite" : "none",
                 }}
               >
                 {isComplete && !isFlying ? "✦ FIGHT ✦" : "ウルトラマン"}
@@ -578,14 +731,14 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SVG practice area */}
+              {/* SVG drawing area */}
               <CharacterSVG
                 charData={currentChar}
                 completedPoints={completedPoints}
                 nextPointId={nextPointId}
                 phase={phase}
                 hitPointId={hitPointId}
-                onPointTap={handlePointTap}
+                onPointReached={handlePointReached}
               />
 
               {/* Progress bar */}
@@ -620,7 +773,7 @@ export default function App() {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  {phase === "practice" && `▶ ポイント ${nextPointId + 1} をタップ！`}
+                  {phase === "practice" && `▶ ポイント ${nextPointId + 1} をなぞれ！`}
                   {phase === "hit" && "⚡ こうげきヒット！"}
                   {phase === "complete" && "★ もじかんせい！★"}
                   {phase === "flying" && "🚀 シュワッチ！！"}
@@ -674,7 +827,7 @@ export default function App() {
                 letterSpacing: "0.06em",
               }}
             >
-              {phase === "practice" && "ひかるポイントを じゅんばんに タップ！"}
+              {phase === "practice" && "ひかるポイントを じゅんばんに なぞろう！"}
               {phase === "hit" && "⚡ こうげきヒット！つぎのポイントへ！"}
               {phase === "complete" && "★ もじかんせい！シュワッチ！★"}
               {phase === "flying" && "★★ つぎのもじへ！★★"}
