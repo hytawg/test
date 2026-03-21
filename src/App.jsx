@@ -1822,7 +1822,7 @@ function StrokeOrderGuide({ kana, visible }) {
                 <circle cx={strokes[stepIdx].sx} cy={strokes[stepIdx].sy} r="5.5" fill="#e53e3e" />
                 <text x={strokes[stepIdx].sx} y={strokes[stepIdx].sy + 4}
                   textAnchor="middle" fill="#fff"
-                  fontSize="6.5" fontWeight="bold" fontFamily="monospace"
+                  fontSize="6.5" fontWeight="bold" fontFamily="'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif"
                 >{stepIdx + 1}</text>
               </svg>
             </div>
@@ -2454,7 +2454,7 @@ function KakitoriScreen({ onHome, enemy }) {
         }}>
           <div style={{
             fontSize:"min(48vw, 220px)",
-            fontFamily:"monospace",
+            fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
             fontWeight:900, color: PP,
             textShadow:`0 0 40px ${PP}`,
             lineHeight:1,
@@ -2869,7 +2869,7 @@ function KakitoriSelectScreen({ onSelect, onHome, kanaMode = "hiragana" }) {
                     display:"flex", flexDirection:"column",
                     alignItems:"center", justifyContent:"center",
                   }}>
-                    <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1rem", color: C.text, lineHeight:1 }}>{k}</div>
+                    <div style={{ fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif", fontWeight:900, fontSize:"1rem", color: C.text, lineHeight:1 }}>{k}</div>
                     <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.28rem", color: PP }}>
                       {ALL_KANA.find(a => a.kana === k)?.roma}
                     </div>
@@ -2984,7 +2984,7 @@ function EnemySelectScreen({ onSelect, onHome, kanaMode = "hiragana" }) {
                     display:"flex", flexDirection:"column",
                     alignItems:"center", justifyContent:"center",
                   }}>
-                    <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1rem", color: C.text, lineHeight:1 }}>{k}</div>
+                    <div style={{ fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif", fontWeight:900, fontSize:"1rem", color: C.text, lineHeight:1 }}>{k}</div>
                     <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.28rem", color: enemy.color }}>
                       {ALL_KANA.find(a => a.kana === k)?.roma}
                     </div>
@@ -3105,7 +3105,7 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
                         <span style={{position:"absolute",top:2,right:2,fontSize:"0.5rem",lineHeight:1}}>⭐</span>
                       )}
                       <div style={{
-                        fontFamily:"monospace",
+                        fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
                         fontWeight:900, fontSize:"clamp(1.3rem,5vw,1.8rem)",
                         color: isSel ? C.text : "#88aa88",
                         textShadow: isSel ? `0 0 8px ${C.text}` : "none",
@@ -3184,7 +3184,7 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
                   }}
                 >
                   <div style={{
-                    fontFamily:"monospace",
+                    fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
                     fontWeight:900, fontSize:"1.5rem", lineHeight:1,
                     color: collected ? C.gold : "rgba(57,255,20,0.15)",
                   }}>
@@ -3229,7 +3229,7 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
         }}>
           <div style={{
             fontSize:"clamp(3rem,12vw,4rem)",
-            fontFamily:"monospace",
+            fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
             fontWeight:900, color: C.text,
             textShadow:`0 0 20px ${C.text}`, lineHeight:1,
           }}>{selected.kana}</div>
