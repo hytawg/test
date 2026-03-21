@@ -2900,12 +2900,13 @@ function ZukanScreen({ onHome }) {
   };
 
   const TAB = (active) => ({
-    flex:1, padding:"9px 0", background:"transparent", border:"none",
-    borderBottom: active ? `2.5px solid ${C.primary}` : "2.5px solid transparent",
-    color: active ? C.primary : C.muted,
-    fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
-    fontWeight:700, fontSize:"0.8rem", letterSpacing:"0.06em",
-    cursor:"pointer", transition:"all 0.18s",
+    flex:1, padding:"9px 0", background: active ? "rgba(57,255,20,0.07)" : "transparent", border:"none",
+    borderBottom: active ? `2px solid ${C.text}` : `2px solid ${C.border}`,
+    color: active ? C.text : C.muted,
+    fontFamily:"'Press Start 2P',monospace",
+    fontSize:"0.4rem", letterSpacing:"0.04em",
+    cursor:"pointer", transition:"all 0.15s",
+    textShadow: active ? `0 0 6px ${C.text}` : "none",
   });
 
   return (
@@ -2919,82 +2920,85 @@ function ZukanScreen({ onHome }) {
 
       {/* header */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        position:"relative", zIndex:10, width:"100%",
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 6px",
+        padding:"10px 16px 6px",
+        borderBottom:`1px solid ${C.border}`,
+        background:"rgba(4,10,4,0.85)",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
-          borderRadius:8, color:C.primary, cursor:"pointer",
-          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-        }}>← もどる</button>
-        <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
-          {tab === "kana" ? "📖 ひらがなずかん" : "⭐ スタンプちょう"}
+          background:"rgba(57,255,20,0.05)", border:`1px solid ${C.border}`,
+          color: C.text, cursor:"pointer",
+          padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
+        }}>◀ もどる</button>
+        <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.45rem", letterSpacing:"0.05em", color: C.teal, animation:"amber-flicker 5s linear infinite" }}>
+          {tab === "kana" ? "ひらがなずかん" : "スタンプちょう"}
         </div>
         <div style={{ width:60 }} />
       </div>
 
       {/* tabs */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
-        display:"flex", padding:"0 20px",
-        borderBottom:"1px solid rgba(239,68,68,0.12)",
+        position:"relative", zIndex:10, width:"100%",
+        display:"flex", padding:"0",
+        background:"rgba(4,10,4,0.7)",
       }}>
         <button style={TAB(tab === "kana")}  onClick={() => setTab("kana")}>📖 ずかん</button>
         <button style={TAB(tab === "stamp")} onClick={() => { setStamps(getStamps()); setTab("stamp"); }}>
-          ⭐ スタンプ（{stamps.size}/{ALL_KANA.length}）
+          ⭐ スタンプ({stamps.size}/{ALL_KANA.length})
         </button>
       </div>
 
       {/* ── KANA TAB ─────────────────────────────── */}
       {tab === "kana" && (
         <div style={{
-          position:"relative", zIndex:10, width:"100%", maxWidth:520,
+          position:"relative", zIndex:10, width:"100%",
           padding:"8px 12px 120px", overflowY:"auto",
-          display:"flex", flexDirection:"column", gap:10,
+          display:"flex", flexDirection:"column", gap:8,
         }}>
           {HIRAGANA_ROWS.map((row) => (
             <div key={row.row}>
               <div style={{
-                fontFamily:"monospace", fontSize:"0.55rem", color: C.muted,
-                letterSpacing:"0.15em", marginBottom:4, paddingLeft:4,
+                fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.gold,
+                letterSpacing:"0.1em", marginBottom:4, paddingLeft:4,
               }}>{row.row}</div>
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                 {row.kana.map((kana, i) => {
                   const roma = row.roma[i];
-                  const isSel     = selected?.kana === kana;
-                  const hasStamp  = stamps.has(kana);
+                  const isSel    = selected?.kana === kana;
+                  const hasStamp = stamps.has(kana);
                   return (
                     <button
                       key={kana}
                       onClick={() => handleKanaTap(kana, roma)}
                       style={{
-                        width:"clamp(52px,17vw,72px)", height:"clamp(56px,18vw,76px)",
+                        width:"clamp(50px,17vw,68px)", height:"clamp(54px,18vw,72px)",
                         position:"relative",
                         background: isSel
-                          ? "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(185,28,28,0.2))"
-                          : "linear-gradient(135deg, rgba(22,10,10,0.88), rgba(14,6,6,0.94))",
-                        border: isSel ? `2px solid ${C.primary}` : "1.5px solid rgba(100,50,50,0.45)",
-                        borderRadius:10, cursor:"pointer",
+                          ? "rgba(57,255,20,0.12)"
+                          : "rgba(4,16,4,0.88)",
+                        border: isSel ? `2px solid ${C.text}` : `1px solid ${C.border}`,
+                        borderBottom: isSel ? `3px solid #006600` : `2px solid rgba(57,255,20,0.1)`,
+                        cursor:"pointer",
                         display:"flex", flexDirection:"column",
                         alignItems:"center", justifyContent:"center", gap:3,
-                        boxShadow: isSel ? "0 0 16px rgba(239,68,68,0.4)" : "none",
-                        transition:"all 0.15s",
+                        boxShadow: isSel ? `0 0 12px rgba(57,255,20,0.4)` : "none",
+                        transition:"all 0.12s",
                       }}
                     >
                       {hasStamp && (
-                        <span style={{position:"absolute",top:2,right:3,fontSize:"0.55rem",lineHeight:1}}>⭐</span>
+                        <span style={{position:"absolute",top:2,right:2,fontSize:"0.5rem",lineHeight:1}}>⭐</span>
                       )}
                       <div style={{
-                        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                        fontWeight:900, fontSize:"clamp(1.4rem,5vw,2rem)",
-                        color: isSel ? "#fff" : "#cbd5e1",
-                        textShadow: isSel ? "0 0 10px rgba(239,68,68,0.6)" : "none",
+                        fontFamily:"monospace",
+                        fontWeight:900, fontSize:"clamp(1.3rem,5vw,1.8rem)",
+                        color: isSel ? C.text : "#88aa88",
+                        textShadow: isSel ? `0 0 8px ${C.text}` : "none",
                         lineHeight:1,
                       }}>{kana}</div>
                       <div style={{
-                        fontFamily:"monospace", fontSize:"clamp(0.5rem,1.8vw,0.65rem)",
-                        color: isSel ? C.teal : C.muted, letterSpacing:"0.04em",
+                        fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(0.3rem,1.5vw,0.4rem)",
+                        color: isSel ? C.teal : C.muted, letterSpacing:"0.03em",
                       }}>{roma}</div>
                     </button>
                   );
@@ -3008,31 +3012,40 @@ function ZukanScreen({ onHome }) {
       {/* ── STAMP TAB ──────────────────────────────── */}
       {tab === "stamp" && (
         <div style={{
-          position:"relative", zIndex:10, width:"100%", maxWidth:520,
-          padding:"14px 16px 32px", overflowY:"auto", flex:1,
+          position:"relative", zIndex:10, width:"100%",
+          padding:"12px 14px 32px", overflowY:"auto", flex:1,
         }}>
-          {/* progress */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+          {/* progress (ピクセルセグメント) */}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:5 }}>
               <span style={{
-                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                fontWeight:900, fontSize:"0.95rem", color:C.gold,
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"0.45rem", color: C.gold,
               }}>{stamps.size} もじ あつめた！</span>
-              <span style={{fontFamily:"monospace", fontSize:"0.65rem", color:C.muted}}>
+              <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.muted }}>
                 / {ALL_KANA.length}
               </span>
             </div>
-            <div style={{height:6, background:"rgba(255,255,255,0.06)", borderRadius:3, overflow:"hidden"}}>
-              <div style={{
-                height:"100%", width:`${(stamps.size / ALL_KANA.length) * 100}%`,
-                background:`linear-gradient(90deg,${C.gold},${C.primary})`,
-                borderRadius:3, transition:"width 0.5s ease-out",
-              }}/>
-            </div>
+            {(() => {
+              const segs = 20;
+              const filled = Math.round((stamps.size / ALL_KANA.length) * segs);
+              return (
+                <div style={{ display:"flex", gap:2 }}>
+                  {Array.from({ length: segs }, (_, i) => (
+                    <div key={i} style={{
+                      flex:1, height:6,
+                      background: i < filled ? C.gold : "rgba(255,184,0,0.1)",
+                      border: `1px solid ${i < filled ? C.gold : "rgba(255,184,0,0.15)"}`,
+                      boxShadow: i < filled ? `0 0 3px ${C.gold}` : "none",
+                    }} />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* stamp grid */}
-          <div style={{display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center"}}>
+          <div style={{display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center"}}>
             {ALL_KANA.map(({kana, roma}) => {
               const collected = stamps.has(kana);
               return (
@@ -3040,35 +3053,33 @@ function ZukanScreen({ onHome }) {
                   key={kana}
                   onClick={() => collected && speak(kana, {rate:0.75, pitch:1.1})}
                   style={{
-                    width:56, height:66,
-                    background: collected
-                      ? "linear-gradient(135deg, #fbbf24, #f59e0b)"
-                      : "rgba(30,15,15,0.7)",
-                    borderRadius:12,
+                    width:52, height:62,
+                    background: collected ? "rgba(60,40,0,0.9)" : "rgba(4,16,4,0.8)",
                     border: collected
-                      ? "2px solid rgba(251,191,36,0.8)"
-                      : "1.5px dashed rgba(100,60,60,0.35)",
+                      ? `2px solid ${C.gold}`
+                      : `1px solid ${C.border}`,
+                    borderBottom: collected ? `3px solid #664400` : `2px solid rgba(57,255,20,0.1)`,
                     display:"flex", flexDirection:"column",
                     alignItems:"center", justifyContent:"center", gap:2,
-                    boxShadow: collected ? "0 0 14px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.3)" : "none",
+                    boxShadow: collected ? `0 0 10px rgba(255,184,0,0.4)` : "none",
                     cursor: collected ? "pointer" : "default",
                     animation: collected ? "stampPop 0.4s ease-out" : "none",
                     transition:"box-shadow 0.2s",
                   }}
                 >
                   <div style={{
-                    fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                    fontWeight:900, fontSize:"1.65rem", lineHeight:1,
-                    color: collected ? "#1c1200" : "rgba(100,80,80,0.2)",
+                    fontFamily:"monospace",
+                    fontWeight:900, fontSize:"1.5rem", lineHeight:1,
+                    color: collected ? C.gold : "rgba(57,255,20,0.15)",
                   }}>
                     {collected ? kana : "？"}
                   </div>
                   <div style={{
-                    fontFamily:"monospace", fontSize:"0.48rem",
-                    color: collected ? "#92400e" : "rgba(100,80,80,0.2)",
+                    fontFamily:"'Press Start 2P',monospace", fontSize:"0.3rem",
+                    color: collected ? "#cc8800" : "rgba(57,255,20,0.1)",
                     letterSpacing:"0.02em",
                   }}>
-                    {collected ? roma : "·····"}
+                    {collected ? roma : "···"}
                   </div>
                 </div>
               );
@@ -3077,11 +3088,12 @@ function ZukanScreen({ onHome }) {
 
           {stamps.size === ALL_KANA.length && (
             <div style={{
-              textAlign:"center", marginTop:24,
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"1.1rem",
-              color:C.gold, textShadow:"0 0 16px rgba(251,191,36,0.7)",
-            }}>🏆 ぜんぶ あつめた！すごい！！</div>
+              textAlign:"center", marginTop:20,
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.6rem",
+              color: C.gold, textShadow:`0 0 16px ${C.gold}`,
+              animation:"phosphor-glow 2s ease-in-out infinite",
+            }}>🏆 ぜんぶ あつめた！</div>
           )}
         </div>
       )}
@@ -3089,34 +3101,35 @@ function ZukanScreen({ onHome }) {
       {/* selected popup — kana tab only */}
       {tab === "kana" && selected && (
         <div style={{
-          position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
+          position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
           zIndex:50,
-          background:"rgba(10,4,4,0.95)", backdropFilter:"blur(12px)",
-          border:`2px solid ${C.border}`,
-          borderRadius:20, padding:"16px 40px",
-          boxShadow:"0 0 32px rgba(239,68,68,0.3)",
+          background:"rgba(4,10,4,0.97)",
+          border:`2px solid ${C.text}`,
+          borderBottom:`4px solid #006600`,
+          boxShadow:`0 0 24px rgba(57,255,20,0.4)`,
+          padding:"14px 32px",
           display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-          minWidth:180,
+          minWidth:160,
         }}>
           <div style={{
-            fontSize:"clamp(3rem,12vw,4.5rem)",
-            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-            fontWeight:900, color:"#fff",
-            textShadow:"0 0 16px rgba(239,68,68,0.5)", lineHeight:1,
+            fontSize:"clamp(3rem,12vw,4rem)",
+            fontFamily:"monospace",
+            fontWeight:900, color: C.text,
+            textShadow:`0 0 20px ${C.text}`, lineHeight:1,
           }}>{selected.kana}</div>
           <div style={{
-            fontFamily:"monospace", fontSize:"clamp(1rem,3.5vw,1.4rem)",
-            fontWeight:900, color: C.teal, letterSpacing:"0.1em",
+            fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(0.7rem,3vw,0.9rem)",
+            color: C.teal, letterSpacing:"0.08em",
             textShadow:`0 0 10px ${C.teal}`,
           }}>{selected.roma}</div>
           <button
             onClick={() => speak(selected.kana, {rate:0.75, pitch:1.1})}
             style={{
-              marginTop:4, padding:"6px 22px",
-              background:"rgba(14,165,233,0.15)", border:"1px solid rgba(14,165,233,0.4)",
-              borderRadius:999, color:C.teal,
-              fontFamily:"monospace", fontSize:"0.75rem",
-              cursor:"pointer", letterSpacing:"0.08em",
+              marginTop:4, padding:"5px 18px",
+              background:`rgba(0,229,255,0.08)`, border:`1px solid ${C.teal}`,
+              color: C.teal,
+              fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
+              cursor:"pointer", letterSpacing:"0.05em",
             }}
           >🔊 よみあげる</button>
         </div>
