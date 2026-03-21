@@ -332,12 +332,19 @@ function SvgBemstar({ size = 120 }) {
 }
 
 // ── 敵定義 (各3文字セット + 固有SVG) ───────────────────────
+function EnemyImg({ src, size = 120 }) {
+  return (
+    <img src={src} alt="てき" width={size} height={size}
+      style={{ display:"block", objectFit:"contain" }} />
+  );
+}
+
 const ENEMY_DEFS = [
-  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう", Svg: SvgEleking  },
-  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#0ea5e9", desc:"うちゅうのかいじゅう", Svg: SvgBaltan   },
-  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: SvgRedKing  },
-  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: SvgGomora   },
-  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: SvgDada     },
+  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy1.png" size={size} />  },
+  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#0ea5e9", desc:"うちゅうのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy2.png" size={size} />  },
+  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy3.png" size={size} />  },
+  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy4.png" size={size} />  },
+  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy5.png" size={size} />  },
   { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: SvgBemstar  },
 ];
 
