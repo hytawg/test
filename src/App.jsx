@@ -840,6 +840,19 @@ const GLOBAL_CSS = `
     0%,100% { filter: drop-shadow(0 0 12px rgba(251,191,36,0.7)); }
     50%     { filter: drop-shadow(0 0 28px rgba(251,191,36,1.0)) drop-shadow(0 0 48px rgba(251,191,36,0.4)); }
   }
+  @keyframes cardShimmer {
+    0%,55% { transform: translateX(-120%) skewX(-15deg); }
+    100%   { transform: translateX(220%)  skewX(-15deg); }
+  }
+  @keyframes rowCompletePop {
+    0%   { transform: scale(0) rotate(-10deg); opacity:0; }
+    60%  { transform: scale(1.15) rotate(3deg); opacity:1; }
+    100% { transform: scale(1) rotate(0deg);   opacity:1; }
+  }
+  @keyframes allCompletePulse {
+    0%,100% { text-shadow: 0 0 20px ${C.gold}, 0 0 40px ${C.gold}; transform: scale(1); }
+    50%     { text-shadow: 0 0 40px ${C.gold}, 0 0 80px #ff8800; transform: scale(1.04); }
+  }
   @keyframes senshiZoomIn {
     0%   { transform: scale(0.08) translateY(60px); opacity: 0; }
     60%  { transform: scale(1.1)  translateY(-6px);  opacity: 1; }
@@ -3054,7 +3067,12 @@ function EnemySelectScreen({ onSelect, onHome, kanaMode = "hiragana" }) {
 function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
   const [selected, setSelected] = useState(null);
   const [stamps,   setStamps]   = useState(() => getStamps());
-  const [tab,      setTab]      = useState("kana"); // "kana" | "stamp"
+  const [tab,      setTab]      = useState("kana");
+
+  const rows      = kanaMode === "katakana" ? KATAKANA_ROWS : HIRAGANA_ROWS;
+  const totalKana = kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length;
+  const collectedCount = stamps.size;
+  const allComplete    = collectedCount >= totalKana;
 
   const handleKanaTap = (kana, roma) => {
     setSelected(prev => prev?.kana === kana ? null : { kana, roma });
@@ -3070,6 +3088,9 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
     cursor:"pointer", transition:"all 0.15s",
     textShadow: active ? `0 0 6px ${C.text}` : "none",
   });
+
+  // 行ごとの収集数
+  const rowCollected = (row) => row.kana.filter(k => stamps.has(k)).length;
 
   return (
     <div style={{
@@ -3094,7 +3115,7 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
           padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
         }}>◀ もどる</button>
         <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.45rem", letterSpacing:"0.05em", color: C.teal, animation:"amber-flicker 5s linear infinite" }}>
-          {tab === "kana" ? (kanaMode === "katakana" ? "カタカナずかん" : "ひらがなずかん") : "スタンプちょう"}
+          {tab === "kana" ? (kanaMode === "katakana" ? "カタカナずかん" : "ひらがなずかん") : "もじカードずかん"}
         </div>
         <div style={{ width:60 }} />
       </div>
@@ -3107,7 +3128,7 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
       }}>
         <button style={TAB(tab === "kana")}  onClick={() => setTab("kana")}>📖 ずかん</button>
         <button style={TAB(tab === "stamp")} onClick={() => { setStamps(getStamps()); setTab("stamp"); }}>
-          ⭐ スタンプ({stamps.size}/{kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length})
+          🃏 カード({collectedCount}/{totalKana})
         </button>
       </div>
 
@@ -3118,162 +3139,295 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
           padding:"8px 12px 120px", overflowY:"auto",
           display:"flex", flexDirection:"column", gap:8,
         }}>
-          {(kanaMode === "katakana" ? KATAKANA_ROWS : HIRAGANA_ROWS).map((row) => (
-            <div key={row.row}>
-              <div style={{
-                fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.gold,
-                letterSpacing:"0.1em", marginBottom:4, paddingLeft:4,
-              }}>{row.row}</div>
-              <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                {row.kana.map((kana, i) => {
-                  const roma = row.roma[i];
-                  const isSel    = selected?.kana === kana;
-                  const hasStamp = stamps.has(kana);
-                  return (
-                    <button
-                      key={kana}
-                      onClick={() => handleKanaTap(kana, roma)}
-                      style={{
-                        width:"clamp(50px,17vw,68px)", height:"clamp(54px,18vw,72px)",
-                        position:"relative",
-                        background: isSel
-                          ? "rgba(57,255,20,0.12)"
-                          : "rgba(4,16,4,0.88)",
-                        border: isSel ? `2px solid ${C.text}` : `1px solid ${C.border}`,
-                        borderBottom: isSel ? `3px solid #006600` : `2px solid rgba(57,255,20,0.1)`,
-                        cursor:"pointer",
-                        display:"flex", flexDirection:"column",
-                        alignItems:"center", justifyContent:"center", gap:3,
-                        boxShadow: isSel ? `0 0 12px rgba(57,255,20,0.4)` : "none",
-                        transition:"all 0.12s",
-                      }}
-                    >
-                      {hasStamp && (
-                        <span style={{position:"absolute",top:2,right:2,fontSize:"0.5rem",lineHeight:1}}>⭐</span>
-                      )}
-                      <div style={{
-                        fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
-                        fontWeight:900, fontSize:"clamp(1.3rem,5vw,1.8rem)",
-                        color: isSel ? C.text : "#88aa88",
-                        textShadow: isSel ? `0 0 8px ${C.text}` : "none",
-                        lineHeight:1,
-                      }}>{kana}</div>
-                      <div style={{
-                        fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(0.3rem,1.5vw,0.4rem)",
-                        color: isSel ? C.teal : C.muted, letterSpacing:"0.03em",
-                      }}>{roma}</div>
-                    </button>
-                  );
-                })}
+          {rows.map((row) => {
+            const cnt      = rowCollected(row);
+            const rowDone  = cnt === row.kana.length;
+            return (
+              <div key={row.row}>
+                {/* 行ヘッダー */}
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, paddingLeft:4 }}>
+                  <span style={{
+                    fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.gold,
+                    letterSpacing:"0.1em",
+                  }}>{row.kana[0]}行</span>
+                  {rowDone ? (
+                    <span style={{
+                      padding:"1px 6px",
+                      background: C.gold, color:"#000",
+                      fontFamily:"'Press Start 2P',monospace", fontSize:"0.28rem",
+                      animation:"rowCompletePop 0.4s ease-out",
+                    }}>★ COMPLETE</span>
+                  ) : (
+                    <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.28rem", color: C.muted }}>
+                      {cnt}/{row.kana.length}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                  {row.kana.map((kana, i) => {
+                    const roma     = row.roma[i];
+                    const isSel    = selected?.kana === kana;
+                    const hasStamp = stamps.has(kana);
+                    return (
+                      <button
+                        key={kana}
+                        onClick={() => handleKanaTap(kana, roma)}
+                        style={{
+                          width:"clamp(50px,17vw,68px)", height:"clamp(54px,18vw,72px)",
+                          position:"relative",
+                          background: isSel
+                            ? "rgba(57,255,20,0.12)"
+                            : "rgba(4,16,4,0.88)",
+                          border: isSel ? `2px solid ${C.text}` : `1px solid ${C.border}`,
+                          borderBottom: isSel ? `3px solid #006600` : `2px solid rgba(57,255,20,0.1)`,
+                          cursor:"pointer",
+                          display:"flex", flexDirection:"column",
+                          alignItems:"center", justifyContent:"center", gap:3,
+                          boxShadow: isSel ? `0 0 12px rgba(57,255,20,0.4)` : "none",
+                          transition:"all 0.12s",
+                        }}
+                      >
+                        {hasStamp && (
+                          <span style={{position:"absolute",top:2,right:2,fontSize:"0.45rem",lineHeight:1}}>⭐</span>
+                        )}
+                        <div style={{
+                          fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
+                          fontWeight:900, fontSize:"clamp(1.3rem,5vw,1.8rem)",
+                          color: isSel ? C.text : "#88aa88",
+                          textShadow: isSel ? `0 0 8px ${C.text}` : "none",
+                          lineHeight:1,
+                        }}>{kana}</div>
+                        <div style={{
+                          fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(0.3rem,1.5vw,0.4rem)",
+                          color: isSel ? C.teal : C.muted, letterSpacing:"0.03em",
+                        }}>{roma}</div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* ── STAMP TAB ──────────────────────────────── */}
+      {/* ── CARD COLLECTION TAB ───────────────────── */}
       {tab === "stamp" && (
         <div style={{
           position:"relative", zIndex:10, width:"100%",
-          padding:"12px 14px 32px", overflowY:"auto", flex:1,
+          padding:"12px 14px 40px", overflowY:"auto", flex:1,
         }}>
-          {/* progress (ピクセルセグメント) */}
-          <div style={{ marginBottom:14 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:5 }}>
-              <span style={{
-                fontFamily:"'Press Start 2P',monospace",
-                fontSize:"0.45rem", color: C.gold,
-              }}>{stamps.size} もじ あつめた！</span>
-              <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.muted }}>
-                / {kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length}
-              </span>
-            </div>
-            {(() => {
-              const segs = 20;
-              const totalKana = kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length;
-              const filled = Math.round((stamps.size / totalKana) * segs);
-              return (
-                <div style={{ display:"flex", gap:2 }}>
-                  {Array.from({ length: segs }, (_, i) => (
-                    <div key={i} style={{
-                      flex:1, height:6,
-                      background: i < filled ? C.gold : "rgba(255,184,0,0.1)",
-                      border: `1px solid ${i < filled ? C.gold : "rgba(255,184,0,0.15)"}`,
-                      boxShadow: i < filled ? `0 0 3px ${C.gold}` : "none",
-                    }} />
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* stamp grid */}
-          <div style={{display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center"}}>
-            {(kanaMode === "katakana" ? ALL_KATAKANA : ALL_KANA).map(({kana, roma}) => {
-              const collected = stamps.has(kana);
-              return (
-                <div
-                  key={kana}
-                  onClick={() => collected && speak(kana, {rate:0.75, pitch:1.1})}
-                  style={{
-                    width:52, height:62,
-                    background: collected ? "rgba(60,40,0,0.9)" : "rgba(4,16,4,0.8)",
-                    border: collected
-                      ? `2px solid ${C.gold}`
-                      : `1px solid ${C.border}`,
-                    borderBottom: collected ? `3px solid #664400` : `2px solid rgba(57,255,20,0.1)`,
-                    display:"flex", flexDirection:"column",
-                    alignItems:"center", justifyContent:"center", gap:2,
-                    boxShadow: collected ? `0 0 10px rgba(255,184,0,0.4)` : "none",
-                    cursor: collected ? "pointer" : "default",
-                    animation: collected ? "stampPop 0.4s ease-out" : "none",
-                    transition:"box-shadow 0.2s",
-                  }}
-                >
-                  <div style={{
-                    fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
-                    fontWeight:900, fontSize:"1.5rem", lineHeight:1,
-                    color: collected ? C.gold : "rgba(57,255,20,0.15)",
-                  }}>
-                    {collected ? kana : "？"}
-                  </div>
-                  <div style={{
-                    fontFamily:"'Press Start 2P',monospace", fontSize:"0.3rem",
-                    color: collected ? "#cc8800" : "rgba(57,255,20,0.1)",
-                    letterSpacing:"0.02em",
-                  }}>
-                    {collected ? roma : "···"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {stamps.size === (kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length) && (
+          {/* 全体進捗ヘッダー */}
+          <div style={{
+            marginBottom:16, textAlign:"center",
+            padding:"12px 16px",
+            background:"rgba(4,16,4,0.9)",
+            border:`1px solid ${C.gold}`,
+            boxShadow:`0 0 16px rgba(255,184,0,0.2)`,
+          }}>
             <div style={{
-              textAlign:"center", marginTop:20,
               fontFamily:"'Press Start 2P',monospace",
-              fontSize:"0.6rem",
-              color: C.gold, textShadow:`0 0 16px ${C.gold}`,
-              animation:"phosphor-glow 2s ease-in-out infinite",
-            }}>🏆 ぜんぶ あつめた！</div>
+              fontSize:"clamp(0.55rem,3vw,0.75rem)", color: C.gold,
+              letterSpacing:"0.06em", marginBottom:8,
+            }}>
+              {allComplete ? "🏆 ぜんぶ コレクト！" : `${collectedCount} / ${totalKana} もじ コレクト！`}
+            </div>
+            {/* progress bar */}
+            <div style={{ display:"flex", gap:2 }}>
+              {Array.from({ length: 20 }, (_, i) => {
+                const filled = Math.round((collectedCount / totalKana) * 20);
+                return (
+                  <div key={i} style={{
+                    flex:1, height:8,
+                    background: i < filled ? C.gold : "rgba(255,184,0,0.08)",
+                    border: `1px solid ${i < filled ? C.gold : "rgba(255,184,0,0.12)"}`,
+                    boxShadow: i < filled ? `0 0 4px ${C.gold}` : "none",
+                  }} />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 行ごとのカードセクション */}
+          {rows.map(row => {
+            const cnt      = rowCollected(row);
+            const rowDone  = cnt === row.kana.length;
+            return (
+              <div key={row.row} style={{ marginBottom:24 }}>
+                {/* 行ヘッダー */}
+                <div style={{
+                  display:"flex", alignItems:"center", gap:8, marginBottom:10,
+                  borderBottom:`1px solid ${rowDone ? C.gold : C.border}`,
+                  paddingBottom:6,
+                }}>
+                  <span style={{
+                    fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
+                    color: rowDone ? C.gold : C.muted,
+                    letterSpacing:"0.08em",
+                  }}>{row.kana[0]}行</span>
+                  {rowDone ? (
+                    <span style={{
+                      padding:"2px 8px",
+                      background: C.gold, color:"#000",
+                      fontFamily:"'Press Start 2P',monospace", fontSize:"0.3rem",
+                      letterSpacing:"0.04em",
+                      animation:"rowCompletePop 0.5s cubic-bezier(0.175,0.885,0.32,1.275) both",
+                    }}>✦ COMPLETE ✦</span>
+                  ) : (
+                    <>
+                      <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.3rem", color: C.muted }}>
+                        {cnt}/{row.kana.length}
+                      </span>
+                      {/* 小さい進捗ドット */}
+                      <div style={{ display:"flex", gap:3 }}>
+                        {row.kana.map((k, idx) => (
+                          <div key={idx} style={{
+                            width:6, height:6,
+                            borderRadius:"50%",
+                            background: stamps.has(k) ? C.gold : "rgba(255,184,0,0.15)",
+                            boxShadow: stamps.has(k) ? `0 0 4px ${C.gold}` : "none",
+                          }} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* カードグリッド */}
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {row.kana.map((kana, i) => {
+                    const roma        = row.roma[i];
+                    const isCollected = stamps.has(kana);
+                    const strokeCount = (STROKE_DATA[kana] || []).length;
+                    return (
+                      <div
+                        key={kana}
+                        onClick={() => isCollected && speak(kana, {rate:0.75, pitch:1.1})}
+                        style={{
+                          width:64, height:88,
+                          position:"relative",
+                          background: isCollected
+                            ? "linear-gradient(160deg, #1c3a00 0%, #0a2200 55%, #1c3300 100%)"
+                            : "rgba(4,12,4,0.85)",
+                          border: isCollected
+                            ? `2px solid ${C.gold}`
+                            : `1px solid rgba(57,255,20,0.12)`,
+                          borderRadius:4,
+                          display:"flex", flexDirection:"column",
+                          alignItems:"center",
+                          boxShadow: isCollected
+                            ? `0 0 16px rgba(255,184,0,0.45), inset 0 0 12px rgba(57,255,20,0.06)`
+                            : "none",
+                          cursor: isCollected ? "pointer" : "default",
+                          overflow:"hidden",
+                          transition:"transform 0.12s, box-shadow 0.12s",
+                        }}
+                      >
+                        {/* シマーオーバーレイ */}
+                        {isCollected && (
+                          <div style={{
+                            position:"absolute", inset:0, pointerEvents:"none",
+                            background:"linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%)",
+                            animation:`cardShimmer ${3 + i * 0.4}s ease-in-out infinite`,
+                          }} />
+                        )}
+
+                        {/* 上部ゴールドライン */}
+                        <div style={{
+                          width:"100%", height:3,
+                          background: isCollected
+                            ? `linear-gradient(90deg, transparent, ${C.gold}, transparent)`
+                            : `rgba(57,255,20,0.06)`,
+                        }} />
+
+                        {/* 文字 */}
+                        <div style={{
+                          flex:1, display:"flex", flexDirection:"column",
+                          alignItems:"center", justifyContent:"center", gap:3,
+                          padding:"4px 4px 2px",
+                        }}>
+                          <div style={{
+                            fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
+                            fontWeight:900,
+                            fontSize:"2rem", lineHeight:1,
+                            color: isCollected ? C.gold : "rgba(57,255,20,0.08)",
+                            textShadow: isCollected ? `0 0 14px rgba(255,184,0,0.7)` : "none",
+                          }}>{isCollected ? kana : "？"}</div>
+                          <div style={{
+                            fontFamily:"'Press Start 2P',monospace", fontSize:"0.27rem",
+                            color: isCollected ? "#bb8800" : "rgba(57,255,20,0.06)",
+                            letterSpacing:"0.02em",
+                          }}>{isCollected ? roma : "···"}</div>
+                          {isCollected && strokeCount > 0 && (
+                            <div style={{
+                              fontFamily:"'Press Start 2P',monospace", fontSize:"0.22rem",
+                              color:"rgba(255,184,0,0.5)",
+                            }}>{strokeCount}かく</div>
+                          )}
+                        </div>
+
+                        {/* 下部スター */}
+                        <div style={{
+                          width:"100%", height:16,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          background: isCollected ? "rgba(255,184,0,0.08)" : "transparent",
+                          borderTop: isCollected ? `1px solid rgba(255,184,0,0.2)` : "none",
+                        }}>
+                          {isCollected && (
+                            <span style={{ fontSize:"0.55rem", lineHeight:1, color: C.gold }}>★</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* 全コンプリートメッセージ */}
+          {allComplete && (
+            <div style={{
+              textAlign:"center", marginTop:20, padding:"16px",
+              border:`2px solid ${C.gold}`,
+              background:"rgba(20,10,0,0.9)",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.5rem,3vw,0.7rem)",
+              color: C.gold,
+              animation:"allCompletePulse 2s ease-in-out infinite",
+              letterSpacing:"0.06em",
+            }}>🏆 ぜんもじ コンプリート！</div>
           )}
         </div>
       )}
 
       {/* selected popup — kana tab only */}
       {tab === "kana" && selected && (
-        <div style={{
-          position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
-          zIndex:50,
-          background:"rgba(4,10,4,0.97)",
-          border:`2px solid ${C.text}`,
-          borderBottom:`4px solid #006600`,
-          boxShadow:`0 0 24px rgba(57,255,20,0.4)`,
-          padding:"14px 32px",
-          display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-          minWidth:160,
-        }}>
+        <div
+          onClick={() => setSelected(null)}
+          style={{
+            position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
+            zIndex:50,
+            background:"rgba(4,10,4,0.97)",
+            border:`2px solid ${C.text}`,
+            borderBottom:`4px solid #006600`,
+            boxShadow:`0 0 28px rgba(57,255,20,0.45)`,
+            padding:"16px 36px",
+            display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+            minWidth:170,
+            cursor:"pointer",
+          }}
+        >
+          {/* 収集済みバッジ */}
+          {stamps.has(selected.kana) && (
+            <div style={{
+              position:"absolute", top:-10, right:-10,
+              background: C.gold, color:"#000",
+              fontFamily:"'Press Start 2P',monospace", fontSize:"0.3rem",
+              padding:"2px 6px",
+              boxShadow:`0 0 8px ${C.gold}`,
+            }}>★ GET!</div>
+          )}
           <div style={{
             fontSize:"clamp(3rem,12vw,4rem)",
             fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
@@ -3285,16 +3439,28 @@ function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
             color: C.teal, letterSpacing:"0.08em",
             textShadow:`0 0 10px ${C.teal}`,
           }}>{selected.roma}</div>
-          <button
-            onClick={() => speak(selected.kana, {rate:0.75, pitch:1.1})}
-            style={{
-              marginTop:4, padding:"5px 18px",
-              background:`rgba(0,229,255,0.08)`, border:`1px solid ${C.teal}`,
-              color: C.teal,
-              fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
-              cursor:"pointer", letterSpacing:"0.05em",
-            }}
-          >🔊 よみあげる</button>
+          {/* 書き順かく数 */}
+          {(STROKE_DATA[selected.kana] || []).length > 0 && (
+            <div style={{
+              fontFamily:"'Press Start 2P',monospace", fontSize:"0.32rem",
+              color: C.muted,
+            }}>{(STROKE_DATA[selected.kana]).length} かく</div>
+          )}
+          <div style={{ display:"flex", gap:8, marginTop:4 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); speak(selected.kana, {rate:0.75, pitch:1.1}); }}
+              style={{
+                padding:"5px 14px",
+                background:`rgba(0,229,255,0.08)`, border:`1px solid ${C.teal}`,
+                color: C.teal,
+                fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
+                cursor:"pointer", letterSpacing:"0.05em",
+              }}
+            >🔊 よむ</button>
+          </div>
+          <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.26rem", color:"rgba(57,255,20,0.3)", marginTop:2 }}>
+            タップでとじる
+          </div>
         </div>
       )}
     </div>
