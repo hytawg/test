@@ -518,17 +518,361 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
 }
 
 // ============================================================
-// APP  (仮: タスク3以降で差し替え)
+// BATTLE SCREEN
+// ============================================================
+const HERO_MAX_HP  = 5;
+const MONSTER_MAX_HP = 6;
+
+function makeQuestion(pool) {
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const correct  = shuffled[0];
+  // wrong choices: 3 from whole ALL_KANA set (exclude correct)
+  const wrongs = ALL_KANA.filter(k => k.roma !== correct.roma)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3);
+  return {
+    kana:    correct.kana,
+    answer:  correct.roma,
+    options: [correct, ...wrongs].sort(() => Math.random() - 0.5).map(k => k.roma),
+  };
+}
+
+function BattleScreen({ onHome }) {
+  const monsterEmoji = useRef(MONSTERS[Math.floor(Math.random() * MONSTERS.length)]).current;
+  const pool         = useRef(ALL_KANA).current;
+
+  const [heroHp,    setHeroHp]    = useState(HERO_MAX_HP);
+  const [monsterHp, setMonsterHp] = useState(MONSTER_MAX_HP);
+  const [question,  setQuestion]  = useState(() => makeQuestion(pool));
+  const [phase,     setPhase]     = useState("idle"); // idle | correct | wrong | win | lose
+  const [score,     setScore]     = useState(0);
+  const [flash,     setFlash]     = useState(null);  // "correct" | "wrong" | null
+
+  const nextQuestion = useCallback(() => {
+    setQuestion(makeQuestion(pool));
+    setPhase("idle");
+    setFlash(null);
+  }, [pool]);
+
+  const handleAnswer = useCallback((chosen) => {
+    if (phase !== "idle") return;
+
+    if (chosen === question.answer) {
+      // ─ correct ─
+      setFlash("correct");
+      setPhase("correct");
+      const nextMHp = monsterHp - 1;
+      setMonsterHp(nextMHp);
+      setScore(s => s + 10);
+      if (nextMHp <= 0) {
+        setTimeout(() => setPhase("win"), 700);
+      } else {
+        setTimeout(nextQuestion, 900);
+      }
+    } else {
+      // ─ wrong ─
+      setFlash("wrong");
+      setPhase("wrong");
+      const nextHHp = heroHp - 1;
+      setHeroHp(nextHHp);
+      if (nextHHp <= 0) {
+        setTimeout(() => setPhase("lose"), 700);
+      } else {
+        setTimeout(nextQuestion, 900);
+      }
+    }
+  }, [phase, question, monsterHp, heroHp, nextQuestion]);
+
+  const restart = () => {
+    setHeroHp(HERO_MAX_HP);
+    setMonsterHp(MONSTER_MAX_HP);
+    setScore(0);
+    setQuestion(makeQuestion(pool));
+    setPhase("idle");
+    setFlash(null);
+  };
+
+  const heroDanger   = heroHp <= 2;
+  const monsterDead  = phase === "win";
+  const heroDead     = phase === "lose";
+
+  // option button color
+  const optionStyle = (opt) => {
+    if (phase === "idle") return {};
+    if (opt === question.answer && (phase === "correct" || phase === "wrong")) {
+      return { background:"rgba(34,197,94,0.3)", borderColor:"#22c55e", color:"#86efac" };
+    }
+    return {};
+  };
+
+  return (
+    <div style={{
+      position:"relative", minHeight:"100dvh", width:"100%",
+      background: C.bg,
+      display:"flex", flexDirection:"column", alignItems:"center",
+      overflow:"hidden",
+    }}>
+      <CityBokeh />
+
+      {/* ── HEADER ─────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:480,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"14px 20px 6px",
+      }}>
+        <button
+          onClick={onHome}
+          style={{
+            background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
+            borderRadius:8, color:C.primary, cursor:"pointer",
+            padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
+          }}
+        >
+          ← もどる
+        </button>
+        <div style={{
+          fontFamily:"monospace", fontSize:"0.75rem", color: C.muted, letterSpacing:"0.1em",
+        }}>
+          スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+        </div>
+        <ColorTimer danger={heroDanger} />
+      </div>
+
+      {/* ── ARENA ──────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:480,
+        padding:"0 20px", marginTop:4,
+        display:"flex", flexDirection:"column", gap:8,
+      }}>
+        {/* HP bars */}
+        <div style={{ display:"flex", gap:12 }}>
+          <div style={{ flex:1 }}>
+            <HPBar hp={heroHp}    maxHp={HERO_MAX_HP}    label="🦸 ゆずき" />
+          </div>
+          <div style={{ flex:1 }}>
+            <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label={`${monsterEmoji} かいじゅう`} />
+          </div>
+        </div>
+
+        {/* battlefield */}
+        <div style={{
+          position:"relative", height:"min(42vw, 200px)",
+          background:"linear-gradient(180deg, rgba(20,8,8,0.7) 0%, rgba(10,4,4,0.9) 100%)",
+          border:"1px solid rgba(239,68,68,0.2)",
+          borderRadius:12,
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"0 clamp(16px,6vw,40px)",
+          overflow:"hidden",
+          animation: flash === "wrong" ? "screenShake 0.4s ease-out" : "none",
+        }}>
+          {/* scan lines */}
+          <div style={{
+            position:"absolute", inset:0, pointerEvents:"none",
+            background:"repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px)",
+          }} />
+
+          {/* correct flash overlay */}
+          {flash === "correct" && (
+            <div style={{
+              position:"absolute", inset:0, borderRadius:12,
+              background:"rgba(34,197,94,0.15)",
+              animation:"correctFlash 0.8s ease-out forwards",
+              pointerEvents:"none", zIndex:5,
+            }} />
+          )}
+
+          {/* hero */}
+          <div style={{
+            fontSize:"clamp(3rem,12vw,5rem)",
+            filter: heroDead
+              ? "grayscale(1) opacity(0.3)"
+              : heroDanger
+              ? "drop-shadow(0 0 14px rgba(255,50,50,0.9))"
+              : "drop-shadow(0 0 10px rgba(100,180,255,0.6))",
+            animation: heroDead ? "none"
+              : flash === "wrong" ? "wrongShake 0.4s ease-out"
+              : "heroFloat 3s ease-in-out infinite",
+            userSelect:"none",
+          }}>
+            🦸
+          </div>
+
+          {/* beam — only during correct phase */}
+          {flash === "correct" && (
+            <div style={{
+              position:"absolute",
+              left:"clamp(60px,18vw,100px)",
+              right:"clamp(60px,18vw,100px)",
+              top:"50%", transform:"translateY(-50%)",
+              height:6, borderRadius:3,
+              background:"linear-gradient(90deg, #38bdf8, #a78bfa, #f472b6)",
+              boxShadow:"0 0 16px #38bdf8, 0 0 30px #a78bfa",
+              animation:"beamShoot 0.7s ease-out forwards",
+              transformOrigin:"left center",
+              zIndex:4,
+            }} />
+          )}
+
+          {/* monster */}
+          <div style={{
+            fontSize:"clamp(3rem,13vw,5.5rem)",
+            filter: monsterDead
+              ? "grayscale(1) opacity(0)"
+              : "drop-shadow(0 0 12px rgba(239,68,68,0.6))",
+            animation: monsterDead ? "monsterDead 0.7s ease-out forwards"
+              : flash === "correct" ? "monsterHit 0.6s ease-out"
+              : "heroFloat 2.5s ease-in-out 0.4s infinite",
+            userSelect:"none",
+          }}>
+            {monsterEmoji}
+          </div>
+        </div>
+      </div>
+
+      {/* ── QUESTION CARD ──────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:480,
+        padding:"0 20px", marginTop:12,
+        display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+      }}>
+        {/* kana display */}
+        <div style={{
+          background:"linear-gradient(135deg, rgba(20,8,8,0.9) 0%, rgba(12,4,4,0.95) 100%)",
+          border:`2px solid ${C.border}`,
+          borderRadius:16,
+          padding:"12px 40px",
+          boxShadow:`0 0 24px rgba(239,68,68,0.15), inset 0 0 16px rgba(239,68,68,0.05)`,
+          textAlign:"center",
+        }}>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.15em", marginBottom:4 }}>
+            よみかた は？
+          </div>
+          <div style={{
+            fontSize:"clamp(3.5rem,16vw,6rem)",
+            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+            fontWeight:900,
+            color: "#fff",
+            textShadow:"0 0 20px rgba(239,68,68,0.5), 3px 3px 0 rgba(185,28,28,0.4)",
+            lineHeight:1,
+            userSelect:"none",
+          }}>
+            {question.kana}
+          </div>
+        </div>
+
+        {/* answer options: 2×2 grid */}
+        <div style={{
+          display:"grid", gridTemplateColumns:"1fr 1fr", gap:10,
+          width:"100%",
+        }}>
+          {question.options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => handleAnswer(opt)}
+              style={{
+                height: 54,
+                background:"linear-gradient(180deg, rgba(28,14,14,0.92) 0%, rgba(16,8,8,0.96) 100%)",
+                border:"1.5px solid rgba(120,60,60,0.5)",
+                borderRadius:12,
+                color: "#e2e8f0",
+                fontFamily:"monospace",
+                fontWeight:700,
+                fontSize:"clamp(1rem,4vw,1.25rem)",
+                letterSpacing:"0.08em",
+                cursor: phase !== "idle" ? "default" : "pointer",
+                transition:"all 0.15s",
+                ...optionStyle(opt),
+              }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── WIN / LOSE OVERLAY ─────────────────────────── */}
+      {(phase === "win" || phase === "lose") && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:100,
+          background:"rgba(0,0,0,0.82)",
+          backdropFilter:"blur(6px)",
+          display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center", gap:20,
+        }}>
+          <div style={{
+            fontSize:"clamp(3rem,14vw,5rem)",
+            animation:"shuwatchAppear 0.55s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+          }}>
+            {phase === "win" ? "🏆" : "💀"}
+          </div>
+          <div style={{
+            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+            fontWeight:900,
+            fontSize:"clamp(1.5rem,7vw,2.5rem)",
+            color: phase === "win" ? C.gold : "#f87171",
+            textShadow: phase === "win"
+              ? "0 0 20px rgba(251,191,36,0.8)"
+              : "0 0 20px rgba(239,68,68,0.8)",
+            letterSpacing:"0.1em",
+          }}>
+            {phase === "win" ? "しょうり！" : "やられた…"}
+          </div>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.8rem" }}>
+            スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+          </div>
+          <div style={{ display:"flex", gap:12, marginTop:8 }}>
+            <button
+              onClick={restart}
+              style={{
+                padding:"12px 32px", borderRadius:999,
+                background:"linear-gradient(180deg,#f87171,#dc2626)",
+                border:"none", color:"#fff",
+                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
+                cursor:"pointer",
+                boxShadow:"0 4px 16px rgba(239,68,68,0.5)",
+              }}
+            >
+              もういちど
+            </button>
+            <button
+              onClick={onHome}
+              style={{
+                padding:"12px 32px", borderRadius:999,
+                background:"rgba(30,15,15,0.9)",
+                border:"1px solid rgba(120,60,60,0.5)",
+                color: C.muted,
+                fontFamily:"monospace", fontSize:"0.9rem", letterSpacing:"0.08em",
+                cursor:"pointer",
+              }}
+            >
+              ホームへ
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// APP  (仮: タスク4以降で差し替え)
 // ============================================================
 export default function App() {
+  const [screen, setScreen] = useState("home"); // "home" | "battle"
   return (
     <>
       <style>{GLOBAL_CSS}</style>
-      <HomeScreen
-        onBattle={() => {}}
-        onTokkun={() => {}}
-        onZukan={() => {}}
-      />
+      {screen === "home" && (
+        <HomeScreen
+          onBattle={() => setScreen("battle")}
+          onTokkun={() => {}}
+          onZukan={() => {}}
+        />
+      )}
+      {screen === "battle" && (
+        <BattleScreen onHome={() => setScreen("home")} />
+      )}
     </>
   );
 }
