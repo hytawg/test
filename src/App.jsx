@@ -344,100 +344,16 @@ const ENEMY_DEFS = [
 // ============================================================
 // HERO SVG  (ウルトラマンゆずき / レベル対応)
 // ============================================================
-function HeroSVG({ size = 120, level = 1, style = {} }) {
-  const hc = heroColors(level);
-  const timerVals = level >= 7
-    ? `${hc.timer};#a78bfa;${hc.timer}`
-    : `${hc.timer};#3b82f6;${hc.timer}`;
+function HeroImg({ size = 120, mode = "shomen", style = {} }) {
+  const src = mode === "kougeki"
+    ? "/senshi_kougeki.png"
+    : mode === "migi"
+    ? "/senshi_migi.png"
+    : "/senshi_shomen.png";
+  const h = Math.round(size * 1.72);
   return (
-    <svg width={size} height={Math.round(size * 1.72)} viewBox="0 0 60 103" fill="none"
-      xmlns="http://www.w3.org/2000/svg" style={{ display:"block", ...style }}>
-      {/* lv9+: crown */}
-      {level >= 9 && (
-        <g>
-          <polygon points="30,-8 24,2 30,0 36,2" fill="#fbbf24"/>
-          <polygon points="24,2 18,0 22,6" fill="#f59e0b"/>
-          <polygon points="36,2 42,0 38,6" fill="#f59e0b"/>
-          <circle cx="30" cy="-4" r="2.5" fill="#a78bfa"/>
-        </g>
-      )}
-      {/* ─ crest ─ */}
-      <polygon points="30,0 25,11 35,11" fill={hc.crest}/>
-      <rect x="28" y="8" width="4" height="5" rx="1" fill={hc.gem}/>
-      {/* ─ head ─ */}
-      <ellipse cx="30" cy="20" rx="11" ry="13" fill={hc.body}/>
-      {/* face mask */}
-      <ellipse cx="30" cy="21" rx="9" ry="9" fill="#1c2430"/>
-      {/* eyes */}
-      <polygon points="21,18 27,14 29,20 23,21" fill={hc.eye}/>
-      <polygon points="39,18 33,14 31,20 37,21" fill={hc.eye}/>
-      {/* head side marks */}
-      <rect x="19" y="18" width="2" height="6" rx="1" fill={hc.sideBar}/>
-      <rect x="39" y="18" width="2" height="6" rx="1" fill={hc.sideBar}/>
-      {/* ─ neck ─ */}
-      <rect x="27" y="32" width="6" height="5" fill={hc.neck}/>
-      {/* ─ shoulders ─ */}
-      <ellipse cx="14" cy="41" rx="9" ry="6" fill={hc.shoulder}/>
-      <ellipse cx="46" cy="41" rx="9" ry="6" fill={hc.shoulder}/>
-      {/* lv3+: shoulder gems */}
-      {level >= 3 && <>
-        <circle cx="14" cy="41" r="3" fill="#0ea5e9" opacity="0.8"/>
-        <circle cx="46" cy="41" r="3" fill="#0ea5e9" opacity="0.8"/>
-      </>}
-      {/* ─ torso ─ */}
-      <path d="M16,36 L44,36 L42,68 L18,68 Z" fill={hc.body}/>
-      {/* stripe pattern */}
-      <path d="M30,38 C23,43 17,52 20,59 C25,53 30,51 30,51 C30,51 35,53 40,59 C43,52 37,43 30,38 Z" fill={hc.stripe}/>
-      <path d="M30,51 C24,56 18,64 20,70 L30,65 L40,70 C42,64 36,56 30,51 Z" fill={hc.stripe2}/>
-      {/* lv4+: waist gem */}
-      {level >= 4 && <circle cx="30" cy="71" r="2.5" fill="#fbbf24" opacity="0.9"/>}
-      {/* color timer */}
-      <ellipse cx="30" cy="43" rx="4" ry="2.5" fill={hc.timer}>
-        <animate attributeName="fill" values={timerVals} dur={level >= 7 ? "0.8s" : "1.5s"} repeatCount="indefinite"/>
-      </ellipse>
-      {/* lv5+: second timer dot */}
-      {level >= 5 && (
-        <ellipse cx="30" cy="43" rx="2" ry="1.2" fill="rgba(255,255,255,0.5)">
-          <animate attributeName="opacity" values="0.5;1;0.5" dur="0.8s" repeatCount="indefinite"/>
-        </ellipse>
-      )}
-      {/* ─ arms ─ */}
-      <rect x="5"  y="35" width="10" height="22" rx="3" fill={hc.body}    transform="rotate(-8 10 46)"/>
-      <rect x="4"  y="56" width="9"  height="17" rx="3" fill={hc.armor}   transform="rotate(-14 8 64)"/>
-      <ellipse cx="7"  cy="74" rx="5" ry="4" fill={hc.armor} transform="rotate(-14 7 74)"/>
-      <rect x="45" y="35" width="10" height="22" rx="3" fill={hc.body}    transform="rotate(8 50 46)"/>
-      <rect x="47" y="56" width="9"  height="17" rx="3" fill={hc.armor}   transform="rotate(14 52 64)"/>
-      <ellipse cx="53" cy="74" rx="5" ry="4" fill={hc.armor} transform="rotate(14 53 74)"/>
-      {/* ─ waist ─ */}
-      <rect x="18" y="68" width="24" height="6" rx="2" fill={hc.waist}/>
-      {/* ─ legs ─ */}
-      <rect x="18" y="74" width="11" height="17" rx="3" fill={hc.body}/>
-      <rect x="31" y="74" width="11" height="17" rx="3" fill={hc.body}/>
-      {/* knee bands */}
-      <rect x="18" y="81" width="11" height="4" rx="1" fill={hc.stripe}/>
-      <rect x="31" y="81" width="11" height="4" rx="1" fill={hc.stripe}/>
-      {/* shins */}
-      <rect x="19" y="91" width="9"  height="12" rx="2" fill={hc.armor}/>
-      <rect x="32" y="91" width="9"  height="12" rx="2" fill={hc.armor}/>
-      {/* feet */}
-      <ellipse cx="23" cy="103" rx="9" ry="3.5" fill={hc.foot}/>
-      <ellipse cx="37" cy="103" rx="9" ry="3.5" fill={hc.foot}/>
-      {/* lv8+: energy sparks */}
-      {level >= 8 && <>
-        <circle cx="8"  cy="38" r="1.5" fill="#fbbf24" opacity="0.8">
-          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="0s"   repeatCount="indefinite"/>
-        </circle>
-        <circle cx="52" cy="38" r="1.5" fill="#a78bfa" opacity="0.8">
-          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="0.4s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="14" cy="70" r="1.5" fill="#fbbf24" opacity="0.8">
-          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="0.8s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="46" cy="70" r="1.5" fill="#a78bfa" opacity="0.8">
-          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="1.2s" repeatCount="indefinite"/>
-        </circle>
-      </>}
-    </svg>
+    <img src={src} alt="せんし" width={size} height={h}
+      style={{ display:"block", objectFit:"contain", ...style }} />
   );
 }
 
@@ -901,7 +817,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
                 ? "heroAura 2s ease-in-out infinite"
                 : "heroFloat 3s ease-in-out infinite",
             }}>
-              <HeroSVG size={Math.min(window.innerWidth * 0.42, 200)} level={level}/>
+              <HeroImg size={Math.min(window.innerWidth * 0.42, 200)} mode="shomen"/>
             </div>
             {/* corner accent lines */}
             {[
@@ -1344,7 +1260,7 @@ function BattleScreen({ onHome, enemy }) {
               : isMonsterAtk ? "wrongShake 0.45s ease-out"
               : "heroFloat 3s ease-in-out infinite",
           }}>
-            <HeroSVG size={Math.min(window.innerWidth * 0.2, 88)} level={level}/>
+            <HeroImg size={Math.min(window.innerWidth * 0.2, 88)} mode={isCorrect ? "kougeki" : "migi"}/>
           </div>
 
           {/* ビーム */}
