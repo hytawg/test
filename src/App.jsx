@@ -27,6 +27,7 @@ const HIRAGANA_ROWS = [
   { row: "ナ行", kana: ["な","に","ぬ","ね","の"], roma: ["na","ni","nu","ne","no"] },
   { row: "ハ行", kana: ["は","ひ","ふ","へ","ほ"], roma: ["ha","hi","fu","he","ho"] },
   { row: "マ行", kana: ["ま","み","む","め","も"], roma: ["ma","mi","mu","me","mo"] },
+  { row: "ザ行", kana: ["ざ","じ","ず","ぜ","ぞ"], roma: ["za","ji","zu","ze","zo"] },
   { row: "ヤ行", kana: ["や","ゆ","よ"],           roma: ["ya","yu","yo"] },
   { row: "ラ行", kana: ["ら","り","る","れ","ろ"], roma: ["ra","ri","ru","re","ro"] },
   { row: "ワ行", kana: ["わ","を","ん"],           roma: ["wa","wo","n"] },
@@ -2816,7 +2817,7 @@ export default function App() {
   }, [screen]);
 
   return (
-    <>
+    <div onContextMenu={(e) => e.preventDefault()}>
       <style>{GLOBAL_CSS + TRANSITION_CSS}</style>
       <ScreenTransition screenKey={screen}>
         {screen === "home"   && (
@@ -2838,6 +2839,6 @@ export default function App() {
         {screen === "kakitori" && <KakitoriScreen onHome={() => go("home")} />}
         {screen === "zukan"    && <ZukanScreen    onHome={() => go("home")} />}
       </ScreenTransition>
-    </>
+    </div>
   );
 }
