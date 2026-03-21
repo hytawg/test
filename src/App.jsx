@@ -858,38 +858,184 @@ function BattleScreen({ onHome }) {
 // ============================================================
 // TOKKUN SCREEN  (フラッシュカード練習)
 // ============================================================
+// ============================================================
+// TRACING CANVAS  (スタイラス・ペン入力)
+// ============================================================
+function TracingCanvas({ guideKana, onFirstStroke }) {
+  const canvasRef  = useRef(null);
+  const isDrawing  = useRef(false);
+  const lastPt     = useRef(null);
+  const hasDrawn   = useRef(false);
+
+  // キャラが変わるたびにキャンバスをリセット + DPR 設定
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr  = window.devicePixelRatio || 1;
+    const side = canvas.offsetWidth;
+    canvas.width  = side * dpr;
+    canvas.height = side * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    hasDrawn.current = false;
+  }, [guideKana]);
+
+  // 親から「消す」を呼べるよう imperative API を公開
+  useEffect(() => {
+    canvasRef.current._clear = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+      hasDrawn.current = false;
+    };
+  });
+
+  const getPos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      // スタイラス pressure: 0→1。マウス/タッチは 0.5 固定
+      pressure: e.pressure > 0 ? e.pressure : 0.5,
+    };
+  };
+
+  const startStroke = (e) => {
+    e.preventDefault();
+    canvasRef.current.setPointerCapture(e.pointerId);
+    isDrawing.current = true;
+    if (!hasDrawn.current) {
+      hasDrawn.current = true;
+      onFirstStroke?.();
+    }
+    const pos = getPos(e);
+    lastPt.current = pos;
+    // 点打ち (筆おろし)
+    const ctx = canvasRef.current.getContext("2d");
+    const r   = Math.max(2, pos.pressure * 6);
+    ctx.fillStyle   = "#ef4444";
+    ctx.shadowBlur  = 12;
+    ctx.shadowColor = "rgba(239,68,68,0.7)";
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const continueStroke = (e) => {
+    if (!isDrawing.current || !lastPt.current) return;
+    e.preventDefault();
+    const ctx  = canvasRef.current.getContext("2d");
+    const pos  = getPos(e);
+    const prev = lastPt.current;
+    const w    = Math.max(3, pos.pressure * 12 + 2);
+
+    ctx.lineWidth   = w;
+    ctx.lineCap     = "round";
+    ctx.lineJoin    = "round";
+    ctx.strokeStyle = "#ef4444";
+    ctx.shadowBlur  = 10;
+    ctx.shadowColor = "rgba(239,68,68,0.55)";
+    ctx.beginPath();
+    ctx.moveTo(prev.x, prev.y);
+    ctx.lineTo(pos.x,  pos.y);
+    ctx.stroke();
+
+    lastPt.current = pos;
+  };
+
+  const endStroke = () => {
+    isDrawing.current = false;
+    lastPt.current    = null;
+  };
+
+  return (
+    <div style={{ position:"relative", width:"100%", aspectRatio:"1/1" }}>
+      {/* ガイド文字 (薄く表示) */}
+      <div style={{
+        position:"absolute", inset:0, zIndex:1,
+        display:"flex", alignItems:"center", justifyContent:"center",
+        fontSize:"min(62vw, 340px)",
+        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+        fontWeight:900,
+        color:"rgba(255,255,255,0.13)",
+        lineHeight:1,
+        userSelect:"none", pointerEvents:"none",
+      }}>{guideKana}</div>
+
+      {/* 補助グリッド線 (縦横中心) */}
+      <div style={{
+        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
+        backgroundImage:`
+          linear-gradient(rgba(239,68,68,0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(239,68,68,0.08) 1px, transparent 1px)
+        `,
+        backgroundSize:"50% 50%",
+        backgroundPosition:"50% 50%",
+      }} />
+
+      {/* 枠線 */}
+      <div style={{
+        position:"absolute", inset:0, zIndex:3,
+        border:"2px solid rgba(239,68,68,0.35)",
+        borderRadius:16,
+        boxShadow:"inset 0 0 28px rgba(239,68,68,0.06)",
+        pointerEvents:"none",
+      }} />
+
+      {/* 描画キャンバス */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          display:"block", position:"relative", zIndex:2,
+          width:"100%", height:"100%",
+          borderRadius:14,
+          background:"rgba(12,4,4,0.88)",
+          touchAction:"none",  // スクロール無効化
+          cursor:"crosshair",
+        }}
+        onPointerDown={startStroke}
+        onPointerMove={continueStroke}
+        onPointerUp={endStroke}
+        onPointerLeave={endStroke}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// TOKKUN SCREEN  (スタイラスなぞり練習)
+// ============================================================
 function TokkunScreen({ onHome }) {
-  const deck = useRef([...ALL_KANA].sort(() => Math.random() - 0.5)).current;
+  const deck        = useRef([...ALL_KANA].sort(() => Math.random() - 0.5)).current;
   const [idx,       setIdx]       = useState(0);
-  const [flipped,   setFlipped]   = useState(false);
-  const [correct,   setCorrect]   = useState(0);
-  const [wrong,     setWrong]     = useState(0);
   const [done,      setDone]      = useState(false);
-  const [feedback,  setFeedback]  = useState(null); // "correct"|"wrong"|null
+  const [hasStroke, setHasStroke] = useState(false);
+  const canvasRef   = useRef(null);  // TracingCanvas の wrapper div ref
 
-  const card = deck[idx];
-  const total = deck.length;
+  const card     = deck[idx];
+  const total    = deck.length;
+  const progress = Math.round((idx / total) * 100);
 
-  const advance = (result) => {
-    if (result === "correct") setCorrect(c => c + 1);
-    else                      setWrong(w => w + 1);
-    setFeedback(result);
-    setTimeout(() => {
-      setFeedback(null);
-      setFlipped(false);
-      if (idx + 1 >= total) setDone(true);
-      else setIdx(i => i + 1);
-    }, 400);
+  const clearCanvas = () => {
+    // TracingCanvas が公開した _clear を呼ぶ
+    const canvas = canvasRef.current?.querySelector("canvas");
+    canvas?._clear?.();
+    setHasStroke(false);
+  };
+
+  const next = () => {
+    setHasStroke(false);
+    if (idx + 1 >= total) { setDone(true); return; }
+    setIdx(i => i + 1);
   };
 
   const restart = () => {
     deck.sort(() => Math.random() - 0.5);
-    setIdx(0); setFlipped(false);
-    setCorrect(0); setWrong(0);
-    setDone(false); setFeedback(null);
+    setIdx(0);
+    setDone(false);
+    setHasStroke(false);
   };
-
-  const progress = Math.round((idx / total) * 100);
 
   return (
     <div style={{
@@ -900,9 +1046,9 @@ function TokkunScreen({ onHome }) {
     }}>
       <CityBokeh />
 
-      {/* header */}
+      {/* ── HEADER ─────────────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:480,
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
         display:"flex", alignItems:"center", justifyContent:"space-between",
         padding:"14px 20px 8px",
       }}>
@@ -912,17 +1058,17 @@ function TokkunScreen({ onHome }) {
           padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
         }}>← もどる</button>
         <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
-          ⚡ とっくん
+          ✏️ とっくん (なぞり)
         </div>
         <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
           {idx + 1} / {total}
         </div>
       </div>
 
-      {/* progress bar */}
+      {/* ── PROGRESS BAR ───────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:480,
-        padding:"0 20px", marginBottom:4,
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"0 20px 8px",
       }}>
         <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden" }}>
           <div style={{
@@ -931,106 +1077,91 @@ function TokkunScreen({ onHome }) {
             borderRadius:2, transition:"width 0.3s ease-out",
           }} />
         </div>
-        <div style={{
-          display:"flex", justifyContent:"space-between",
-          fontFamily:"monospace", fontSize:"0.55rem", color: C.muted, marginTop:3,
-        }}>
-          <span style={{ color:"#22c55e" }}>✓ {correct}</span>
-          <span style={{ color:"#f87171" }}>✗ {wrong}</span>
-        </div>
       </div>
 
-      {/* flash card */}
+      {/* ── MAIN: なぞりエリア ──────────────────────── */}
       {!done && (
         <div style={{
-          position:"relative", zIndex:10, width:"100%", maxWidth:420,
-          padding:"0 20px", flex:1,
-          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-          gap:16,
+          position:"relative", zIndex:10,
+          width:"100%", maxWidth:520,
+          padding:"0 20px",
+          display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+          flex:1,
         }}>
-          <button
-            onClick={() => !flipped && setFlipped(true)}
-            style={{
-              width:"100%", minHeight:220,
-              background: feedback === "correct"
-                ? "rgba(34,197,94,0.15)"
-                : feedback === "wrong"
-                ? "rgba(239,68,68,0.15)"
-                : "linear-gradient(135deg, rgba(22,10,10,0.92) 0%, rgba(12,5,5,0.96) 100%)",
-              border: `2px solid ${
-                feedback === "correct" ? "#22c55e"
-                : feedback === "wrong"  ? "#ef4444"
-                : "rgba(239,68,68,0.4)"
-              }`,
-              borderRadius:20,
-              cursor: flipped ? "default" : "pointer",
-              display:"flex", flexDirection:"column",
-              alignItems:"center", justifyContent:"center", gap:12,
-              boxShadow: feedback === "correct"
-                ? "0 0 30px rgba(34,197,94,0.3)"
-                : feedback === "wrong"
-                ? "0 0 30px rgba(239,68,68,0.3)"
-                : "0 0 24px rgba(239,68,68,0.12)",
-              transition:"all 0.25s",
-            }}
-          >
-            <div style={{
-              fontSize:"clamp(4rem,18vw,7rem)",
-              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-              fontWeight:900,
-              color:"#fff",
-              textShadow:"0 0 20px rgba(239,68,68,0.4), 3px 3px 0 rgba(185,28,28,0.35)",
-              userSelect:"none",
-            }}>{card.kana}</div>
+          {/* 読み方ラベル */}
+          <div style={{
+            display:"flex", alignItems:"center", gap:10,
+            background:"rgba(14,165,233,0.1)",
+            border:"1px solid rgba(14,165,233,0.3)",
+            borderRadius:24, padding:"6px 20px",
+          }}>
+            <span style={{
+              fontFamily:"monospace", fontWeight:900,
+              fontSize:"clamp(0.9rem,3.5vw,1.2rem)",
+              color: C.teal, letterSpacing:"0.12em",
+              textShadow:`0 0 10px ${C.teal}`,
+            }}>{card.roma}</span>
+            <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.6rem", letterSpacing:"0.1em" }}>
+              よみかた
+            </span>
+          </div>
 
-            {!flipped ? (
-              <div style={{
-                fontFamily:"monospace", fontSize:"0.7rem", color: C.muted,
-                letterSpacing:"0.12em",
-              }}>タップしてこたえを見る</div>
-            ) : (
-              <div style={{
-                fontFamily:"monospace", fontSize:"clamp(1.2rem,5vw,1.8rem)",
-                fontWeight:900, color: C.teal,
-                letterSpacing:"0.1em",
-                textShadow:`0 0 12px ${C.teal}`,
-              }}>{card.roma}</div>
-            )}
-          </button>
+          {/* キャンバス */}
+          <div ref={canvasRef} style={{ width:"min(80vw, 440px)" }}>
+            <TracingCanvas
+              guideKana={card.kana}
+              onFirstStroke={() => setHasStroke(true)}
+            />
+          </div>
 
-          {/* answer buttons — only show after flip */}
-          {flipped && !feedback && (
-            <div style={{ display:"flex", gap:12, width:"100%" }}>
-              <button
-                onClick={() => advance("wrong")}
-                style={{
-                  flex:1, height:52,
-                  background:"rgba(239,68,68,0.12)",
-                  border:"1.5px solid rgba(239,68,68,0.5)",
-                  borderRadius:12,
-                  color:"#f87171", fontFamily:"monospace",
-                  fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
-                  cursor:"pointer",
-                }}
-              >✗ むずかしい</button>
-              <button
-                onClick={() => advance("correct")}
-                style={{
-                  flex:1, height:52,
-                  background:"rgba(34,197,94,0.12)",
-                  border:"1.5px solid rgba(34,197,94,0.5)",
-                  borderRadius:12,
-                  color:"#86efac", fontFamily:"monospace",
-                  fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
-                  cursor:"pointer",
-                }}
-              >✓ わかった！</button>
-            </div>
-          )}
+          {/* ヒント */}
+          <div style={{
+            fontFamily:"monospace", fontSize:"0.6rem",
+            color:"rgba(100,116,139,0.7)", letterSpacing:"0.1em",
+            textAlign:"center",
+          }}>
+            うすい文字をスタイラスでなぞってみよう
+          </div>
+
+          {/* 操作ボタン */}
+          <div style={{ display:"flex", gap:12, width:"100%", maxWidth:380, marginTop:4 }}>
+            <button
+              onClick={clearCanvas}
+              disabled={!hasStroke}
+              style={{
+                flex:1, height:52,
+                background:"rgba(22,10,10,0.85)",
+                border:"1.5px solid rgba(120,60,60,0.4)",
+                borderRadius:12,
+                color: hasStroke ? "#f87171" : C.muted,
+                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
+                fontWeight:700, fontSize:"0.95rem", letterSpacing:"0.08em",
+                cursor: hasStroke ? "pointer" : "default",
+                opacity: hasStroke ? 1 : 0.4,
+                transition:"all 0.2s",
+              }}
+            >消す</button>
+            <button
+              onClick={next}
+              style={{
+                flex:2, height:52,
+                background:"linear-gradient(180deg, #f87171 0%, #dc2626 100%)",
+                border:"2px solid rgba(255,255,255,0.15)",
+                borderRadius:12,
+                color:"#fff",
+                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
+                cursor:"pointer",
+                boxShadow:"0 3px 14px rgba(239,68,68,0.45)",
+              }}
+            >
+              {idx + 1 >= total ? "かんりょう！" : "つぎへ →"}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* done overlay */}
+      {/* ── DONE OVERLAY ───────────────────────────── */}
       {done && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
@@ -1045,9 +1176,8 @@ function TokkunScreen({ onHome }) {
             color: C.gold, letterSpacing:"0.1em",
             textShadow:"0 0 20px rgba(251,191,36,0.7)",
           }}>とっくん かんりょう！</div>
-          <div style={{ display:"flex", gap:24, fontFamily:"monospace", fontSize:"1rem" }}>
-            <span style={{ color:"#86efac" }}>✓ {correct}</span>
-            <span style={{ color:"#f87171" }}>✗ {wrong}</span>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.75rem" }}>
+            {total}文字 なぞった！
           </div>
           <div style={{ display:"flex", gap:12, marginTop:8 }}>
             <button onClick={restart} style={{
