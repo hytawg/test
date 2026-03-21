@@ -842,10 +842,13 @@ const GLOBAL_CSS = `
   }
   @keyframes senshiZoomIn {
     0%   { transform: scale(0.08) translateY(60px); opacity: 0; }
-    55%  { transform: scale(1.08) translateY(-8px);  opacity: 1; }
-    70%  { transform: scale(0.97) translateY(0);     opacity: 1; }
-    85%  { transform: scale(1.0)  translateY(0);     opacity: 1; }
-    100% { transform: scale(0.55) translateY(-140vh); opacity: 0; }
+    60%  { transform: scale(1.1)  translateY(-6px);  opacity: 1; }
+    100% { transform: scale(1.0)  translateY(0);     opacity: 1; }
+  }
+  @keyframes senshiFlyUp {
+    0%   { transform: scale(1.0)  translateY(0);      opacity: 1; }
+    30%  { transform: scale(1.12) translateY(-10px);  opacity: 1; }
+    100% { transform: scale(0.4)  translateY(-160vh); opacity: 0; }
   }
   @keyframes winTextPop {
     0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
@@ -1606,7 +1609,7 @@ function BattleScreen({ onHome, enemy }) {
               style={{
                 width:"min(72vw, 340px)",
                 height:"auto",
-                animation:"senshiZoomIn 3.2s cubic-bezier(0.22,1,0.36,1) forwards",
+                animation:"senshiZoomIn 0.9s cubic-bezier(0.22,1,0.36,1) both, senshiFlyUp 1.1s 3.0s ease-in forwards",
                 filter:"drop-shadow(0 0 32px rgba(100,200,255,0.7))",
                 pointerEvents:"none",
               }}
