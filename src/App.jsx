@@ -840,6 +840,22 @@ const GLOBAL_CSS = `
     0%,100% { filter: drop-shadow(0 0 12px rgba(251,191,36,0.7)); }
     50%     { filter: drop-shadow(0 0 28px rgba(251,191,36,1.0)) drop-shadow(0 0 48px rgba(251,191,36,0.4)); }
   }
+  @keyframes senshiZoomIn {
+    0%   { transform: scale(0.08) translateY(60px); opacity: 0; }
+    55%  { transform: scale(1.08) translateY(-8px);  opacity: 1; }
+    70%  { transform: scale(0.97) translateY(0);     opacity: 1; }
+    85%  { transform: scale(1.0)  translateY(0);     opacity: 1; }
+    100% { transform: scale(0.55) translateY(-140vh); opacity: 0; }
+  }
+  @keyframes winTextPop {
+    0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+    60%  { transform: scale(1.12) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+  }
+  @keyframes winGlowPulse {
+    0%,100% { text-shadow: 0 0 16px #ffd700, 0 0 30px #ffd700; }
+    50%     { text-shadow: 0 0 32px #ffd700, 0 0 64px #ffaa00, 0 0 90px #ff8800; }
+  }
 `;
 
 // ── 紙吹雪コンポーネント ────────────────────────────────────
@@ -1573,28 +1589,53 @@ function BattleScreen({ onHome, enemy }) {
       {(isWin || isLose) && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
-          background:"rgba(0,0,0,0.82)", backdropFilter:"blur(6px)",
+          background: isWin
+            ? "radial-gradient(ellipse at 50% 80%, rgba(30,60,10,0.95) 0%, rgba(0,0,0,0.92) 70%)"
+            : "rgba(0,0,0,0.82)",
+          backdropFilter:"blur(6px)",
           display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center", gap:20,
+          alignItems:"center", justifyContent:"center", gap:16,
+          overflow:"hidden",
         }}>
-          <div style={{
-            fontSize:"clamp(3rem,14vw,5rem)",
-            animation:"shuwatchAppear 0.55s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
-          }}>
-            {isWin ? "🏆" : "💀"}
-          </div>
+
+          {/* 勝利：戦士ズームイン→飛び立ちアニメ */}
+          {isWin && (
+            <img
+              src="/senshi_clear.png"
+              alt="しょうり"
+              style={{
+                width:"min(72vw, 340px)",
+                objectFit:"contain",
+                animation:"senshiZoomIn 3.2s cubic-bezier(0.22,1,0.36,1) forwards",
+                filter:"drop-shadow(0 0 32px rgba(100,200,255,0.7)) drop-shadow(0 0 16px rgba(255,255,255,0.5))",
+                pointerEvents:"none",
+              }}
+            />
+          )}
+
+          {/* 敗北：ドクロ */}
+          {isLose && (
+            <div style={{
+              fontSize:"clamp(3rem,14vw,5rem)",
+              animation:"shuwatchAppear 0.55s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+            }}>💀</div>
+          )}
+
           <div style={{
             fontFamily:"'Press Start 2P',monospace",
             fontSize:"clamp(0.9rem,5vw,1.4rem)",
             color: isWin ? C.gold : C.primary,
-            textShadow: isWin ? `0 0 20px ${C.gold}` : `0 0 20px ${C.primary}`,
-            letterSpacing:"0.05em",
-            animation:"phosphor-glow 2s ease-in-out infinite",
-          }}>{isWin ? "しょうり！" : "やられた…"}</div>
+            letterSpacing:"0.08em",
+            animation: isWin
+              ? "winTextPop 0.5s 0.3s cubic-bezier(0.175,0.885,0.32,1.275) both, winGlowPulse 1.8s 0.8s ease-in-out infinite"
+              : "phosphor-glow 2s ease-in-out infinite",
+          }}>{isWin ? "✨ しょうり！ ✨" : "やられた…"}</div>
+
           <div style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.45rem" }}>
             SCORE <span style={{ color: C.gold }}>{score}</span>
             {isWin && <span style={{ color: C.teal, marginLeft:8 }}>+{score} XP</span>}
           </div>
+
           {/* レベルアップバッジ */}
           {isWin && leveledUp && (
             <div style={{
@@ -1605,12 +1646,13 @@ function BattleScreen({ onHome, enemy }) {
               fontSize:"clamp(0.55rem,3vw,0.75rem)",
               color: C.gold, letterSpacing:"0.05em",
               boxShadow:`0 0 24px rgba(255,184,0,0.7)`,
-              animation:"levelUpBadge 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+              animation:"levelUpBadge 0.5s 0.6s cubic-bezier(0.175,0.885,0.32,1.275) both",
             }}>
               ▲ LEVEL UP! Lv.{calcLevel(xp)}
             </div>
           )}
-          <div style={{ display:"flex", gap:10, marginTop:8 }}>
+
+          <div style={{ display:"flex", gap:10, marginTop:4 }}>
             <button onClick={restart} style={{
               padding:"11px 28px",
               background: C.primary,
