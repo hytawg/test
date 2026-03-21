@@ -38,13 +38,252 @@ function kanaOf(chars) {
   return chars.map(k => ALL_KANA.find(a => a.kana === k)).filter(Boolean);
 }
 
+// ── 怪獣SVG: エレキング (電気ウナギ型 / 紫×黄) ──────────────
+function SvgEleking({ size = 120 }) {
+  const h = Math.round(size * 1.5);
+  return (
+    <svg width={size} height={h} viewBox="0 0 80 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* tail fin */}
+      <ellipse cx="40" cy="115" rx="22" ry="6" fill="#5b21b6"/>
+      {/* body — elongated */}
+      <rect x="26" y="40" width="28" height="70" rx="14" fill="#7c3aed"/>
+      {/* stripe bands */}
+      {[55,68,81].map(y => <rect key={y} x="26" y={y} width="28" height="5" rx="2" fill="#fbbf24" opacity="0.85"/>)}
+      {/* neck */}
+      <rect x="32" y="20" width="16" height="24" rx="8" fill="#6d28d9"/>
+      {/* head */}
+      <ellipse cx="40" cy="17" rx="15" ry="13" fill="#7c3aed"/>
+      {/* eyes */}
+      <ellipse cx="33" cy="15" rx="5" ry="4" fill="#fbbf24"/>
+      <ellipse cx="47" cy="15" rx="5" ry="4" fill="#fbbf24"/>
+      <circle cx="33" cy="15" r="2" fill="#1e1b4b"/>
+      <circle cx="47" cy="15" r="2" fill="#1e1b4b"/>
+      {/* antennae */}
+      <line x1="36" y1="5"  x2="30" y2="-2" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="44" y1="5"  x2="50" y2="-2" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round"/>
+      <circle cx="30" cy="-2" r="3" fill="#fbbf24"/>
+      <circle cx="50" cy="-2" r="3" fill="#fbbf24"/>
+      {/* arms / fins */}
+      <path d="M26,60 Q10,55 8,68 Q12,72 26,70Z" fill="#6d28d9"/>
+      <path d="M54,60 Q70,55 72,68 Q68,72 54,70Z" fill="#6d28d9"/>
+      {/* lightning bolt */}
+      <polygon points="42,44 36,58 41,56 35,72 46,54 41,57Z" fill="#fbbf24"/>
+    </svg>
+  );
+}
+
+// ── 怪獣SVG: バルタン星人 (ハサミ手の宇宙人 / 紺×銀) ────────
+function SvgBaltan({ size = 120 }) {
+  const h = Math.round(size * 1.4);
+  return (
+    <svg width={size} height={h} viewBox="0 0 100 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* body */}
+      <path d="M30,50 L70,50 L66,100 L34,100Z" fill="#1e3a5f"/>
+      {/* stripes */}
+      {[62,75,88].map(y => <rect key={y} x="34" y={y} width="32" height="4" rx="2" fill="#475569" opacity="0.7"/>)}
+      {/* neck */}
+      <rect x="40" y="36" width="20" height="18" rx="8" fill="#1e3a5f"/>
+      {/* head — bug-like */}
+      <ellipse cx="50" cy="26" rx="22" ry="20" fill="#1e3a5f"/>
+      {/* compound eyes */}
+      <ellipse cx="34" cy="22" rx="10" ry="9" fill="#0ea5e9"/>
+      <ellipse cx="66" cy="22" rx="10" ry="9" fill="#0ea5e9"/>
+      {[{cx:31,cy:20},{cx:37,cy:20},{cx:34,cy:25}].map((p,i)=><circle key={i} cx={p.cx} cy={p.cy} r="2.5" fill="#0c4a6e"/>)}
+      {[{cx:63,cy:20},{cx:69,cy:20},{cx:66,cy:25}].map((p,i)=><circle key={i} cx={p.cx} cy={p.cy} r="2.5" fill="#0c4a6e"/>)}
+      {/* crest */}
+      <polygon points="50,6 44,16 56,16" fill="#334155"/>
+      {/* BIG CLAW HANDS */}
+      {/* left arm */}
+      <rect x="10" y="48" width="22" height="12" rx="6" fill="#1e3a5f"/>
+      {/* left claw — U shape */}
+      <path d="M4,58 Q-4,65 2,78 Q6,84 12,78 L12,66 Q8,60 12,58Z" fill="#334155"/>
+      <path d="M20,58 Q28,65 22,78 Q18,84 12,78 L12,66 Q16,60 12,58Z" fill="#334155"/>
+      <line x1="12" y1="60" x2="12" y2="76" stroke="#0ea5e9" strokeWidth="1.5"/>
+      {/* right arm */}
+      <rect x="68" y="48" width="22" height="12" rx="6" fill="#1e3a5f"/>
+      {/* right claw */}
+      <path d="M80,58 Q72,65 78,78 Q82,84 88,78 L88,66 Q84,60 88,58Z" fill="#334155"/>
+      <path d="M96,58 Q104,65 98,78 Q94,84 88,78 L88,66 Q92,60 88,58Z" fill="#334155"/>
+      <line x1="88" y1="60" x2="88" y2="76" stroke="#0ea5e9" strokeWidth="1.5"/>
+      {/* legs */}
+      <rect x="33" y="100" width="14" height="22" rx="5" fill="#1e3a5f"/>
+      <rect x="53" y="100" width="14" height="22" rx="5" fill="#1e3a5f"/>
+      <ellipse cx="40" cy="123" rx="10" ry="4" fill="#0f172a"/>
+      <ellipse cx="60" cy="123" rx="10" ry="4" fill="#0f172a"/>
+    </svg>
+  );
+}
+
+// ── 怪獣SVG: レッドキング (岩石ゴリラ型 / 赤橙) ────────────
+function SvgRedKing({ size = 120 }) {
+  const h = Math.round(size * 1.1);
+  return (
+    <svg width={size} height={h} viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* enormous body — wide & squat */}
+      <ellipse cx="55" cy="72" rx="42" ry="36" fill="#c2410c"/>
+      {/* rock bumps */}
+      {[{cx:20,cy:58},{cx:88,cy:58},{cx:35,cy:46},{cx:75,cy:46},{cx:55,cy:44}].map((p,i)=>
+        <circle key={i} cx={p.cx} cy={p.cy} r="8" fill="#9a3412" opacity="0.7"/>)}
+      {/* tiny head directly on body */}
+      <ellipse cx="55" cy="38" rx="20" ry="18" fill="#c2410c"/>
+      <ellipse cx="44" cy="34" rx="6" ry="5" fill="#7c2d12"/>
+      <ellipse cx="66" cy="34" rx="6" ry="5" fill="#7c2d12"/>
+      <circle cx="44" cy="34" r="2.5" fill="#fef2f2"/>
+      <circle cx="66" cy="34" r="2.5" fill="#fef2f2"/>
+      {/* brow ridge */}
+      <path d="M36,30 Q55,24 74,30" stroke="#7c2d12" strokeWidth="4" fill="none" strokeLinecap="round"/>
+      {/* nose */}
+      <ellipse cx="55" cy="42" rx="5" ry="3" fill="#9a3412"/>
+      {/* mouth */}
+      <path d="M44,48 Q55,54 66,48" stroke="#7c2d12" strokeWidth="3" fill="none" strokeLinecap="round"/>
+      {/* HUGE arms */}
+      <ellipse cx="10" cy="72" rx="14" ry="26" fill="#b45309" transform="rotate(-15 10 72)"/>
+      <ellipse cx="100" cy="72" rx="14" ry="26" fill="#b45309" transform="rotate(15 100 72)"/>
+      {/* knuckles L */}
+      {[-8,0,8].map((dy,i)=><circle key={i} cx="4" cy={88+dy} r="4" fill="#92400e"/>)}
+      {[-8,0,8].map((dy,i)=><circle key={i} cx="106" cy={88+dy} r="4" fill="#92400e"/>)}
+      {/* legs — short */}
+      <rect x="35" y="100" width="16" height="12" rx="5" fill="#9a3412"/>
+      <rect x="59" y="100" width="16" height="12" rx="5" fill="#9a3412"/>
+    </svg>
+  );
+}
+
+// ── 怪獣SVG: ゴモラ (恐竜型 / 褐色) ─────────────────────────
+function SvgGomora({ size = 120 }) {
+  const h = Math.round(size * 1.3);
+  return (
+    <svg width={size} height={h} viewBox="0 0 110 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* tail — sweeping right */}
+      <path d="M70,90 Q95,80 105,62 Q112,48 104,40" stroke="#78350f" strokeWidth="12" fill="none" strokeLinecap="round"/>
+      <polygon points="100,34 108,38 105,48" fill="#713f12"/>
+      {/* body */}
+      <ellipse cx="50" cy="82" rx="36" ry="30" fill="#92400e"/>
+      {/* back spines */}
+      {[{x:32,y:56},{x:44,y:50},{x:56,y:48},{x:68,y:52}].map((p,i)=>
+        <polygon key={i} points={`${p.x},${p.y} ${p.x-5},${p.y+14} ${p.x+5},${p.y+14}`} fill="#78350f"/>)}
+      {/* neck */}
+      <rect x="32" y="50" width="22" height="28" rx="10" fill="#92400e"/>
+      {/* head */}
+      <ellipse cx="36" cy="40" rx="24" ry="17" fill="#a16207"/>
+      {/* nose horn */}
+      <polygon points="16,38 8,28 20,33" fill="#78350f"/>
+      {/* eye */}
+      <circle cx="26" cy="34" r="7" fill="#0a0808"/>
+      <circle cx="27" cy="33" r="3" fill="#dc2626"/>
+      <circle cx="28" cy="32" r="1.2" fill="#fca5a5"/>
+      {/* mouth */}
+      <path d="M16,46 Q36,54 56,46" stroke="#78350f" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      {/* teeth */}
+      {[20,28,36,44].map(x=><polygon key={x} points={`${x},47 ${x+3},53 ${x+6},47`} fill="#fef9c3"/>)}
+      {/* arms */}
+      <path d="M20,72 Q8,70 6,84 Q8,92 18,90 L22,80Z" fill="#a16207"/>
+      <path d="M72,72 Q84,70 86,84 Q84,92 74,90 L70,80Z" fill="#a16207"/>
+      {/* legs */}
+      <rect x="28" y="106" width="18" height="24" rx="6" fill="#92400e"/>
+      <rect x="56" y="106" width="18" height="24" rx="6" fill="#92400e"/>
+      {/* claws */}
+      {[26,34,42].map(x=><polygon key={x} points={`${x},130 ${x+2},138 ${x+5},130`} fill="#78350f"/>)}
+      {[54,62,70].map(x=><polygon key={x} points={`${x},130 ${x+2},138 ${x+5},130`} fill="#78350f"/>)}
+    </svg>
+  );
+}
+
+// ── 怪獣SVG: ダダ (幾何学宇宙人 / 白黒) ─────────────────────
+function SvgDada({ size = 120 }) {
+  const h = Math.round(size * 1.6);
+  return (
+    <svg width={size} height={h} viewBox="0 0 70 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* body — slim rectangular */}
+      <rect x="18" y="44" width="34" height="50" rx="4" fill="#e2e8f0"/>
+      {/* body pattern */}
+      <rect x="18" y="44" width="17" height="50" rx="0" fill="#1e293b"/>
+      <rect x="35" y="44" width="17" height="25" rx="0" fill="#94a3b8"/>
+      <rect x="35" y="69" width="17" height="25" rx="0" fill="#475569"/>
+      {/* border lines */}
+      <rect x="18" y="44" width="34" height="50" rx="4" stroke="#64748b" strokeWidth="1.5" fill="none"/>
+      {/* neck */}
+      <rect x="28" y="34" width="14" height="14" rx="2" fill="#94a3b8"/>
+      {/* head — 3-section rectangle */}
+      <rect x="14" y="8" width="42" height="30" rx="3" fill="#f8fafc"/>
+      {/* left third — dark */}
+      <rect x="14" y="8" width="14" height="30" rx="3" fill="#1e293b"/>
+      {/* middle third — gray */}
+      <rect x="28" y="8" width="14" height="30" fill="#64748b"/>
+      {/* right third — light */}
+      <rect x="42" y="8" width="14" height="30" rx="3" fill="#cbd5e1"/>
+      {/* eyes — each third has one */}
+      <ellipse cx="21" cy="20" rx="4" ry="5" fill="#38bdf8"/>
+      <ellipse cx="35" cy="20" rx="4" ry="5" fill="#f59e0b"/>
+      <ellipse cx="49" cy="20" rx="4" ry="5" fill="#ef4444"/>
+      <circle cx="21" cy="20" r="2" fill="#0c0a09"/>
+      <circle cx="35" cy="20" r="2" fill="#0c0a09"/>
+      <circle cx="49" cy="20" r="2" fill="#0c0a09"/>
+      {/* mouth line */}
+      <line x1="14" y1="32" x2="56" y2="32" stroke="#334155" strokeWidth="1.5"/>
+      {/* arms — thin rectangular */}
+      <rect x="2"  y="46" width="16" height="8" rx="3" fill="#e2e8f0"/>
+      <rect x="52" y="46" width="16" height="8" rx="3" fill="#1e293b"/>
+      {/* hands */}
+      <rect x="0"  y="52" width="10" height="18" rx="3" fill="#cbd5e1"/>
+      <rect x="60" y="52" width="10" height="18" rx="3" fill="#334155"/>
+      {/* legs */}
+      <rect x="20" y="94" width="12" height="18" rx="3" fill="#1e293b"/>
+      <rect x="38" y="94" width="12" height="18" rx="3" fill="#e2e8f0"/>
+      {/* feet */}
+      <rect x="17" y="109" width="18" height="6" rx="2" fill="#0f172a"/>
+      <rect x="35" y="109" width="18" height="6" rx="2" fill="#f8fafc"/>
+    </svg>
+  );
+}
+
+// ── 怪獣SVG: ベムスター (腹口の星型 / オレンジ) ─────────────
+function SvgBemstar({ size = 120 }) {
+  const h = Math.round(size * 1.15);
+  return (
+    <svg width={size} height={h} viewBox="0 0 110 126" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* main body — pentagon */}
+      <polygon points="55,10 98,38 82,88 28,88 12,38" fill="#d97706"/>
+      {/* body shading */}
+      <polygon points="55,10 98,38 82,88 28,88 12,38" fill="none" stroke="#92400e" strokeWidth="3"/>
+      {/* texture bumps */}
+      {[{cx:35,cy:45},{cx:75,cy:45},{cx:55,cy:32},{cx:40,cy:68},{cx:70,cy:68}].map((p,i)=>
+        <circle key={i} cx={p.cx} cy={p.cy} r="7" fill="#b45309" opacity="0.5"/>)}
+      {/* BELLY MOUTH — center */}
+      <ellipse cx="55" cy="58" rx="22" ry="16" fill="#7c2d12"/>
+      <ellipse cx="55" cy="58" rx="18" ry="12" fill="#0a0808"/>
+      {/* teeth around mouth */}
+      {[0,1,2,3,4,5].map(i => {
+        const a = (i/6)*Math.PI*2 - Math.PI/2;
+        const r=15, tx=55+r*Math.cos(a), ty=58+r*Math.sin(a);
+        const ix=55+10*Math.cos(a), iy=58+10*Math.sin(a);
+        return <polygon key={i} points={`${tx},${ty} ${tx+4*Math.cos(a+1.2)},${ty+4*Math.sin(a+1.2)} ${ix},${iy} ${tx+4*Math.cos(a-1.2)},${ty+4*Math.sin(a-1.2)}`} fill="#fef9c3"/>;
+      })}
+      {/* eyes — top of body */}
+      <circle cx="42" cy="30" r="8" fill="#fbbf24"/>
+      <circle cx="68" cy="30" r="8" fill="#fbbf24"/>
+      <circle cx="42" cy="30" r="4" fill="#0a0808"/>
+      <circle cx="68" cy="30" r="4" fill="#0a0808"/>
+      {/* wings/arms */}
+      <path d="M12,38 Q-4,32 -2,50 Q4,60 18,58" fill="#f59e0b" stroke="#d97706" strokeWidth="1.5"/>
+      <path d="M98,38 Q114,32 112,50 Q106,60 92,58" fill="#f59e0b" stroke="#d97706" strokeWidth="1.5"/>
+      {/* short legs */}
+      <rect x="36" y="88" width="14" height="20" rx="5" fill="#b45309"/>
+      <rect x="60" y="88" width="14" height="20" rx="5" fill="#b45309"/>
+      <ellipse cx="43" cy="109" rx="10" ry="4" fill="#92400e"/>
+      <ellipse cx="67" cy="109" rx="10" ry="4" fill="#92400e"/>
+    </svg>
+  );
+}
+
+// ── 敵定義 (各3文字セット + 固有SVG) ───────────────────────
 const ENEMY_DEFS = [
-  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう" },
-  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#ef4444", desc:"うちゅうのかいじゅう" },
-  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう" },
-  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#22c55e", desc:"しっぽがつよいかいじゅう" },
-  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#0ea5e9", desc:"みつのかおのかいじゅう" },
-  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう" },
+  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう", Svg: SvgEleking  },
+  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#0ea5e9", desc:"うちゅうのかいじゅう", Svg: SvgBaltan   },
+  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: SvgRedKing  },
+  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: SvgGomora   },
+  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: SvgDada     },
+  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: SvgBemstar  },
 ];
 
 // ============================================================
@@ -906,7 +1145,7 @@ function BattleScreen({ onHome, enemy }) {
               : isCorrect ? "monsterHit 0.6s ease-out"
               : "heroFloat 2.5s ease-in-out 0.4s infinite",
           }}>
-            <KaijuSVG size={Math.min(window.innerWidth * 0.22, 96)}/>
+            <enemy.Svg size={Math.min(window.innerWidth * 0.22, 96)}/>
           </div>
         </div>
       </div>
@@ -1145,15 +1384,14 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
 
   return (
     <div style={{ position:"relative", width:"100%", aspectRatio:"1/1" }}>
-      {/* ガイド文字 (なぞる目安 — 暗いグレーで明確に) */}
+      {/* ガイド文字 (なぞる目安 — #E7132C で明確に表示) */}
       <div style={{
         position:"absolute", inset:0, zIndex:1,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:"min(62vw, 340px)",
         fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
         fontWeight:900,
-        color:"rgba(60,45,35,0.22)",
-        textShadow:"0 0 4px rgba(60,45,35,0.12)",
+        color:"rgba(231,19,44,0.40)",
         lineHeight:1,
         userSelect:"none", pointerEvents:"none",
       }}>{guideKana}</div>
@@ -1523,7 +1761,7 @@ function EnemySelectScreen({ onSelect, onHome }) {
               flexShrink:0,
               filter:`drop-shadow(0 0 8px ${enemy.color}88)`,
             }}>
-              <KaijuSVG size={56}/>
+              <enemy.Svg size={56}/>
             </div>
 
             {/* info */}
