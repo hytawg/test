@@ -2620,66 +2620,63 @@ function KakitoriScreen({ onHome, enemy }) {
 // KAKITORI SELECT SCREEN  (かきとりバトル / HARD MODE)
 // ============================================================
 function KakitoriSelectScreen({ onSelect, onHome }) {
-  const PP = "#a855f7";
-  const PL = "#c084fc";
+  const PP = "#dd88ff";
   return (
     <div style={{
       position:"relative", minHeight:"100dvh", width:"100%",
-      background:"#0e0618",
+      background: C.bg,
       display:"flex", flexDirection:"column", alignItems:"center",
       overflow:"hidden",
     }}>
       <CityBokeh />
-      <div style={{
-        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
-        background:"rgba(88,28,135,0.22)",
-      }} />
 
       {/* header */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        position:"relative", zIndex:10, width:"100%",
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 6px",
+        padding:"10px 16px 6px",
+        borderBottom:`1px solid ${C.border}`,
+        background:"rgba(4,10,4,0.85)",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(168,85,247,0.08)", border:"1px solid rgba(168,85,247,0.3)",
-          borderRadius:8, color:PP, cursor:"pointer",
-          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-        }}>← もどる</button>
+          background:"rgba(57,255,20,0.05)", border:`1px solid ${C.border}`,
+          color: C.text, cursor:"pointer",
+          padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
+        }}>◀ もどる</button>
         <div style={{ textAlign:"center" }}>
-          <div style={{ fontFamily:"monospace", fontSize:"0.5rem", color:PL, letterSpacing:"0.15em" }}>⚔ HARD MODE</div>
+          <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: PP, letterSpacing:"0.1em", marginBottom:3 }}>⚔ HARD MODE</div>
           <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-            fontWeight:900, fontSize:"clamp(1rem,4vw,1.2rem)",
-            color:PP, letterSpacing:"0.08em",
-            textShadow:`0 0 12px rgba(168,85,247,0.6)`,
-          }}>かきとりバトル</div>
+            fontFamily:"'Press Start 2P',monospace",
+            fontSize:"clamp(0.5rem,2.5vw,0.65rem)",
+            color: PP, letterSpacing:"0.05em",
+            textShadow:`0 0 10px rgba(221,136,255,0.6)`,
+          }}>かきとりばとる</div>
         </div>
         <div style={{ width:60 }} />
       </div>
 
       {/* description */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
-        padding:"4px 16px 10px",
+        position:"relative", zIndex:10, width:"100%",
+        padding:"8px 16px 6px",
       }}>
         <div style={{
-          background:"rgba(88,28,135,0.2)",
-          border:"1px solid rgba(168,85,247,0.2)",
-          borderRadius:10, padding:"8px 14px",
-          fontFamily:"monospace", fontSize:"0.6rem",
-          color:"rgba(192,132,252,0.85)", letterSpacing:"0.06em", lineHeight:1.7,
+          background:"rgba(44,0,66,0.3)",
+          border:`1px solid ${PP}44`,
+          padding:"7px 12px",
+          fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
+          color: PP, letterSpacing:"0.04em", lineHeight:1.8,
         }}>
-          ✦ ガイドなし！こえをよくきいてもじをかこう
+          ★ ガイドなし！こえをよくきいてもじをかこう
         </div>
       </div>
 
       {/* enemy cards */}
       <div style={{
         position:"relative", zIndex:10,
-        width:"100%", maxWidth:520,
+        width:"100%",
         padding:"4px 16px 24px",
-        display:"flex", flexDirection:"column", gap:12,
+        display:"flex", flexDirection:"column", gap:8,
         overflowY:"auto", flex:1,
       }}>
         {ENEMY_DEFS.map((enemy, i) => (
@@ -2688,86 +2685,67 @@ function KakitoriSelectScreen({ onSelect, onHome }) {
             onClick={() => onSelect(enemy)}
             style={{
               width:"100%",
-              background:"linear-gradient(135deg, rgba(14,6,26,0.92) 0%, rgba(8,4,16,0.96) 100%)",
-              border:`2px solid ${i === 0 ? PP : "rgba(80,40,120,0.4)"}`,
-              borderRadius:14,
-              padding:"12px 16px",
+              background:"rgba(4,10,4,0.9)",
+              border:`1px solid ${i === 0 ? PP : C.border}`,
+              borderLeft:`3px solid ${i === 0 ? PP : C.border}`,
+              padding:"10px 12px",
               cursor:"pointer",
-              display:"flex", alignItems:"center", gap:14,
-              boxShadow: i === 0 ? `0 0 16px rgba(168,85,247,0.35)` : "none",
-              transition:"all 0.15s",
+              display:"flex", alignItems:"center", gap:12,
+              boxShadow: i === 0 ? `0 0 12px ${PP}44` : "none",
+              transition:"all 0.12s",
               textAlign:"left",
               position:"relative",
-              overflow:"hidden",
             }}
           >
             {i === 0 && (
               <div style={{
-                position:"absolute", top:8, right:10,
-                background:PP, borderRadius:6,
-                padding:"2px 8px",
-                fontFamily:"monospace", fontSize:"0.55rem", color:"#fff",
-                fontWeight:700, letterSpacing:"0.1em",
-              }}>さいしょの てき</div>
+                position:"absolute", top:6, right:8,
+                background: PP, padding:"2px 7px",
+                fontFamily:"'Press Start 2P',monospace", fontSize:"0.32rem", color:"#000",
+                letterSpacing:"0.05em",
+              }}>さいしょ</div>
             )}
             <div style={{
-              position:"absolute", bottom:8, right:10,
-              background:"rgba(168,85,247,0.15)",
-              border:"1px solid rgba(168,85,247,0.35)",
-              borderRadius:6, padding:"2px 8px",
-              fontFamily:"monospace", fontSize:"0.45rem",
-              color:PP, letterSpacing:"0.08em",
+              position:"absolute", bottom:6, right:8,
+              border:`1px solid ${PP}66`,
+              padding:"2px 7px",
+              fontFamily:"'Press Start 2P',monospace", fontSize:"0.3rem",
+              color: PP, letterSpacing:"0.04em",
             }}>NO GUIDE</div>
 
-            <div style={{ flexShrink:0, filter:`drop-shadow(0 0 8px rgba(168,85,247,0.65))` }}>
-              <enemy.Svg size={56}/>
+            <div style={{ flexShrink:0, filter:`drop-shadow(0 0 6px ${PP}88)` }}>
+              <enemy.Svg size={52}/>
             </div>
 
-            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
-                <span style={{
-                  fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                  fontWeight:900, fontSize:"clamp(1rem,4vw,1.2rem)",
-                  color:"#f1f5f9", letterSpacing:"0.04em",
-                }}>{enemy.name}</span>
-                <span style={{
-                  fontFamily:"monospace", fontSize:"0.6rem",
-                  color: C.muted, letterSpacing:"0.06em",
-                }}>{enemy.desc}</span>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {enemy.row && (
-                  <div style={{
-                    fontFamily:"monospace", fontSize:"0.6rem",
-                    color:PP, letterSpacing:"0.08em", fontWeight:700,
-                  }}>{enemy.row}</div>
-                )}
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {enemy.kana.map(k => (
-                    <div key={k} style={{
-                      width:38, height:38,
-                      background:"rgba(168,85,247,0.12)",
-                      border:"1.5px solid rgba(168,85,247,0.4)",
-                      borderRadius:8,
-                      display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center",
-                    }}>
-                      <div style={{
-                        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                        fontWeight:900, fontSize:"1.1rem",
-                        color:"#f1f5f9", lineHeight:1,
-                      }}>{k}</div>
-                      <div style={{
-                        fontFamily:"monospace", fontSize:"0.45rem",
-                        color:PP, letterSpacing:"0.04em",
-                      }}>{ALL_KANA.find(a => a.kana === k)?.roma}</div>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:5 }}>
+              <div style={{
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"clamp(0.5rem,2.5vw,0.65rem)",
+                color: C.text, letterSpacing:"0.04em",
+              }}>{enemy.name}</div>
+              <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.32rem", color: C.muted }}>{enemy.desc}</div>
+              {enemy.row && (
+                <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem", color: PP }}>{enemy.row}</div>
+              )}
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                {enemy.kana.map(k => (
+                  <div key={k} style={{
+                    width:34, height:34,
+                    background:`${PP}18`,
+                    border:`1px solid ${PP}55`,
+                    display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center",
+                  }}>
+                    <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1rem", color: C.text, lineHeight:1 }}>{k}</div>
+                    <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.28rem", color: PP }}>
+                      {ALL_KANA.find(a => a.kana === k)?.roma}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div style={{ color:PP, fontSize:"1.4rem", flexShrink:0 }}>›</div>
+            <div style={{ color: PP, fontSize:"1.2rem", flexShrink:0 }}>›</div>
           </button>
         ))}
       </div>
@@ -2790,20 +2768,23 @@ function EnemySelectScreen({ onSelect, onHome }) {
 
       {/* header */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        position:"relative", zIndex:10, width:"100%",
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 6px",
+        padding:"10px 16px 6px",
+        borderBottom:`1px solid ${C.border}`,
+        background:"rgba(4,10,4,0.85)",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
-          borderRadius:8, color:C.primary, cursor:"pointer",
-          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-        }}>← もどる</button>
+          background:"rgba(57,255,20,0.05)", border:`1px solid ${C.border}`,
+          color: C.text, cursor:"pointer",
+          padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
+        }}>◀ もどる</button>
         <div style={{
-          fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-          fontWeight:900, fontSize:"clamp(1rem,4vw,1.3rem)",
-          color: C.primary, letterSpacing:"0.08em",
-          textShadow:"0 0 12px rgba(239,68,68,0.5)",
+          fontFamily:"'Press Start 2P',monospace",
+          fontSize:"clamp(0.5rem,2.5vw,0.65rem)",
+          color: C.primary, letterSpacing:"0.05em",
+          textShadow:`0 0 10px ${C.primary}`,
+          animation:"phosphor-glow 3s ease-in-out infinite",
         }}>てきをえらべ！</div>
         <div style={{ width:60 }} />
       </div>
@@ -2811,9 +2792,9 @@ function EnemySelectScreen({ onSelect, onHome }) {
       {/* enemy cards */}
       <div style={{
         position:"relative", zIndex:10,
-        width:"100%", maxWidth:520,
+        width:"100%",
         padding:"8px 16px 24px",
-        display:"flex", flexDirection:"column", gap:12,
+        display:"flex", flexDirection:"column", gap:8,
         overflowY:"auto", flex:1,
       }}>
         {ENEMY_DEFS.map((enemy, i) => (
@@ -2822,87 +2803,63 @@ function EnemySelectScreen({ onSelect, onHome }) {
             onClick={() => onSelect(enemy)}
             style={{
               width:"100%",
-              background:"linear-gradient(135deg, rgba(20,8,8,0.92) 0%, rgba(12,5,5,0.96) 100%)",
-              border:`2px solid ${i === 0 ? enemy.color : "rgba(100,50,50,0.45)"}`,
-              borderRadius:14,
-              padding:"12px 16px",
+              background:"rgba(4,10,4,0.9)",
+              border:`1px solid ${i === 0 ? enemy.color : C.border}`,
+              borderLeft:`3px solid ${i === 0 ? enemy.color : C.border}`,
+              padding:"10px 12px",
               cursor:"pointer",
-              display:"flex", alignItems:"center", gap:14,
-              boxShadow: i === 0 ? `0 0 16px ${enemy.color}44` : "none",
-              transition:"all 0.15s",
+              display:"flex", alignItems:"center", gap:12,
+              boxShadow: i === 0 ? `0 0 12px ${enemy.color}44` : "none",
+              transition:"all 0.12s",
               textAlign:"left",
               position:"relative",
-              overflow:"hidden",
             }}
           >
-            {/* first enemy badge */}
             {i === 0 && (
               <div style={{
-                position:"absolute", top:8, right:10,
-                background: enemy.color, borderRadius:6,
-                padding:"2px 8px",
-                fontFamily:"monospace", fontSize:"0.55rem", color:"#fff",
-                fontWeight:700, letterSpacing:"0.1em",
-              }}>さいしょの てき</div>
+                position:"absolute", top:6, right:8,
+                background: enemy.color, padding:"2px 7px",
+                fontFamily:"'Press Start 2P',monospace", fontSize:"0.32rem", color:"#000",
+                letterSpacing:"0.05em",
+              }}>さいしょ</div>
             )}
 
-            {/* mini kaiju */}
             <div style={{
               flexShrink:0,
-              filter:`drop-shadow(0 0 8px ${enemy.color}88)`,
+              filter:`drop-shadow(0 0 6px ${enemy.color}88)`,
             }}>
-              <enemy.Svg size={56}/>
+              <enemy.Svg size={52}/>
             </div>
 
-            {/* info */}
-            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
-                <span style={{
-                  fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                  fontWeight:900, fontSize:"clamp(1rem,4vw,1.2rem)",
-                  color:"#f1f5f9", letterSpacing:"0.04em",
-                }}>{enemy.name}</span>
-                <span style={{
-                  fontFamily:"monospace", fontSize:"0.6rem",
-                  color: C.muted, letterSpacing:"0.06em",
-                }}>{enemy.desc}</span>
-              </div>
-
-              {/* 行名 + kana badges */}
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {enemy.row && (
-                  <div style={{
-                    fontFamily:"monospace", fontSize:"0.6rem",
-                    color: enemy.color, letterSpacing:"0.08em", fontWeight:700,
-                  }}>{enemy.row}</div>
-                )}
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {enemy.kana.map(k => (
-                    <div key={k} style={{
-                      width:38, height:38,
-                      background:`${enemy.color}22`,
-                      border:`1.5px solid ${enemy.color}66`,
-                      borderRadius:8,
-                      display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center",
-                    }}>
-                      <div style={{
-                        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                        fontWeight:900, fontSize:"1.1rem",
-                        color:"#f1f5f9", lineHeight:1,
-                      }}>{k}</div>
-                      <div style={{
-                        fontFamily:"monospace", fontSize:"0.45rem",
-                        color: enemy.color, letterSpacing:"0.04em",
-                      }}>{ALL_KANA.find(a => a.kana === k)?.roma}</div>
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:5 }}>
+              <div style={{
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"clamp(0.5rem,2.5vw,0.65rem)",
+                color: C.text, letterSpacing:"0.04em",
+              }}>{enemy.name}</div>
+              <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.32rem", color: C.muted }}>{enemy.desc}</div>
+              {enemy.row && (
+                <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem", color: enemy.color }}>{enemy.row}</div>
+              )}
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                {enemy.kana.map(k => (
+                  <div key={k} style={{
+                    width:34, height:34,
+                    background:`${enemy.color}18`,
+                    border:`1px solid ${enemy.color}55`,
+                    display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center",
+                  }}>
+                    <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1rem", color: C.text, lineHeight:1 }}>{k}</div>
+                    <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.28rem", color: enemy.color }}>
+                      {ALL_KANA.find(a => a.kana === k)?.roma}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* arrow */}
-            <div style={{ color: enemy.color, fontSize:"1.4rem", flexShrink:0 }}>›</div>
+            <div style={{ color: enemy.color, fontSize:"1.2rem", flexShrink:0 }}>›</div>
           </button>
         ))}
       </div>
