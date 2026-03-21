@@ -1130,10 +1130,14 @@ function BattleScreen({ onHome, enemy }) {
   const [confettiKey, setConfettiKey] = useState(0);
   const [xp,          setXp]          = useState(getXP);
   const [leveledUp,   setLeveledUp]   = useState(false);
+  const [guideOn,     setGuideOn]     = useState(false);
   const level = calcLevel(xp);
 
-  // 文字が変わるたびに読み上げ
-  useEffect(() => { speak(kana.kana, { rate: 0.75, pitch: 1.1 }); }, [kana]);
+  // 文字が変わるたびに読み上げ + 書き順リセット
+  useEffect(() => {
+    speak(kana.kana, { rate: 0.75, pitch: 1.1 });
+    setGuideOn(false);
+  }, [kana]);
 
   const heroDanger  = heroHp <= 2;
   const isCorrect   = phase === "correct";
@@ -1390,27 +1394,45 @@ function BattleScreen({ onHome, enemy }) {
         display:"flex", flexDirection:"column", alignItems:"center", gap:8,
         flex:1,
       }}>
-        {/* 読み方ラベル */}
-        <div style={{
-          display:"flex", alignItems:"center", gap:8,
-          background:"rgba(0,229,255,0.06)",
-          border:`1px solid ${C.teal}`,
-          padding:"6px 16px",
-          boxShadow:`0 0 8px rgba(0,229,255,0.2)`,
-        }}>
-          <span style={{
-            fontFamily:"'Press Start 2P',monospace",
-            fontSize:"clamp(0.7rem,3vw,0.9rem)",
-            color: C.teal, letterSpacing:"0.08em",
-            textShadow:`0 0 10px ${C.teal}`,
-          }}>{kana.roma}</span>
-          <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", letterSpacing:"0.05em" }}>
-            なぞれ！
-          </span>
-          <button
-            onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
-            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
-          >🔊</button>
+        {/* 読み方ラベル + 書き順ボタン */}
+        <div style={{ width:"min(68vw, 320px)", display:"flex", alignItems:"center", gap:6 }}>
+          <div style={{
+            flex:1,
+            display:"flex", alignItems:"center", gap:8,
+            background:"rgba(0,229,255,0.06)",
+            border:`1px solid ${C.teal}`,
+            padding:"6px 12px",
+            boxShadow:`0 0 8px rgba(0,229,255,0.2)`,
+          }}>
+            <span style={{
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.7rem,3vw,0.9rem)",
+              color: C.teal, letterSpacing:"0.08em",
+              textShadow:`0 0 10px ${C.teal}`,
+            }}>{kana.roma}</span>
+            <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem" }}>
+              なぞれ！
+            </span>
+            <button
+              onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
+              style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
+            >🔊</button>
+          </div>
+          {(STROKE_DATA[kana.kana] || []).length > 0 && (
+            <button
+              onClick={() => setGuideOn(v => !v)}
+              style={{
+                flexShrink:0,
+                padding:"6px 10px",
+                background: guideOn ? "rgba(0,229,255,0.15)" : "rgba(4,16,4,0.9)",
+                border:`1px solid ${guideOn ? C.teal : C.border}`,
+                color: guideOn ? C.teal : C.muted,
+                fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
+                cursor:"pointer",
+                boxShadow: guideOn ? `0 0 8px rgba(0,229,255,0.3)` : "none",
+              }}
+            >✍<br/>かきじゅん</button>
+          )}
         </div>
 
         {/* キャンバス */}
@@ -1419,6 +1441,11 @@ function BattleScreen({ onHome, enemy }) {
             guideKana={kana.kana}
             onFirstStroke={() => setHasStroke(true)}
           />
+        </div>
+
+        {/* 書き順ガイド（キャンバス直下） */}
+        <div style={{ width:"min(68vw, 320px)" }}>
+          <StrokeOrderGuide kana={kana.kana} visible={guideOn} />
         </div>
 
         {/* ミス残り表示 */}
@@ -1621,111 +1648,70 @@ const STROKE_DATA = {
 // ============================================================
 // STROKE ORDER POPUP  (happylilac 形式・静的表示)
 // ============================================================
-function StrokeOrderGuide({ kana, visible, onDone }) {
+function StrokeOrderGuide({ kana, visible }) {
   const strokes = STROKE_DATA[kana] || [];
   if (!visible || strokes.length === 0) return null;
 
   return (
-    /* 全画面オーバーレイ */
-    <div
-      onClick={onDone}
-      style={{
-        position:"fixed", inset:0, zIndex:2000,
-        background:"rgba(0,0,0,0.65)",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        padding:16,
-      }}
-    >
-      {/* ポップアップカード */}
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background:"#ffffff",
-          borderRadius:16,
-          padding:"20px 20px 24px",
-          maxWidth:520,
-          width:"100%",
-          maxHeight:"85vh",
-          overflowY:"auto",
-          boxShadow:"0 24px 64px rgba(0,0,0,0.45)",
-        }}
-      >
-        {/* ヘッダー */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ fontSize:"1.1rem", fontWeight:700, color:"#1e293b", fontFamily:"sans-serif" }}>
-            「{kana}」のかきじゅん　<span style={{ fontSize:"0.8rem", color:"#64748b", fontWeight:400 }}>{strokes.length}かく</span>
-          </div>
-          <button
-            onClick={onDone}
-            style={{
-              border:"none", background:"#f1f5f9", borderRadius:8,
-              width:32, height:32, cursor:"pointer",
-              fontSize:"1rem", color:"#475569", lineHeight:1,
-            }}
-          >✕</button>
-        </div>
-
-        {/* 書き順グリッド：1セルにつき1画追加 */}
-        <div style={{ display:"flex", flexWrap:"wrap", gap:10, justifyContent:"center" }}>
-          {strokes.map((_, stepIdx) => (
-            <div key={stepIdx} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-              {/* セル番号 */}
-              <div style={{
-                width:20, height:20, borderRadius:"50%",
-                background: stepIdx === strokes.length - 1 ? "#e53e3e" : "#e2e8f0",
-                color: stepIdx === strokes.length - 1 ? "#fff" : "#64748b",
-                fontSize:"0.65rem", fontWeight:700, fontFamily:"monospace",
-                display:"flex", alignItems:"center", justifyContent:"center",
-              }}>{stepIdx + 1}</div>
-              {/* SVGセル */}
-              <div style={{
-                width:76, height:76,
-                background:"#fafafa",
-                border: stepIdx === strokes.length - 1
-                  ? "2px solid #e53e3e"
-                  : "1.5px solid #e2e8f0",
-                borderRadius:8,
-                overflow:"hidden",
-              }}>
-                <svg viewBox="0 0 109 109" width="76" height="76">
-                  {/* 完成形ガイド（薄いグレー） */}
-                  {strokes.map((s, i) => i > stepIdx && (
-                    <path key={`g${i}`} d={s.d}
-                      stroke="#d1d5db" strokeWidth="3.5" fill="none"
-                      strokeLinecap="round" strokeLinejoin="round"
-                    />
-                  ))}
-                  {/* 確定済みの画（ダークグレー） */}
-                  {strokes.slice(0, stepIdx).map((s, i) => (
-                    <path key={`p${i}`} d={s.d}
-                      stroke="#374151" strokeWidth="4" fill="none"
-                      strokeLinecap="round" strokeLinejoin="round"
-                    />
-                  ))}
-                  {/* 今の画（赤） */}
-                  <path d={strokes[stepIdx].d}
-                    stroke="#e53e3e" strokeWidth="4.5" fill="none"
+    <div style={{
+      width:"100%",
+      background:"rgba(4,16,4,0.97)",
+      border:`1px solid ${C.border}`,
+      borderTop:`2px solid ${C.teal}`,
+      padding:"10px 8px 14px",
+    }}>
+      {/* ヘッダー */}
+      <div style={{
+        fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
+        color: C.teal, letterSpacing:"0.05em", marginBottom:8, textAlign:"center",
+        textShadow:`0 0 6px ${C.teal}`,
+      }}>
+        「{kana}」のかきじゅん　{strokes.length}かく
+      </div>
+      {/* 書き順グリッド */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center" }}>
+        {strokes.map((_, stepIdx) => (
+          <div key={stepIdx} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+            <div style={{
+              width:18, height:18,
+              background: stepIdx === strokes.length - 1 ? C.primary : "rgba(57,255,20,0.15)",
+              border: `1px solid ${stepIdx === strokes.length - 1 ? C.primary : C.border}`,
+              color: stepIdx === strokes.length - 1 ? "#fff" : C.text,
+              fontSize:"0.5rem", fontFamily:"'Press Start 2P',monospace",
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>{stepIdx + 1}</div>
+            <div style={{
+              width:68, height:68,
+              background:"#ddd8d0",
+              border: stepIdx === strokes.length - 1 ? `2px solid ${C.primary}` : `1px solid #aaa`,
+              overflow:"hidden",
+            }}>
+              <svg viewBox="0 0 109 109" width="68" height="68">
+                {strokes.map((s, i) => i > stepIdx && (
+                  <path key={`g${i}`} d={s.d}
+                    stroke="#d1d5db" strokeWidth="3.5" fill="none"
                     strokeLinecap="round" strokeLinejoin="round"
                   />
-                  {/* 書き始めマーク */}
-                  <circle
-                    cx={strokes[stepIdx].sx} cy={strokes[stepIdx].sy} r="5.5"
-                    fill="#e53e3e"
+                ))}
+                {strokes.slice(0, stepIdx).map((s, i) => (
+                  <path key={`p${i}`} d={s.d}
+                    stroke="#374151" strokeWidth="4" fill="none"
+                    strokeLinecap="round" strokeLinejoin="round"
                   />
-                  <text x={strokes[stepIdx].sx} y={strokes[stepIdx].sy + 4}
-                    textAnchor="middle" fill="#fff"
-                    fontSize="6.5" fontWeight="bold" fontFamily="monospace"
-                  >{stepIdx + 1}</text>
-                </svg>
-              </div>
+                ))}
+                <path d={strokes[stepIdx].d}
+                  stroke="#e53e3e" strokeWidth="4.5" fill="none"
+                  strokeLinecap="round" strokeLinejoin="round"
+                />
+                <circle cx={strokes[stepIdx].sx} cy={strokes[stepIdx].sy} r="5.5" fill="#e53e3e" />
+                <text x={strokes[stepIdx].sx} y={strokes[stepIdx].sy + 4}
+                  textAnchor="middle" fill="#fff"
+                  fontSize="6.5" fontWeight="bold" fontFamily="monospace"
+                >{stepIdx + 1}</text>
+              </svg>
             </div>
-          ))}
-        </div>
-
-        {/* フッター */}
-        <div style={{ textAlign:"center", marginTop:16, color:"#94a3b8", fontSize:"0.7rem", fontFamily:"sans-serif" }}>
-          たっぷしてとじる
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1734,13 +1720,11 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
 // ============================================================
 // TRACING CANVAS  (スタイラス・ペン入力)
 // ============================================================
-function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWrite = false }) {
+function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
   const canvasRef    = useRef(null);
   const isDrawing    = useRef(false);
   const lastPt       = useRef(null);
   const hasDrawn     = useRef(false);
-  const [guideOn,    setGuideOn]    = useState(false);
-  const [guideKey,   setGuideKey]   = useState(0);
 
   // キャラが変わるたびにキャンバスをリセット + DPR 設定
   useEffect(() => {
@@ -1753,7 +1737,6 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWri
     const ctx = canvas.getContext("2d");
     ctx.scale(dpr, dpr);
     hasDrawn.current = false;
-    setGuideOn(false); // 文字が変わったらガイドをリセット
   }, [guideKana]);
 
   // 親から「消す」を呼べるよう imperative API を公開
@@ -1825,8 +1808,6 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWri
     lastPt.current    = null;
   };
 
-  const hasStrokeData = (STROKE_DATA[guideKana] || []).length > 0;
-
   return (
     <div style={{
       position:"relative", width:"100%", aspectRatio:"1/1",
@@ -1836,28 +1817,6 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWri
       border:"2.5px solid rgba(239,68,68,0.65)",
       boxShadow:"0 0 10px rgba(239,68,68,0.18)",
     }}>
-      {/* 書き順ガイドオーバーレイ */}
-      <StrokeOrderGuide
-        kana={guideKana}
-        visible={guideOn}
-        onDone={() => setGuideOn(false)}
-      />
-
-      {/* 書き順ボタン */}
-      {showStrokeBtn && hasStrokeData && (
-        <button
-          onClick={() => { setGuideOn(true); setGuideKey(k => k + 1); }}
-          style={{
-            position:"absolute", bottom:8, right:8, zIndex:15,
-            background:"rgba(14,165,233,0.18)", border:"1px solid rgba(14,165,233,0.55)",
-            borderRadius:8, padding:"4px 10px",
-            color:"#22d3ee", fontFamily:"monospace", fontSize:"0.6rem",
-            letterSpacing:"0.08em", cursor:"pointer",
-            pointerEvents:"auto",
-          }}
-        >✍ かきじゅん</button>
-      )}
-
       {/* 田字格グリッド + ガイド文字 (KanjiVG SVG) */}
       <svg
         viewBox="0 0 100 100"
@@ -1926,6 +1885,7 @@ function TokkunScreen({ onHome }) {
   const [hasStroke,   setHasStroke]   = useState(false);
   const [phase,       setPhase]       = useState("idle"); // idle | ok | miss
   const [confettiKey, setConfettiKey] = useState(0);
+  const [guideOn,     setGuideOn]     = useState(false);
   const canvasRef   = useRef(null);
 
   const card     = deck[idx];
@@ -1942,6 +1902,7 @@ function TokkunScreen({ onHome }) {
   const goNext = () => {
     setPhase("idle");
     setHasStroke(false);
+    setGuideOn(false);
     if (idx + 1 >= total) { setDone(true); return; }
     setIdx(i => i + 1);
   };
@@ -2038,27 +1999,45 @@ function TokkunScreen({ onHome }) {
           display:"flex", flexDirection:"column", alignItems:"center", gap:12,
           flex:1,
         }}>
-          {/* 読み方ラベル */}
-          <div style={{
-            display:"flex", alignItems:"center", gap:8,
-            background:"rgba(0,229,255,0.06)",
-            border:`1px solid ${C.teal}`,
-            padding:"6px 16px",
-            boxShadow:`0 0 8px rgba(0,229,255,0.2)`,
-          }}>
-            <span style={{
-              fontFamily:"'Press Start 2P',monospace",
-              fontSize:"clamp(0.7rem,3vw,0.9rem)",
-              color: C.teal, letterSpacing:"0.08em",
-              textShadow:`0 0 10px ${C.teal}`,
-            }}>{card.roma}</span>
-            <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem" }}>
-              よみかた
-            </span>
-            <button
-              onClick={() => speak(card.kana, {rate:0.75, pitch:1.1})}
-              style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
-            >🔊</button>
+          {/* 読み方ラベル + 書き順ボタン */}
+          <div style={{ width:"min(80vw, 440px)", display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{
+              flex:1,
+              display:"flex", alignItems:"center", gap:8,
+              background:"rgba(0,229,255,0.06)",
+              border:`1px solid ${C.teal}`,
+              padding:"6px 12px",
+              boxShadow:`0 0 8px rgba(0,229,255,0.2)`,
+            }}>
+              <span style={{
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"clamp(0.7rem,3vw,0.9rem)",
+                color: C.teal, letterSpacing:"0.08em",
+                textShadow:`0 0 10px ${C.teal}`,
+              }}>{card.roma}</span>
+              <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem" }}>
+                よみかた
+              </span>
+              <button
+                onClick={() => speak(card.kana, {rate:0.75, pitch:1.1})}
+                style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
+              >🔊</button>
+            </div>
+            {(STROKE_DATA[card.kana] || []).length > 0 && (
+              <button
+                onClick={() => setGuideOn(v => !v)}
+                style={{
+                  flexShrink:0,
+                  padding:"6px 10px",
+                  background: guideOn ? "rgba(0,229,255,0.15)" : "rgba(4,16,4,0.9)",
+                  border:`1px solid ${guideOn ? C.teal : C.border}`,
+                  color: guideOn ? C.teal : C.muted,
+                  fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
+                  cursor:"pointer",
+                  boxShadow: guideOn ? `0 0 8px rgba(0,229,255,0.3)` : "none",
+                }}
+              >✍<br/>かきじゅん</button>
+            )}
           </div>
 
           {/* キャンバス + 判定フィードバックオーバーレイ */}
@@ -2139,6 +2118,11 @@ function TokkunScreen({ onHome }) {
                 transition:"all 0.15s",
               }}
             >はんてい！</button>
+          </div>
+
+          {/* 書き順ガイド（キャンバス直下） */}
+          <div style={{ width:"min(80vw, 440px)" }}>
+            <StrokeOrderGuide kana={card.kana} visible={guideOn} />
           </div>
         </div>
       )}
