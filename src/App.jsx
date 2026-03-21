@@ -1776,29 +1776,44 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWri
         >✍ 書き順</button>
       )}
 
-      {/* ガイド文字 (なぞる目安 — #E7132C で明確に表示) */}
-      <div style={{
-        position:"absolute", inset:0, zIndex:1,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:"min(62vw, 340px)",
-        fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
-        fontWeight:900,
-        color: freeWrite ? "transparent" : "rgba(231,19,44,0.40)",
-        lineHeight:1,
-        userSelect:"none", pointerEvents:"none",
-        transition:"color 0.25s",
-      }}>{guideKana}</div>
+      {/* 田字格グリッド + ガイド文字 (KanjiVG SVG) */}
+      <svg
+        viewBox="0 0 100 100"
+        style={{
+          position:"absolute", inset:0, zIndex:1,
+          width:"100%", height:"100%",
+          pointerEvents:"none",
+          overflow:"visible",
+        }}
+      >
+        {/* 田字格：縦横中心線 + 外枠 */}
+        <rect x="0" y="0" width="100" height="100"
+          fill="none" stroke="rgba(120,100,80,0.25)" strokeWidth="0.8"
+        />
+        <line x1="50" y1="0" x2="50" y2="100"
+          stroke="rgba(120,100,80,0.25)" strokeWidth="0.8"
+          strokeDasharray="4 3"
+        />
+        <line x1="0" y1="50" x2="100" y2="50"
+          stroke="rgba(120,100,80,0.25)" strokeWidth="0.8"
+          strokeDasharray="4 3"
+        />
 
-      {/* 補助グリッド線 (縦横中心) */}
-      <div style={{
-        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
-        backgroundImage:`
-          linear-gradient(rgba(100,80,60,0.15) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(100,80,60,0.15) 1px, transparent 1px)
-        `,
-        backgroundSize:"50% 50%",
-        backgroundPosition:"50% 50%",
-      }} />
+        {/* ガイド文字：KanjiVGパスをスケールして表示 */}
+        {!freeWrite && (STROKE_DATA[guideKana] || []).map((s, i) => (
+          <path
+            key={i}
+            d={s.d}
+            stroke="rgba(231,19,44,0.38)"
+            strokeWidth="4.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            /* KanjiVGは109×109座標系 → 100×100にスケール */
+            transform="scale(0.9174)"
+          />
+        ))}
+      </svg>
 
       {/* 描画キャンバス — 背景は透明にして下のガイドを見せる */}
       <canvas
