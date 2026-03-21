@@ -32,7 +32,10 @@ const HIRAGANA_ROWS = [
   { row: "ラ行", kana: ["ら","り","る","れ","ろ"], roma: ["ra","ri","ru","re","ro"] },
   { row: "ワ行", kana: ["わ","を","ん"],           roma: ["wa","wo","n"] },
 ];
-const ALL_KANA = HIRAGANA_ROWS.flatMap((r) => r.kana.map((k, i) => ({ kana: k, roma: r.roma[i] })));
+const ALL_KANA = [
+  ...HIRAGANA_ROWS.flatMap((r) => r.kana.map((k, i) => ({ kana: k, roma: r.roma[i] }))),
+  { kana: "が", roma: "ga" }, // ステージ1特殊文字
+];
 
 // ── 音声フィードバック (Web Speech API) ─────────────────────
 const PRAISE    = ["すごーい！","やったね！","うまい！","かんぺき！","さいこう！","よくできました！"];
@@ -89,7 +92,7 @@ function heroColors(lv) {
   };
 }
 
-// ── 敵定義 (各3文字セット) ──────────────────────────────────
+// ── 敵定義 (各行セット) ─────────────────────────────────────
 function kanaOf(chars) {
   return chars.map(k => ALL_KANA.find(a => a.kana === k)).filter(Boolean);
 }
@@ -342,12 +345,14 @@ function EnemyImg({ file, size = 120 }) {
 }
 
 const ENEMY_DEFS = [
-  { id:0, name:"いせりある",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy1.png" size={size} />  },
-  { id:1, name:"ごらいあす",   kana:["あ","い","う"], color:"#0ea5e9", desc:"うちゅうのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy2.png" size={size} />  },
-  { id:2, name:"がいあ",       kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy3.png" size={size} />  },
-  { id:3, name:"ごるどん",     kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} />  },
-  { id:4, name:"まんてぃす",   kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} />  },
-  { id:5, name:"おぶりびおん", kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} />  },
+  // ステージ1: あわがゆずきの6文字 (とくべつステージ)
+  { id:0, name:"いせりある",   row:"とくべつ", kana:["あ","わ","が","ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy1.png" size={size} /> },
+  // ステージ2以降: 各行5文字
+  { id:1, name:"ごらいあす",   row:"ア行",     kana:["あ","い","う","え","お"],       color:"#0ea5e9", desc:"うちゅうのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy2.png" size={size} /> },
+  { id:2, name:"がいあ",       row:"カ行",     kana:["か","き","く","け","こ"],       color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy3.png" size={size} /> },
+  { id:3, name:"ごるどん",     row:"サ行",     kana:["さ","し","す","せ","そ"],       color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} /> },
+  { id:4, name:"まんてぃす",   row:"タ行",     kana:["た","ち","つ","て","と"],       color:"#64748b", desc:"みつのかおのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} /> },
+  { id:5, name:"おぶりびおん", row:"ナ行",     kana:["な","に","ぬ","ね","の"],       color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} /> },
 ];
 
 // ============================================================
@@ -2522,28 +2527,36 @@ function EnemySelectScreen({ onSelect, onHome }) {
                 }}>{enemy.desc}</span>
               </div>
 
-              {/* kana badges */}
-              <div style={{ display:"flex", gap:8 }}>
-                {enemy.kana.map(k => (
-                  <div key={k} style={{
-                    width:44, height:44,
-                    background:`${enemy.color}22`,
-                    border:`1.5px solid ${enemy.color}66`,
-                    borderRadius:10,
-                    display:"flex", flexDirection:"column",
-                    alignItems:"center", justifyContent:"center",
-                  }}>
-                    <div style={{
-                      fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                      fontWeight:900, fontSize:"1.3rem",
-                      color:"#f1f5f9", lineHeight:1,
-                    }}>{k}</div>
-                    <div style={{
-                      fontFamily:"monospace", fontSize:"0.5rem",
-                      color: enemy.color, letterSpacing:"0.04em",
-                    }}>{ALL_KANA.find(a => a.kana === k)?.roma}</div>
-                  </div>
-                ))}
+              {/* 行名 + kana badges */}
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {enemy.row && (
+                  <div style={{
+                    fontFamily:"monospace", fontSize:"0.6rem",
+                    color: enemy.color, letterSpacing:"0.08em", fontWeight:700,
+                  }}>{enemy.row}</div>
+                )}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {enemy.kana.map(k => (
+                    <div key={k} style={{
+                      width:38, height:38,
+                      background:`${enemy.color}22`,
+                      border:`1.5px solid ${enemy.color}66`,
+                      borderRadius:8,
+                      display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center",
+                    }}>
+                      <div style={{
+                        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                        fontWeight:900, fontSize:"1.1rem",
+                        color:"#f1f5f9", lineHeight:1,
+                      }}>{k}</div>
+                      <div style={{
+                        fontFamily:"monospace", fontSize:"0.45rem",
+                        color: enemy.color, letterSpacing:"0.04em",
+                      }}>{ALL_KANA.find(a => a.kana === k)?.roma}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
