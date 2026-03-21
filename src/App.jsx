@@ -44,6 +44,133 @@ function pickBattleKana(n = 5) {
 }
 
 // ============================================================
+// HERO SVG  (ウルトラマン風シルエット: シルバー×赤)
+// ============================================================
+function HeroSVG({ size = 120, style = {} }) {
+  return (
+    <svg width={size} height={Math.round(size * 1.72)} viewBox="0 0 60 103" fill="none"
+      xmlns="http://www.w3.org/2000/svg" style={{ display:"block", ...style }}>
+      {/* ─ crest ─ */}
+      <polygon points="30,0 25,11 35,11" fill="#c8d4e4"/>
+      <rect x="28" y="8" width="4" height="5" rx="1" fill="#4a90d0"/>
+      {/* ─ head ─ */}
+      <ellipse cx="30" cy="20" rx="11" ry="13" fill="#bcc8d8"/>
+      {/* face mask */}
+      <ellipse cx="30" cy="21" rx="9" ry="9" fill="#1c2430"/>
+      {/* eyes */}
+      <polygon points="21,18 27,14 29,20 23,21" fill="#f59e0b"/>
+      <polygon points="39,18 33,14 31,20 37,21" fill="#f59e0b"/>
+      {/* head side marks */}
+      <rect x="19" y="18" width="2" height="6" rx="1" fill="#4a90d0"/>
+      <rect x="39" y="18" width="2" height="6" rx="1" fill="#4a90d0"/>
+      {/* ─ neck ─ */}
+      <rect x="27" y="32" width="6" height="5" fill="#8898ac"/>
+      {/* ─ shoulders ─ */}
+      <ellipse cx="14" cy="41" rx="9" ry="6" fill="#708090"/>
+      <ellipse cx="46" cy="41" rx="9" ry="6" fill="#708090"/>
+      {/* ─ torso ─ */}
+      <path d="M16,36 L44,36 L42,68 L18,68 Z" fill="#bcc8d8"/>
+      {/* red stripe pattern */}
+      <path d="M30,38 C23,43 17,52 20,59 C25,53 30,51 30,51 C30,51 35,53 40,59 C43,52 37,43 30,38 Z" fill="#b91c1c"/>
+      <path d="M30,51 C24,56 18,64 20,70 L30,65 L40,70 C42,64 36,56 30,51 Z" fill="#991515"/>
+      {/* color timer */}
+      <ellipse cx="30" cy="43" rx="4" ry="2.5" fill="#ef4444">
+        <animate attributeName="fill" values="#ef4444;#3b82f6;#ef4444" dur="1.5s" repeatCount="indefinite"/>
+      </ellipse>
+      {/* ─ arms ─ */}
+      <rect x="5"  y="35" width="10" height="22" rx="3" fill="#bcc8d8" transform="rotate(-8 10 46)"/>
+      <rect x="4"  y="56" width="9"  height="17" rx="3" fill="#9caabb" transform="rotate(-14 8 64)"/>
+      <ellipse cx="7"  cy="74" rx="5" ry="4" fill="#9caabb" transform="rotate(-14 7 74)"/>
+      <rect x="45" y="35" width="10" height="22" rx="3" fill="#bcc8d8" transform="rotate(8 50 46)"/>
+      <rect x="47" y="56" width="9"  height="17" rx="3" fill="#9caabb" transform="rotate(14 52 64)"/>
+      <ellipse cx="53" cy="74" rx="5" ry="4" fill="#9caabb" transform="rotate(14 53 74)"/>
+      {/* ─ waist ─ */}
+      <rect x="18" y="68" width="24" height="6" rx="2" fill="#506070"/>
+      {/* ─ legs ─ */}
+      <rect x="18" y="74" width="11" height="17" rx="3" fill="#bcc8d8"/>
+      <rect x="31" y="74" width="11" height="17" rx="3" fill="#bcc8d8"/>
+      {/* red knee bands */}
+      <rect x="18" y="81" width="11" height="4" rx="1" fill="#b91c1c"/>
+      <rect x="31" y="81" width="11" height="4" rx="1" fill="#b91c1c"/>
+      {/* shins */}
+      <rect x="19" y="91" width="9"  height="12" rx="2" fill="#9caabb"/>
+      <rect x="32" y="91" width="9"  height="12" rx="2" fill="#9caabb"/>
+      {/* feet */}
+      <ellipse cx="23" cy="103" rx="9" ry="3.5" fill="#708090"/>
+      <ellipse cx="37" cy="103" rx="9" ry="3.5" fill="#708090"/>
+    </svg>
+  );
+}
+
+// ============================================================
+// KAIJU SVG  (怪獣風シルエット: 茶色装甲・角・爪)
+// ============================================================
+function KaijuSVG({ size = 120, style = {} }) {
+  return (
+    <svg width={size} height={Math.round(size * 1.45)} viewBox="0 0 80 116" fill="none"
+      xmlns="http://www.w3.org/2000/svg" style={{ display:"block", ...style }}>
+      {/* ─ tail ─ */}
+      <path d="M58,80 Q72,68 76,54 Q79,42 72,37" stroke="#b08840" strokeWidth="8"
+        fill="none" strokeLinecap="round"/>
+      <polygon points="68,32 76,35 73,44" fill="#907030"/>
+      {/* ─ horns ─ */}
+      <polygon points="24,2  18,20 30,20" fill="#6b5228"/>
+      <polygon points="37,5  33,18 43,18" fill="#6b5228"/>
+      <polygon points="14,8  10,22 20,22" fill="#7a6030" transform="rotate(-10 15 15)"/>
+      {/* ─ head ─ */}
+      <ellipse cx="36" cy="30" rx="21" ry="18" fill="#c8a060"/>
+      {/* crack lines on head */}
+      <path d="M30,14 L33,30" stroke="#6b4a20" strokeWidth="1.5"/>
+      <path d="M40,16 L38,30" stroke="#6b4a20" strokeWidth="1.5"/>
+      <path d="M22,24 L36,28" stroke="#6b4a20" strokeWidth="1.2"/>
+      {/* eye */}
+      <circle cx="26" cy="26" r="6" fill="#0a0808"/>
+      <circle cx="27" cy="25" r="2.5" fill="#dc2626"/>
+      <circle cx="27.8" cy="24.2" r="1" fill="#ff6060"/>
+      {/* teeth */}
+      <polygon points="24,40 27,47 30,40" fill="#ddd0a0"/>
+      <polygon points="32,41 35,48 38,41" fill="#ddd0a0"/>
+      <polygon points="40,40 43,46 46,40" fill="#ddd0a0"/>
+      {/* ─ body ─ */}
+      <path d="M10,48 L62,48 L58,90 L14,90 Z" fill="#c09858"/>
+      {/* body armor cracks */}
+      <path d="M36,54 L30,66 L40,63 Z"      stroke="#6b4a20" strokeWidth="2" fill="none"/>
+      <path d="M24,60 L36,63"               stroke="#6b4a20" strokeWidth="1.5"/>
+      <path d="M48,60 L36,63"               stroke="#6b4a20" strokeWidth="1.5"/>
+      <path d="M20,72 L30,76 L26,84"        stroke="#7a5a28" strokeWidth="1.2"/>
+      <path d="M50,72 L42,76 L46,84"        stroke="#7a5a28" strokeWidth="1.2"/>
+      {/* ─ arms (raised / threatening) ─ */}
+      <rect x="-2" y="42" width="14" height="30" rx="5" fill="#b88840" transform="rotate(-22 5 57)"/>
+      <rect x="-6" y="68" width="12" height="22" rx="4" fill="#a07830" transform="rotate(-35 0 79)"/>
+      {/* claws L */}
+      <polygon points="-10,83 -6,76  -1,84" fill="#504020"/>
+      <polygon points="-3, 87  1,80   6,88" fill="#504020"/>
+      <polygon points="4, 89  8,82  13,90" fill="#504020"/>
+      {/* arm R */}
+      <rect x="58" y="42" width="14" height="30" rx="5" fill="#b88840" transform="rotate(22 65 57)"/>
+      <rect x="64" y="68" width="12" height="22" rx="4" fill="#a07830" transform="rotate(35 70 79)"/>
+      {/* claws R */}
+      <polygon points="80,83 76,76 71,84" fill="#504020"/>
+      <polygon points="73,87 69,80 64,88" fill="#504020"/>
+      <polygon points="66,89 62,82 57,90" fill="#504020"/>
+      {/* ─ waist ─ */}
+      <rect x="16" y="90" width="38" height="7" rx="2" fill="#a07838"/>
+      {/* ─ legs ─ */}
+      <rect x="15" y="97" width="16" height="19" rx="5" fill="#b88840"/>
+      <rect x="39" y="97" width="16" height="19" rx="5" fill="#b88840"/>
+      {/* feet */}
+      <ellipse cx="23" cy="116" rx="12" ry="4.5" fill="#907030"/>
+      <ellipse cx="47" cy="116" rx="12" ry="4.5" fill="#907030"/>
+      {/* toe claws */}
+      <polygon points="13,115 10,122 16,116" fill="#504020"/>
+      <polygon points="21,117 19,124 25,118" fill="#504020"/>
+      <polygon points="37,115 34,122 40,116" fill="#504020"/>
+      <polygon points="45,117 43,124 49,118" fill="#504020"/>
+    </svg>
+  );
+}
+
+// ============================================================
 // CITY BOKEH BACKGROUND
 // ============================================================
 function CityBokeh() {
@@ -365,14 +492,12 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
               background:"repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px)",
               pointerEvents:"none",
             }} />
-            {/* hero emoji */}
+            {/* hero SVG */}
             <div style={{
-              fontSize:"clamp(5rem, 20vw, 8.5rem)",
               filter:"drop-shadow(0 0 18px rgba(239,68,68,0.7))",
               animation:"heroFloat 3s ease-in-out infinite",
-              userSelect:"none",
             }}>
-              🦸
+              <HeroSVG size={Math.min(window.innerWidth * 0.42, 200)}/>
             </div>
             {/* corner accent lines */}
             {[
@@ -557,7 +682,7 @@ function randKana() {
   return ALL_KANA[Math.floor(Math.random() * ALL_KANA.length)];
 }
 
-function BattleScreen({ onHome, heroImg, monsterImg }) {
+function BattleScreen({ onHome }) {
   const canvasWrapRef = useRef(null);
 
   const [heroHp,    setHeroHp]    = useState(HERO_MAX_HP);
@@ -686,7 +811,7 @@ function BattleScreen({ onHome, heroImg, monsterImg }) {
           <HPBar hp={heroHp}    maxHp={HERO_MAX_HP}    label="⚡ ゆずき" />
         </div>
         <div style={{ flex:1 }}>
-          <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label="👾 かいじゅう" />
+          <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label="🦖 かいじゅう" />
         </div>
       </div>
 
@@ -742,22 +867,16 @@ function BattleScreen({ onHome, heroImg, monsterImg }) {
 
           {/* ヒーロー */}
           <div style={{
-            fontSize:"clamp(2.8rem,11vw,4.5rem)",
             filter: isLose
               ? "grayscale(1) opacity(0.3)"
               : heroDanger
-              ? "drop-shadow(0 0 14px rgba(255,50,50,0.9))"
-              : "drop-shadow(0 0 10px rgba(100,180,255,0.6))",
+              ? "drop-shadow(0 0 14px rgba(255,80,80,0.9))"
+              : "drop-shadow(0 0 12px rgba(120,200,255,0.7))",
             animation: isLose ? "none"
               : isMonsterAtk ? "wrongShake 0.45s ease-out"
               : "heroFloat 3s ease-in-out infinite",
-            userSelect:"none",
           }}>
-            {heroImg ? (
-              <img src={heroImg} alt="ゆずき"
-                style={{ height:"clamp(80px,28vw,130px)", objectFit:"contain",
-                  filter:"drop-shadow(0 0 10px rgba(100,180,255,0.6))" }} />
-            ) : "🦸"}
+            <HeroSVG size={Math.min(window.innerWidth * 0.2, 88)}/>
           </div>
 
           {/* ビーム */}
@@ -780,17 +899,12 @@ function BattleScreen({ onHome, heroImg, monsterImg }) {
           <div style={{
             filter: isWin
               ? "grayscale(1) opacity(0)"
-              : "drop-shadow(0 0 12px rgba(239,68,68,0.6))",
+              : "drop-shadow(0 0 14px rgba(239,68,68,0.7))",
             animation: isWin ? "monsterDead 0.7s ease-out forwards"
               : isCorrect ? "monsterHit 0.6s ease-out"
               : "heroFloat 2.5s ease-in-out 0.4s infinite",
-            userSelect:"none",
           }}>
-            {monsterImg ? (
-              <img src={monsterImg} alt="かいじゅう"
-                style={{ height:"clamp(80px,28vw,130px)", objectFit:"contain",
-                  filter:"drop-shadow(0 0 12px rgba(239,68,68,0.6))" }} />
-            ) : <span style={{ fontSize:"clamp(2.8rem,12vw,4.8rem)" }}>👾</span>}
+            <KaijuSVG size={Math.min(window.innerWidth * 0.22, 96)}/>
           </div>
         </div>
       </div>
@@ -1452,10 +1566,6 @@ function ScreenTransition({ screenKey, children }) {
 // ============================================================
 const SCREENS = ["home", "battle", "tokkun", "zukan"];
 
-// 画像URLをここで設定 (後から差し替え可)
-const HERO_IMG    = null; // 例: "https://i.imgur.com/xxx.png"
-const MONSTER_IMG = null;
-
 export default function App() {
   const [screen,  setScreen]  = useState("home");
   const [prevScr, setPrevScr] = useState(null);
@@ -1496,7 +1606,7 @@ export default function App() {
             onZukan ={() => go("zukan")}
           />
         )}
-        {screen === "battle" && <BattleScreen onHome={() => go("home")} heroImg={HERO_IMG} monsterImg={MONSTER_IMG} />}
+        {screen === "battle" && <BattleScreen onHome={() => go("home")} />}
         {screen === "tokkun" && <TokkunScreen onHome={() => go("home")} />}
         {screen === "zukan"  && <ZukanScreen  onHome={() => go("home")} />}
       </ScreenTransition>
