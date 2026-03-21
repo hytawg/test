@@ -647,7 +647,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
 // ============================================================
 const HERO_MAX_HP    = 5;
 const MONSTER_MAX_HP = 6;
-const COVERAGE_THRESHOLD = 0.38; // 38% 以上なぞれたら攻撃成功
+const COVERAGE_THRESHOLD = 0.22; // 22% 以上なぞれたら成功 (緩め)
 const MAX_MISS = 3;               // 3 回失敗でモンスターが反撃
 
 // ガイド文字のピクセルをオフスクリーンCanvasに描画して
@@ -662,7 +662,7 @@ function evalCoverage(guideKana, tracingCanvas) {
   const gCtx   = guide.getContext("2d");
   gCtx.scale(dpr, dpr);
   gCtx.fillStyle    = "white";
-  gCtx.font         = `900 ${size * 0.70}px 'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif`;
+  gCtx.font         = `900 ${size * 0.77}px 'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif`;
   gCtx.textAlign    = "center";
   gCtx.textBaseline = "middle";
   gCtx.fillText(guideKana, size / 2, size / 2);
@@ -1143,14 +1143,15 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
 
   return (
     <div style={{ position:"relative", width:"100%", aspectRatio:"1/1" }}>
-      {/* ガイド文字 (薄く表示) */}
+      {/* ガイド文字 (なぞる目安 — 赤みがかった35%で明確に表示) */}
       <div style={{
         position:"absolute", inset:0, zIndex:1,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:"min(62vw, 340px)",
         fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
         fontWeight:900,
-        color:"rgba(255,255,255,0.13)",
+        color:"rgba(255,160,80,0.38)",
+        textShadow:"0 0 24px rgba(239,68,68,0.45), 0 0 8px rgba(255,120,60,0.3)",
         lineHeight:1,
         userSelect:"none", pointerEvents:"none",
       }}>{guideKana}</div>
@@ -1159,19 +1160,19 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
       <div style={{
         position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
         backgroundImage:`
-          linear-gradient(rgba(239,68,68,0.08) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(239,68,68,0.08) 1px, transparent 1px)
+          linear-gradient(rgba(239,68,68,0.18) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(239,68,68,0.18) 1px, transparent 1px)
         `,
         backgroundSize:"50% 50%",
         backgroundPosition:"50% 50%",
       }} />
 
-      {/* 枠線 */}
+      {/* 枠線 + 内側グロー */}
       <div style={{
         position:"absolute", inset:0, zIndex:3,
-        border:"2px solid rgba(239,68,68,0.35)",
+        border:"2.5px solid rgba(239,68,68,0.70)",
         borderRadius:16,
-        boxShadow:"inset 0 0 28px rgba(239,68,68,0.06)",
+        boxShadow:"inset 0 0 32px rgba(239,68,68,0.12), 0 0 12px rgba(239,68,68,0.2)",
         pointerEvents:"none",
       }} />
 
@@ -1182,8 +1183,8 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
           display:"block", position:"relative", zIndex:2,
           width:"100%", height:"100%",
           borderRadius:14,
-          background:"rgba(12,4,4,0.88)",
-          touchAction:"none",  // スクロール無効化
+          background:"rgba(38,16,10,0.97)",  // 少し明るい暗色
+          touchAction:"none",
           cursor:"crosshair",
         }}
         onPointerDown={startStroke}
@@ -1203,23 +1204,42 @@ function TokkunScreen({ onHome }) {
   const [idx,       setIdx]       = useState(0);
   const [done,      setDone]      = useState(false);
   const [hasStroke, setHasStroke] = useState(false);
-  const canvasRef   = useRef(null);  // TracingCanvas の wrapper div ref
+  const [phase,     setPhase]     = useState("idle"); // idle | ok | miss
+  const canvasRef   = useRef(null);
 
   const card     = deck[idx];
   const total    = deck.length;
   const progress = Math.round((idx / total) * 100);
 
+  const getCanvas = () => canvasRef.current?.querySelector("canvas");
+
   const clearCanvas = () => {
-    // TracingCanvas が公開した _clear を呼ぶ
-    const canvas = canvasRef.current?.querySelector("canvas");
-    canvas?._clear?.();
+    getCanvas()?._clear?.();
     setHasStroke(false);
   };
 
-  const next = () => {
+  const goNext = () => {
+    setPhase("idle");
     setHasStroke(false);
     if (idx + 1 >= total) { setDone(true); return; }
     setIdx(i => i + 1);
+  };
+
+  const handleJudge = () => {
+    if (!hasStroke || phase !== "idle") return;
+    const canvas = getCanvas();
+    if (!canvas) return;
+    const cov = evalCoverage(card.kana, canvas);
+    if (cov >= COVERAGE_THRESHOLD) {
+      setPhase("ok");
+      setTimeout(goNext, 900);
+    } else {
+      setPhase("miss");
+      setTimeout(() => {
+        clearCanvas();
+        setPhase("idle");
+      }, 900);
+    }
   };
 
   const restart = () => {
@@ -1227,6 +1247,7 @@ function TokkunScreen({ onHome }) {
     setIdx(0);
     setDone(false);
     setHasStroke(false);
+    setPhase("idle");
   };
 
   return (
@@ -1298,12 +1319,39 @@ function TokkunScreen({ onHome }) {
             </span>
           </div>
 
-          {/* キャンバス */}
-          <div ref={canvasRef} style={{ width:"min(80vw, 440px)" }}>
+          {/* キャンバス + 判定フィードバックオーバーレイ */}
+          <div ref={canvasRef} style={{ width:"min(80vw, 440px)", position:"relative" }}>
             <TracingCanvas
               guideKana={card.kana}
               onFirstStroke={() => setHasStroke(true)}
             />
+            {/* 判定結果オーバーレイ */}
+            {phase !== "idle" && (
+              <div style={{
+                position:"absolute", inset:0, zIndex:20, borderRadius:16,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                background: phase === "ok"
+                  ? "rgba(34,197,94,0.18)"
+                  : "rgba(239,68,68,0.18)",
+                border: `2.5px solid ${phase === "ok" ? "#22c55e" : "#ef4444"}`,
+                animation:"correctFlash 0.9s ease-out forwards",
+                pointerEvents:"none",
+              }}>
+                <div style={{
+                  fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                  fontWeight:900,
+                  fontSize:"clamp(2rem,10vw,3.5rem)",
+                  color: phase === "ok" ? "#86efac" : "#f87171",
+                  textShadow: phase === "ok"
+                    ? "0 0 20px rgba(34,197,94,0.9)"
+                    : "0 0 20px rgba(239,68,68,0.9)",
+                  letterSpacing:"0.06em",
+                  animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+                }}>
+                  {phase === "ok" ? "できた！" : "もう一度！"}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ヒント */}
@@ -1312,43 +1360,46 @@ function TokkunScreen({ onHome }) {
             color:"rgba(100,116,139,0.7)", letterSpacing:"0.1em",
             textAlign:"center",
           }}>
-            うすい文字をスタイラスでなぞってみよう
+            オレンジの文字をスタイラスでなぞろう
           </div>
 
           {/* 操作ボタン */}
           <div style={{ display:"flex", gap:12, width:"100%", maxWidth:380, marginTop:4 }}>
             <button
               onClick={clearCanvas}
-              disabled={!hasStroke}
+              disabled={!hasStroke || phase !== "idle"}
               style={{
                 flex:1, height:52,
                 background:"rgba(22,10,10,0.85)",
                 border:"1.5px solid rgba(120,60,60,0.4)",
                 borderRadius:12,
-                color: hasStroke ? "#f87171" : C.muted,
+                color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
                 fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
                 fontWeight:700, fontSize:"0.95rem", letterSpacing:"0.08em",
-                cursor: hasStroke ? "pointer" : "default",
-                opacity: hasStroke ? 1 : 0.4,
+                cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+                opacity: hasStroke && phase === "idle" ? 1 : 0.4,
                 transition:"all 0.2s",
               }}
             >消す</button>
             <button
-              onClick={next}
+              onClick={handleJudge}
+              disabled={!hasStroke || phase !== "idle"}
               style={{
                 flex:2, height:52,
-                background:"linear-gradient(180deg, #f87171 0%, #dc2626 100%)",
+                background: hasStroke && phase === "idle"
+                  ? "linear-gradient(180deg, #f87171 0%, #dc2626 100%)"
+                  : "rgba(60,20,20,0.6)",
                 border:"2px solid rgba(255,255,255,0.15)",
                 borderRadius:12,
                 color:"#fff",
                 fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
                 fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
-                cursor:"pointer",
-                boxShadow:"0 3px 14px rgba(239,68,68,0.45)",
+                cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+                opacity: hasStroke && phase === "idle" ? 1 : 0.5,
+                boxShadow: hasStroke && phase === "idle" ? "0 3px 14px rgba(239,68,68,0.45)" : "none",
+                transition:"all 0.2s",
               }}
-            >
-              {idx + 1 >= total ? "かんりょう！" : "つぎへ →"}
-            </button>
+            >はんてい！</button>
           </div>
         </div>
       )}
