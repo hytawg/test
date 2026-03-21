@@ -753,9 +753,9 @@ const GLOBAL_CSS = `
     65%  { opacity: 1; transform: scale(1.2) rotate(4deg);   }
     100% { opacity: 1; transform: scale(1)   rotate(0deg);   }
   }
-  @keyframes strokeDraw {
-    from { stroke-dashoffset: 1; opacity: 0.4; }
-    to   { stroke-dashoffset: 0; opacity: 1;   }
+  @keyframes strokeFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
   @keyframes strokeNumPop {
     0%   { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); }
@@ -1617,8 +1617,10 @@ const STROKE_DATA = {
 };
 
 // ============================================================
-// STROKE ORDER GUIDE  (書き順アニメーション)
+// STROKE ORDER GUIDE  (書き順フェード表示)
 // ============================================================
+const STROKE_COLORS = ["#ef4444", "#22c55e", "#0ea5e9", "#ec4899"];
+
 function StrokeOrderGuide({ kana, visible, onDone }) {
   const [step, setStep] = useState(-1);
   const strokes = STROKE_DATA[kana] || [];
@@ -1629,9 +1631,13 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
     let cur = 0;
     const timer = setInterval(() => {
       cur++;
-      if (cur >= strokes.length) { clearInterval(timer); onDone?.(); return; }
+      if (cur >= strokes.length) {
+        clearInterval(timer);
+        setTimeout(() => onDone?.(), 1500);
+        return;
+      }
       setStep(cur);
-    }, 950);
+    }, 900);
     return () => clearInterval(timer);
   }, [visible, kana]); // eslint-disable-line
 
@@ -1640,27 +1646,23 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
   return (
     <div style={{ position:"absolute", inset:0, zIndex:10, pointerEvents:"none", borderRadius:14 }}>
       <svg viewBox="0 0 100 100" style={{ position:"absolute", inset:0, width:"100%", height:"100%", overflow:"visible" }}>
-        {/* 完了済みストローク（薄く残す） */}
-        {strokes.slice(0, step).map((s, i) => (
-          <path key={`done-${i}`} d={s.d} stroke="rgba(14,165,233,0.45)" strokeWidth="5.5"
-            fill="none" strokeLinecap="round" strokeLinejoin="round" pathLength="1"/>
-        ))}
-        {/* 現在のストローク（アニメーション） */}
-        {step >= 0 && step < strokes.length && (
-          <path key={`cur-${step}-${kana}`} d={strokes[step].d}
-            stroke="#22d3ee" strokeWidth="6.5"
+        {/* 各ストロークをフェードイン */}
+        {strokes.slice(0, step + 1).map((s, i) => (
+          <path
+            key={`stroke-${i}-${kana}`}
+            d={s.d}
+            stroke={STROKE_COLORS[i % STROKE_COLORS.length]}
+            strokeWidth="6"
             fill="none" strokeLinecap="round" strokeLinejoin="round"
-            pathLength="1" strokeDasharray="1" strokeDashoffset="1"
-            style={{ animation:"strokeDraw 0.85s ease-out forwards" }}
+            style={{ animation: i === step ? "strokeFadeIn 0.5s ease-out forwards" : "none" }}
           />
-        )}
+        ))}
         {/* 番号サークル */}
         {strokes.slice(0, step + 1).map((s, i) => (
-          <g key={`num-${i}`} style={{ animation: i === step ? "strokeNumPop 0.3s ease-out" : "none" }}>
-            <circle cx={s.sx} cy={s.sy} r="8.5"
-              fill={i === step ? "#0ea5e9" : "rgba(14,165,233,0.35)"}
-              stroke={i === step ? "#fff" : "rgba(255,255,255,0.3)"}
-              strokeWidth={i === step ? 1.5 : 0.8}
+          <g key={`num-${i}-${kana}`} style={{ animation: i === step ? "strokeNumPop 0.3s ease-out" : "none" }}>
+            <circle cx={s.sx} cy={s.sy} r="8"
+              fill={STROKE_COLORS[i % STROKE_COLORS.length]}
+              stroke="#fff" strokeWidth="1.5"
             />
             <text x={s.sx} y={s.sy + 3.8} textAnchor="middle"
               fill="white" fontSize="9" fontWeight="900"
