@@ -261,4 +261,274 @@ const GLOBAL_CSS = `
     0%   { transform:translateY(0); }
     100% { transform:translateY(4px); }
   }
+  @keyframes cardGlowPulse {
+    0%,100% { box-shadow: 0 0 20px rgba(239,68,68,0.25), 0 0 50px rgba(239,68,68,0.10), inset 0 0 20px rgba(239,68,68,0.04); }
+    50%     { box-shadow: 0 0 35px rgba(239,68,68,0.45), 0 0 80px rgba(239,68,68,0.20), inset 0 0 30px rgba(239,68,68,0.08); }
+  }
+  @keyframes btnPulse {
+    0%,100% { box-shadow: 0 4px 20px rgba(239,68,68,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 0 2px rgba(185,28,28,0.8); }
+    50%     { box-shadow: 0 6px 32px rgba(239,68,68,0.75), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 3px rgba(220,38,38,0.9), 0 0 50px rgba(239,68,68,0.25); }
+  }
+  @keyframes badgePulse {
+    0%,100% { border-color: rgba(251,191,36,0.5); box-shadow: 0 0 8px rgba(251,191,36,0.3); }
+    50%     { border-color: rgba(251,191,36,0.9); box-shadow: 0 0 18px rgba(251,191,36,0.6); }
+  }
+  @keyframes titleGlow {
+    0%,100% { text-shadow: 0 0 10px rgba(239,68,68,0.5), 0 0 20px rgba(220,38,38,0.3); }
+    50%     { text-shadow: 0 0 18px rgba(239,68,68,0.8), 0 0 35px rgba(220,38,38,0.5), 0 0 60px rgba(185,28,28,0.3); }
+  }
 `;
+
+// ============================================================
+// HOME SCREEN  (画像: 暗赤シネマ / Ultraman style)
+// ============================================================
+function HomeScreen({ onBattle, onTokkun, onZukan }) {
+  return (
+    <div style={{
+      position:"relative", minHeight:"100dvh", width:"100%",
+      background: C.bg,
+      display:"flex", flexDirection:"column", alignItems:"center",
+      overflow:"hidden",
+    }}>
+      <CityBokeh />
+
+      {/* ── TOP BAR ─────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:480,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"16px 20px 8px",
+      }}>
+        {/* left: profile icon */}
+        <button style={{
+          width:40, height:40, borderRadius:8, cursor:"pointer",
+          border:"1.5px dashed rgba(239,68,68,0.4)",
+          background:"rgba(239,68,68,0.06)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          color:"rgba(239,68,68,0.7)",
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </button>
+
+        {/* center: title */}
+        <div style={{
+          fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+          fontWeight:900,
+          fontSize:"clamp(0.9rem, 4vw, 1.15rem)",
+          letterSpacing:"0.06em",
+          color: C.primary,
+          animation:"titleGlow 3s ease-in-out infinite",
+        }}>
+          ウルトラマンゆずき
+        </div>
+
+        {/* right: reload icon */}
+        <button style={{
+          width:40, height:40, borderRadius:8, cursor:"pointer",
+          border:"1.5px dashed rgba(100,116,139,0.3)",
+          background:"rgba(255,255,255,0.03)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          color: C.muted,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* ── HERO CARD ────────────────────────────────────── */}
+      <div style={{ position:"relative", zIndex:10, marginTop:8 }}>
+        {/* outer dashed ring */}
+        <div style={{
+          width:"min(58vw, 240px)", height:"min(70vw, 290px)",
+          border:"1.5px dashed rgba(239,68,68,0.3)",
+          borderRadius:16,
+          padding:4,
+        }}>
+          {/* card body */}
+          <div style={{
+            width:"100%", height:"100%",
+            background:"linear-gradient(160deg, #120808 0%, #0a0404 60%, #130d0d 100%)",
+            border:"2px solid rgba(239,68,68,0.55)",
+            borderRadius:13,
+            animation:"cardGlowPulse 4s ease-in-out infinite",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            overflow:"hidden",
+            position:"relative",
+          }}>
+            {/* scan-line overlay */}
+            <div style={{
+              position:"absolute", inset:0,
+              background:"repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px)",
+              pointerEvents:"none",
+            }} />
+            {/* hero emoji */}
+            <div style={{
+              fontSize:"clamp(5rem, 20vw, 8.5rem)",
+              filter:"drop-shadow(0 0 18px rgba(239,68,68,0.7))",
+              animation:"heroFloat 3s ease-in-out infinite",
+              userSelect:"none",
+            }}>
+              🦸
+            </div>
+            {/* corner accent lines */}
+            {[
+              { top:0, left:0,  borderTop:"2px solid #ef4444", borderLeft:"2px solid #ef4444",  borderRadius:"12px 0 0 0" },
+              { top:0, right:0, borderTop:"2px solid #ef4444", borderRight:"2px solid #ef4444", borderRadius:"0 12px 0 0" },
+              { bottom:0, left:0,  borderBottom:"2px solid #ef4444", borderLeft:"2px solid #ef4444",  borderRadius:"0 0 0 12px" },
+              { bottom:0, right:0, borderBottom:"2px solid #ef4444", borderRight:"2px solid #ef4444", borderRadius:"0 0 12px 0" },
+            ].map((s, i) => (
+              <div key={i} style={{ position:"absolute", width:20, height:20, ...s }} />
+            ))}
+          </div>
+        </div>
+
+        {/* STATUS badge (top-right of card) */}
+        <div style={{
+          position:"absolute", top:-10, right:-14,
+          background:"rgba(8,6,4,0.95)",
+          border:"1.5px solid rgba(251,191,36,0.6)",
+          borderRadius:20,
+          padding:"4px 10px",
+          backdropFilter:"blur(8px)",
+          animation:"badgePulse 2.5s ease-in-out infinite",
+        }}>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.42rem", letterSpacing:"0.15em" }}>STATUS</div>
+          <div style={{ color: C.gold,  fontFamily:"monospace", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.06em" }}>MAX ENERGY</div>
+        </div>
+      </div>
+
+      {/* ── NAME + SUBTITLE ──────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, marginTop:14,
+        textAlign:"center",
+      }}>
+        {/* glass panel */}
+        <div style={{
+          background:"rgba(10,4,4,0.65)",
+          border:"1px solid rgba(255,255,255,0.06)",
+          borderRadius:14,
+          padding:"10px 36px 12px",
+          backdropFilter:"blur(10px)",
+        }}>
+          <div style={{
+            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+            fontWeight:900,
+            fontSize:"clamp(2.5rem, 12vw, 3.8rem)",
+            color:"#fff",
+            lineHeight:1.05,
+            textShadow:"3px 3px 0 rgba(185,28,28,0.5), 0 0 12px rgba(239,68,68,0.4)",
+          }}>
+            ゆずき
+          </div>
+          <div style={{
+            color: C.teal,
+            fontFamily:"monospace",
+            fontSize:"clamp(0.7rem, 2.8vw, 0.9rem)",
+            letterSpacing:"0.14em",
+            marginTop:4,
+          }}>
+            ひかりのバトル
+          </div>
+        </div>
+      </div>
+
+      {/* ── BUTTONS ──────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10,
+        marginTop:20,
+        width:"100%", maxWidth:380,
+        padding:"0 24px",
+        display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+      }}>
+        {/* しゅつげき — big red pill with dashed outline ring */}
+        <div style={{ position:"relative", width:"100%" }}>
+          <div style={{
+            position:"absolute", inset:-5,
+            border:"1.5px dashed rgba(239,68,68,0.35)",
+            borderRadius:999,
+            pointerEvents:"none",
+          }} />
+          <button
+            onClick={onBattle}
+            style={{
+              width:"100%", height:62,
+              background:"linear-gradient(180deg, #f87171 0%, #dc2626 50%, #b91c1c 100%)",
+              border:"2px solid rgba(255,255,255,0.18)",
+              borderRadius:999,
+              color:"#fff",
+              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+              fontWeight:900,
+              fontSize:"clamp(1.4rem, 5.5vw, 1.8rem)",
+              letterSpacing:"0.12em",
+              cursor:"pointer",
+              animation:"btnPulse 2s ease-in-out infinite",
+            }}
+          >
+            しゅつげき
+          </button>
+        </div>
+
+        {/* second row: とっくん + ずかん */}
+        <div style={{ display:"flex", gap:10, width:"100%" }}>
+          <button
+            onClick={onTokkun}
+            style={{
+              flex:1, height:46,
+              background:"linear-gradient(180deg, rgba(28,16,16,0.92) 0%, rgba(14,8,8,0.96) 100%)",
+              border:"1px solid rgba(120,80,80,0.4)",
+              borderRadius:999,
+              color: C.muted,
+              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
+              fontWeight:700,
+              fontSize:"clamp(0.8rem, 3vw, 1rem)",
+              letterSpacing:"0.1em",
+              cursor:"pointer",
+            }}
+          >
+            ⚡ とっくん
+          </button>
+          <button
+            onClick={onZukan}
+            style={{
+              flex:1, height:46,
+              background:"linear-gradient(180deg, rgba(28,16,16,0.92) 0%, rgba(14,8,8,0.96) 100%)",
+              border:"1px solid rgba(120,80,80,0.4)",
+              borderRadius:999,
+              color: C.muted,
+              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
+              fontWeight:700,
+              fontSize:"clamp(0.8rem, 3vw, 1rem)",
+              letterSpacing:"0.1em",
+              cursor:"pointer",
+            }}
+          >
+            📖 ずかん
+          </button>
+        </div>
+      </div>
+
+      {/* bottom spacing */}
+      <div style={{ height: 32 }} />
+    </div>
+  );
+}
+
+// ============================================================
+// APP  (仮: タスク3以降で差し替え)
+// ============================================================
+export default function App() {
+  return (
+    <>
+      <style>{GLOBAL_CSS}</style>
+      <HomeScreen
+        onBattle={() => {}}
+        onTokkun={() => {}}
+        onZukan={() => {}}
+      />
+    </>
+  );
+}
