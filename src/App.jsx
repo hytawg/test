@@ -1257,17 +1257,19 @@ function BattleScreen({ onHome, enemy }) {
 
       {/* ── HEADER ─────────────────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        position:"relative", zIndex:10, width:"100%",
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"12px 20px 4px",
+        padding:"10px 16px 6px",
+        borderBottom:`1px solid ${C.border}`,
+        background:"rgba(4,10,4,0.85)",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
-          borderRadius:8, color:C.primary, cursor:"pointer",
-          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-        }}>← もどる</button>
-        <div style={{ fontFamily:"monospace", fontSize:"0.75rem", color: C.muted }}>
-          スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+          background:"rgba(57,255,20,0.05)", border:`1px solid ${C.border}`,
+          color: C.text, cursor:"pointer",
+          padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem", letterSpacing:"0.05em",
+        }}>◀ もどる</button>
+        <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem", color: C.gold, animation:"seg-pulse 2s infinite" }}>
+          SCORE <span style={{ color: C.gold }}>{score}</span>
         </div>
         <ColorTimer danger={heroDanger} />
       </div>
@@ -1292,9 +1294,9 @@ function BattleScreen({ onHome, enemy }) {
       }}>
         <div style={{
           position:"relative", height:"min(36vw, 170px)",
-          background:"linear-gradient(180deg, rgba(20,8,8,0.75) 0%, rgba(8,4,4,0.92) 100%)",
-          border:"1px solid rgba(239,68,68,0.18)",
-          borderRadius:12,
+          background:"linear-gradient(180deg, #010a01 0%, #020d02 100%)",
+          border:`1px solid ${C.border}`,
+          boxShadow:`inset 0 0 20px rgba(57,255,20,0.04)`,
           display:"flex", alignItems:"center", justifyContent:"space-between",
           padding:"0 clamp(12px,5vw,36px)",
           overflow:"hidden",
@@ -1322,14 +1324,13 @@ function BattleScreen({ onHome, enemy }) {
               display:"flex", alignItems:"center", justifyContent:"center",
             }}>
               <div style={{
-                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                fontWeight:900,
-                fontSize:"clamp(1.2rem,5vw,1.8rem)",
-                color: isCorrect ? C.gold : "#f87171",
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"clamp(0.6rem,3.5vw,0.9rem)",
+                color: isCorrect ? C.gold : C.primary,
                 textShadow: isCorrect
-                  ? "0 0 16px rgba(251,191,36,0.9)"
-                  : "0 0 16px rgba(239,68,68,0.9)",
-                letterSpacing:"0.06em",
+                  ? `0 0 16px ${C.gold}`
+                  : `0 0 16px ${C.primary}`,
+                letterSpacing:"0.05em",
                 animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
               }}>{feedback}</div>
             </div>
@@ -1360,8 +1361,8 @@ function BattleScreen({ onHome, enemy }) {
               right:"clamp(55px,16vw,95px)",
               top:"50%", transform:"translateY(-50%)",
               height:6, borderRadius:3,
-              background:"linear-gradient(90deg, #38bdf8, #a78bfa, #f472b6)",
-              boxShadow:"0 0 16px #38bdf8, 0 0 30px #a78bfa",
+              background:`linear-gradient(90deg, ${C.teal}, ${C.text}, ${C.gold})`,
+              boxShadow:`0 0 16px ${C.teal}, 0 0 30px ${C.text}`,
               animation:"beamShoot 0.8s ease-out forwards",
               transformOrigin:"left center",
               zIndex:4,
@@ -1392,22 +1393,23 @@ function BattleScreen({ onHome, enemy }) {
         {/* 読み方ラベル */}
         <div style={{
           display:"flex", alignItems:"center", gap:8,
-          background:"rgba(14,165,233,0.1)",
-          border:"1px solid rgba(14,165,233,0.3)",
-          borderRadius:24, padding:"5px 18px",
+          background:"rgba(0,229,255,0.06)",
+          border:`1px solid ${C.teal}`,
+          padding:"6px 16px",
+          boxShadow:`0 0 8px rgba(0,229,255,0.2)`,
         }}>
           <span style={{
-            fontFamily:"monospace", fontWeight:900,
-            fontSize:"clamp(0.85rem,3vw,1.1rem)",
-            color: C.teal, letterSpacing:"0.12em",
+            fontFamily:"'Press Start 2P',monospace",
+            fontSize:"clamp(0.7rem,3vw,0.9rem)",
+            color: C.teal, letterSpacing:"0.08em",
             textShadow:`0 0 10px ${C.teal}`,
           }}>{kana.roma}</span>
-          <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
-            このもじをなぞれ！
+          <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", letterSpacing:"0.05em" }}>
+            なぞれ！
           </span>
           <button
             onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
-            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"2px 4px",lineHeight:1}}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
           >🔊</button>
         </div>
 
@@ -1421,57 +1423,59 @@ function BattleScreen({ onHome, enemy }) {
 
         {/* ミス残り表示 */}
         {missCount > 0 && phase === "idle" && (
-          <div style={{ display:"flex", gap:6 }}>
+          <div style={{ display:"flex", gap:5 }}>
             {Array.from({ length: MAX_MISS }).map((_, i) => (
               <div key={i} style={{
-                width:10, height:10, borderRadius:"50%",
-                background: i < missCount ? "#ef4444" : "rgba(239,68,68,0.2)",
-                boxShadow: i < missCount ? "0 0 6px #ef4444" : "none",
+                width:10, height:10,
+                background: i < missCount ? C.primary : "rgba(255,34,34,0.15)",
+                border: `1px solid ${i < missCount ? C.primary : "rgba(255,34,34,0.3)"}`,
+                boxShadow: i < missCount ? `0 0 6px ${C.primary}` : "none",
               }} />
             ))}
           </div>
         )}
 
         {/* ボタン */}
-        <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
+        <div style={{ display:"flex", gap:8, width:"100%", maxWidth:380 }}>
           <button onClick={handleClear} disabled={!hasStroke || phase !== "idle"}
             style={{
               flex:1, height:50,
-              background:"rgba(22,10,10,0.85)",
-              border:"1.5px solid rgba(120,60,60,0.4)", borderRadius:12,
-              color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
+              background:"rgba(4,16,4,0.9)",
+              border:`1px solid ${C.border}`,
+              borderBottom:`3px solid rgba(57,255,20,0.15)`,
+              color: hasStroke && phase === "idle" ? C.text : C.muted,
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.45rem", letterSpacing:"0.04em",
               cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-              opacity: hasStroke && phase === "idle" ? 1 : 0.4,
-              transition:"all 0.2s",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.35,
+              transition:"all 0.15s",
             }}>けす</button>
 
           <button onClick={handleAttack} disabled={!hasStroke || phase !== "idle"}
             style={{
               flex:2, height:50,
-              background: hasStroke && phase === "idle"
-                ? "linear-gradient(180deg,#f87171,#dc2626)"
-                : "rgba(60,20,20,0.6)",
-              border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
+              background: hasStroke && phase === "idle" ? C.primary : "rgba(40,10,10,0.7)",
+              border: `2px solid ${hasStroke && phase === "idle" ? "#ff6666" : "rgba(255,34,34,0.2)"}`,
+              borderBottom: `4px solid ${hasStroke && phase === "idle" ? "#880000" : "rgba(255,34,34,0.1)"}`,
               color:"#fff",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"clamp(0.95rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.5rem,2.5vw,0.65rem)", letterSpacing:"0.05em",
               cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-              opacity: hasStroke && phase === "idle" ? 1 : 0.45,
-              boxShadow: hasStroke && phase === "idle" ? "0 3px 14px rgba(239,68,68,0.45)" : "none",
-              transition:"all 0.2s",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.4,
+              boxShadow: hasStroke && phase === "idle" ? `0 0 14px rgba(255,34,34,0.5)` : "none",
+              transition:"all 0.15s",
             }}>こうげき！</button>
 
           <button onClick={handleGiveUp} disabled={phase !== "idle"}
             style={{
               flex:1, height:50,
-              background:"rgba(22,10,10,0.85)",
-              border:"1.5px solid rgba(120,60,60,0.4)", borderRadius:12,
+              background:"rgba(4,16,4,0.9)",
+              border:`1px solid ${C.border}`,
+              borderBottom:`3px solid rgba(57,255,20,0.15)`,
               color: C.muted,
-              fontFamily:"monospace", fontSize:"0.7rem", letterSpacing:"0.06em",
+              fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", letterSpacing:"0.03em",
               cursor: phase === "idle" ? "pointer" : "default",
-              opacity: phase === "idle" ? 1 : 0.4,
+              opacity: phase === "idle" ? 1 : 0.35,
             }}>スキップ</button>
         </div>
       </div>
@@ -1493,45 +1497,49 @@ function BattleScreen({ onHome, enemy }) {
             {isWin ? "🏆" : "💀"}
           </div>
           <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif", fontWeight:900,
-            fontSize:"clamp(1.5rem,7vw,2.5rem)",
-            color: isWin ? C.gold : "#f87171",
-            textShadow: isWin ? "0 0 20px rgba(251,191,36,0.8)" : "0 0 20px rgba(239,68,68,0.8)",
-            letterSpacing:"0.1em",
+            fontFamily:"'Press Start 2P',monospace",
+            fontSize:"clamp(0.9rem,5vw,1.4rem)",
+            color: isWin ? C.gold : C.primary,
+            textShadow: isWin ? `0 0 20px ${C.gold}` : `0 0 20px ${C.primary}`,
+            letterSpacing:"0.05em",
+            animation:"phosphor-glow 2s ease-in-out infinite",
           }}>{isWin ? "しょうり！" : "やられた…"}</div>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.8rem" }}>
-            スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+          <div style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.45rem" }}>
+            SCORE <span style={{ color: C.gold }}>{score}</span>
             {isWin && <span style={{ color: C.teal, marginLeft:8 }}>+{score} XP</span>}
           </div>
           {/* レベルアップバッジ */}
           {isWin && leveledUp && (
             <div style={{
-              background:"linear-gradient(135deg, #fbbf24, #f59e0b)",
-              border:"2px solid #fde68a",
-              borderRadius:16, padding:"8px 28px",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"clamp(1rem,4vw,1.4rem)",
-              color:"#1c1200", letterSpacing:"0.08em",
-              boxShadow:"0 0 24px rgba(251,191,36,0.7)",
+              background:"rgba(4,10,4,0.95)",
+              border:`2px solid ${C.gold}`,
+              padding:"8px 24px",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.55rem,3vw,0.75rem)",
+              color: C.gold, letterSpacing:"0.05em",
+              boxShadow:`0 0 24px rgba(255,184,0,0.7)`,
               animation:"levelUpBadge 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
             }}>
-              ⬆ LEVEL UP！ Lv.{calcLevel(xp)}
+              ▲ LEVEL UP! Lv.{calcLevel(xp)}
             </div>
           )}
-          <div style={{ display:"flex", gap:12, marginTop:8 }}>
+          <div style={{ display:"flex", gap:10, marginTop:8 }}>
             <button onClick={restart} style={{
-              padding:"12px 32px", borderRadius:999,
-              background:"linear-gradient(180deg,#f87171,#dc2626)",
-              border:"none", color:"#fff",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
-              cursor:"pointer", boxShadow:"0 4px 16px rgba(239,68,68,0.5)",
+              padding:"11px 28px",
+              background: C.primary,
+              border:"2px solid #ff6666",
+              borderBottom:"4px solid #880000",
+              color:"#fff",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.55rem", letterSpacing:"0.05em",
+              cursor:"pointer", boxShadow:`0 0 14px rgba(255,34,34,0.5)`,
             }}>もういちど</button>
             <button onClick={onHome} style={{
-              padding:"12px 32px", borderRadius:999,
-              background:"rgba(30,15,15,0.9)",
-              border:"1px solid rgba(120,60,60,0.5)",
-              color: C.muted, fontFamily:"monospace", fontSize:"0.9rem", cursor:"pointer",
+              padding:"11px 28px",
+              background:"rgba(4,16,4,0.9)",
+              border:`1px solid ${C.border}`,
+              borderBottom:`3px solid rgba(57,255,20,0.15)`,
+              color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.5rem", cursor:"pointer",
             }}>ホームへ</button>
           </div>
         </div>
