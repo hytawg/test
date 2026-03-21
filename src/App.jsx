@@ -33,15 +33,19 @@ const HIRAGANA_ROWS = [
 ];
 const ALL_KANA = HIRAGANA_ROWS.flatMap((r) => r.kana.map((k, i) => ({ kana: k, roma: r.roma[i] })));
 
-const MONSTERS = ["👾","🦑","🐙","👹","🦖","🤖","👺","🛸"];
-
-function pickMonster(seed) { return MONSTERS[seed % MONSTERS.length]; }
-
-// バトル用: ランダムにかなを n 個選ぶ
-function pickBattleKana(n = 5) {
-  const shuffled = [...ALL_KANA].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+// ── 敵定義 (各3文字セット) ──────────────────────────────────
+function kanaOf(chars) {
+  return chars.map(k => ALL_KANA.find(a => a.kana === k)).filter(Boolean);
 }
+
+const ENEMY_DEFS = [
+  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう" },
+  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#ef4444", desc:"うちゅうのかいじゅう" },
+  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう" },
+  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#22c55e", desc:"しっぽがつよいかいじゅう" },
+  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#0ea5e9", desc:"みつのかおのかいじゅう" },
+  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう" },
+];
 
 // ============================================================
 // HERO SVG  (ウルトラマン風シルエット: シルバー×赤)
@@ -647,7 +651,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
 // ============================================================
 const HERO_MAX_HP    = 5;
 const MONSTER_MAX_HP = 6;
-const COVERAGE_THRESHOLD = 0.22; // 22% 以上なぞれたら成功 (緩め)
+const COVERAGE_THRESHOLD = 0.10; // 10% 以上なぞれたら成功
 const MAX_MISS = 3;               // 3 回失敗でモンスターが反撃
 
 // ガイド文字のピクセルをオフスクリーンCanvasに描画して
@@ -678,16 +682,14 @@ function evalCoverage(guideKana, tracingCanvas) {
   return total > 0 ? covered / total : 0;
 }
 
-function randKana() {
-  return ALL_KANA[Math.floor(Math.random() * ALL_KANA.length)];
-}
-
-function BattleScreen({ onHome }) {
+function BattleScreen({ onHome, enemy }) {
+  const kanaSet     = useRef(kanaOf(enemy.kana)).current;
+  const pickKana    = useCallback(() => kanaSet[Math.floor(Math.random() * kanaSet.length)], [kanaSet]);
   const canvasWrapRef = useRef(null);
 
   const [heroHp,    setHeroHp]    = useState(HERO_MAX_HP);
   const [monsterHp, setMonsterHp] = useState(MONSTER_MAX_HP);
-  const [kana,      setKana]      = useState(randKana);
+  const [kana,      setKana]      = useState(pickKana);
   const [phase,     setPhase]     = useState("idle"); // idle|checking|correct|miss|monsterAtk|win|lose
   const [score,     setScore]     = useState(0);
   const [missCount, setMissCount] = useState(0);
@@ -709,7 +711,7 @@ function BattleScreen({ onHome }) {
     if (curMHp <= 0) { setPhase("win");  return; }
     if (curHHp <= 0) { setPhase("lose"); return; }
     setPhase("idle");
-    setKana(randKana());
+    setKana(pickKana());
   }, []);
 
   // ── こうげき！ボタン ──────────────────────────────
@@ -773,7 +775,7 @@ function BattleScreen({ onHome }) {
     setHeroHp(HERO_MAX_HP); setMonsterHp(MONSTER_MAX_HP);
     setScore(0); setPhase("idle");
     setMissCount(0); setHasStroke(false); setFeedback("");
-    setKana(randKana());
+    setKana(pickKana());
   };
 
   return (
@@ -811,7 +813,7 @@ function BattleScreen({ onHome }) {
           <HPBar hp={heroHp}    maxHp={HERO_MAX_HP}    label="⚡ ゆずき" />
         </div>
         <div style={{ flex:1 }}>
-          <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label="🦖 かいじゅう" />
+          <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label={`🦖 ${enemy.name}`} />
         </div>
       </div>
 
@@ -1143,15 +1145,15 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
 
   return (
     <div style={{ position:"relative", width:"100%", aspectRatio:"1/1" }}>
-      {/* ガイド文字 (なぞる目安 — 赤みがかった35%で明確に表示) */}
+      {/* ガイド文字 (なぞる目安 — 暗いグレーで明確に) */}
       <div style={{
         position:"absolute", inset:0, zIndex:1,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:"min(62vw, 340px)",
         fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
         fontWeight:900,
-        color:"rgba(255,160,80,0.38)",
-        textShadow:"0 0 24px rgba(239,68,68,0.45), 0 0 8px rgba(255,120,60,0.3)",
+        color:"rgba(60,45,35,0.22)",
+        textShadow:"0 0 4px rgba(60,45,35,0.12)",
         lineHeight:1,
         userSelect:"none", pointerEvents:"none",
       }}>{guideKana}</div>
@@ -1160,30 +1162,30 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
       <div style={{
         position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
         backgroundImage:`
-          linear-gradient(rgba(239,68,68,0.18) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(239,68,68,0.18) 1px, transparent 1px)
+          linear-gradient(rgba(100,80,60,0.15) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(100,80,60,0.15) 1px, transparent 1px)
         `,
         backgroundSize:"50% 50%",
         backgroundPosition:"50% 50%",
       }} />
 
-      {/* 枠線 + 内側グロー */}
+      {/* 枠線 */}
       <div style={{
         position:"absolute", inset:0, zIndex:3,
-        border:"2.5px solid rgba(239,68,68,0.70)",
+        border:"2.5px solid rgba(239,68,68,0.65)",
         borderRadius:16,
-        boxShadow:"inset 0 0 32px rgba(239,68,68,0.12), 0 0 12px rgba(239,68,68,0.2)",
+        boxShadow:"0 0 10px rgba(239,68,68,0.18)",
         pointerEvents:"none",
       }} />
 
-      {/* 描画キャンバス */}
+      {/* 描画キャンバス (グレー背景で高コントラスト) */}
       <canvas
         ref={canvasRef}
         style={{
           display:"block", position:"relative", zIndex:2,
           width:"100%", height:"100%",
           borderRadius:14,
-          background:"rgba(38,16,10,0.97)",  // 少し明るい暗色
+          background:"#ddd8d0",  // 温かみのあるライトグレー
           touchAction:"none",
           cursor:"crosshair",
         }}
@@ -1446,6 +1448,133 @@ function TokkunScreen({ onHome }) {
 }
 
 // ============================================================
+// ENEMY SELECT SCREEN  (てきをえらべ！)
+// ============================================================
+function EnemySelectScreen({ onSelect, onHome }) {
+  return (
+    <div style={{
+      position:"relative", minHeight:"100dvh", width:"100%",
+      background: C.bg,
+      display:"flex", flexDirection:"column", alignItems:"center",
+      overflow:"hidden",
+    }}>
+      <CityBokeh />
+
+      {/* header */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"14px 20px 6px",
+      }}>
+        <button onClick={onHome} style={{
+          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
+          borderRadius:8, color:C.primary, cursor:"pointer",
+          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
+        }}>← もどる</button>
+        <div style={{
+          fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+          fontWeight:900, fontSize:"clamp(1rem,4vw,1.3rem)",
+          color: C.primary, letterSpacing:"0.08em",
+          textShadow:"0 0 12px rgba(239,68,68,0.5)",
+        }}>てきをえらべ！</div>
+        <div style={{ width:60 }} />
+      </div>
+
+      {/* enemy cards */}
+      <div style={{
+        position:"relative", zIndex:10,
+        width:"100%", maxWidth:520,
+        padding:"8px 16px 24px",
+        display:"flex", flexDirection:"column", gap:12,
+        overflowY:"auto", flex:1,
+      }}>
+        {ENEMY_DEFS.map((enemy, i) => (
+          <button
+            key={enemy.id}
+            onClick={() => onSelect(enemy)}
+            style={{
+              width:"100%",
+              background:"linear-gradient(135deg, rgba(20,8,8,0.92) 0%, rgba(12,5,5,0.96) 100%)",
+              border:`2px solid ${i === 0 ? enemy.color : "rgba(100,50,50,0.45)"}`,
+              borderRadius:14,
+              padding:"12px 16px",
+              cursor:"pointer",
+              display:"flex", alignItems:"center", gap:14,
+              boxShadow: i === 0 ? `0 0 16px ${enemy.color}44` : "none",
+              transition:"all 0.15s",
+              textAlign:"left",
+              position:"relative",
+              overflow:"hidden",
+            }}
+          >
+            {/* first enemy badge */}
+            {i === 0 && (
+              <div style={{
+                position:"absolute", top:8, right:10,
+                background: enemy.color, borderRadius:6,
+                padding:"2px 8px",
+                fontFamily:"monospace", fontSize:"0.55rem", color:"#fff",
+                fontWeight:700, letterSpacing:"0.1em",
+              }}>さいしょの てき</div>
+            )}
+
+            {/* mini kaiju */}
+            <div style={{
+              flexShrink:0,
+              filter:`drop-shadow(0 0 8px ${enemy.color}88)`,
+            }}>
+              <KaijuSVG size={56}/>
+            </div>
+
+            {/* info */}
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+              <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+                <span style={{
+                  fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                  fontWeight:900, fontSize:"clamp(1rem,4vw,1.2rem)",
+                  color:"#f1f5f9", letterSpacing:"0.04em",
+                }}>{enemy.name}</span>
+                <span style={{
+                  fontFamily:"monospace", fontSize:"0.6rem",
+                  color: C.muted, letterSpacing:"0.06em",
+                }}>{enemy.desc}</span>
+              </div>
+
+              {/* kana badges */}
+              <div style={{ display:"flex", gap:8 }}>
+                {enemy.kana.map(k => (
+                  <div key={k} style={{
+                    width:44, height:44,
+                    background:`${enemy.color}22`,
+                    border:`1.5px solid ${enemy.color}66`,
+                    borderRadius:10,
+                    display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center",
+                  }}>
+                    <div style={{
+                      fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                      fontWeight:900, fontSize:"1.3rem",
+                      color:"#f1f5f9", lineHeight:1,
+                    }}>{k}</div>
+                    <div style={{
+                      fontFamily:"monospace", fontSize:"0.5rem",
+                      color: enemy.color, letterSpacing:"0.04em",
+                    }}>{ALL_KANA.find(a => a.kana === k)?.roma}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* arrow */}
+            <div style={{ color: enemy.color, fontSize:"1.4rem", flexShrink:0 }}>›</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // ZUKAN SCREEN  (50音ずかん)
 // ============================================================
 function ZukanScreen({ onHome }) {
@@ -1620,6 +1749,7 @@ const SCREENS = ["home", "battle", "tokkun", "zukan"];
 export default function App() {
   const [screen,  setScreen]  = useState("home");
   const [prevScr, setPrevScr] = useState(null);
+  const [enemy,   setEnemy]   = useState(ENEMY_DEFS[0]); // 選択中の敵
 
   // スクロールをトップにリセット
   const go = useCallback((next) => {
@@ -1652,12 +1782,18 @@ export default function App() {
       <ScreenTransition screenKey={screen}>
         {screen === "home"   && (
           <HomeScreen
-            onBattle={() => go("battle")}
+            onBattle={() => go("enemySelect")}
             onTokkun={() => go("tokkun")}
             onZukan ={() => go("zukan")}
           />
         )}
-        {screen === "battle" && <BattleScreen onHome={() => go("home")} />}
+        {screen === "enemySelect" && (
+          <EnemySelectScreen
+            onHome={() => go("home")}
+            onSelect={(e) => { setEnemy(e); go("battle"); }}
+          />
+        )}
+        {screen === "battle" && <BattleScreen onHome={() => go("home")} enemy={enemy} />}
         {screen === "tokkun" && <TokkunScreen onHome={() => go("home")} />}
         {screen === "zukan"  && <ZukanScreen  onHome={() => go("home")} />}
       </ScreenTransition>
