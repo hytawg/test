@@ -1987,35 +1987,46 @@ function TokkunScreen({ onHome }) {
 
       {/* ── HEADER ─────────────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        position:"relative", zIndex:10, width:"100%",
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 8px",
+        padding:"10px 16px 6px",
+        borderBottom:`1px solid ${C.border}`,
+        background:"rgba(4,10,4,0.85)",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
-          borderRadius:8, color:C.primary, cursor:"pointer",
-          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-        }}>← もどる</button>
-        <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
-          ✏️ とっくん (なぞり)
+          background:"rgba(57,255,20,0.05)", border:`1px solid ${C.border}`,
+          color: C.text, cursor:"pointer",
+          padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
+        }}>◀ もどる</button>
+        <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.5rem", letterSpacing:"0.05em", color: C.teal, animation:"amber-flicker 4s linear infinite" }}>
+          とっくん
         </div>
-        <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
-          {idx + 1} / {total}
+        <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem", color: C.gold }}>
+          {idx + 1}/{total}
         </div>
       </div>
 
-      {/* ── PROGRESS BAR ───────────────────────────── */}
+      {/* ── PROGRESS BAR (ピクセルセグメント) ───── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
-        padding:"0 20px 8px",
+        position:"relative", zIndex:10, width:"100%",
+        padding:"6px 16px 4px",
       }}>
-        <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden" }}>
-          <div style={{
-            height:"100%", width:`${progress}%`,
-            background:`linear-gradient(90deg, ${C.teal}, ${C.primary})`,
-            borderRadius:2, transition:"width 0.3s ease-out",
-          }} />
-        </div>
+        {(() => {
+          const segs = 20;
+          const filled = Math.round((progress / 100) * segs);
+          return (
+            <div style={{ display:"flex", gap:2 }}>
+              {Array.from({ length: segs }, (_, i) => (
+                <div key={i} style={{
+                  flex:1, height:5,
+                  background: i < filled ? C.teal : "rgba(0,229,255,0.1)",
+                  border: `1px solid ${i < filled ? C.teal : "rgba(0,229,255,0.12)"}`,
+                  boxShadow: i < filled ? `0 0 3px ${C.teal}` : "none",
+                }} />
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── MAIN: なぞりエリア ──────────────────────── */}
@@ -2029,23 +2040,24 @@ function TokkunScreen({ onHome }) {
         }}>
           {/* 読み方ラベル */}
           <div style={{
-            display:"flex", alignItems:"center", gap:10,
-            background:"rgba(14,165,233,0.1)",
-            border:"1px solid rgba(14,165,233,0.3)",
-            borderRadius:24, padding:"6px 20px",
+            display:"flex", alignItems:"center", gap:8,
+            background:"rgba(0,229,255,0.06)",
+            border:`1px solid ${C.teal}`,
+            padding:"6px 16px",
+            boxShadow:`0 0 8px rgba(0,229,255,0.2)`,
           }}>
             <span style={{
-              fontFamily:"monospace", fontWeight:900,
-              fontSize:"clamp(0.9rem,3.5vw,1.2rem)",
-              color: C.teal, letterSpacing:"0.12em",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.7rem,3vw,0.9rem)",
+              color: C.teal, letterSpacing:"0.08em",
               textShadow:`0 0 10px ${C.teal}`,
             }}>{card.roma}</span>
-            <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.6rem", letterSpacing:"0.1em" }}>
+            <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem" }}>
               よみかた
             </span>
             <button
               onClick={() => speak(card.kana, {rate:0.75, pitch:1.1})}
-              style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"2px 4px",lineHeight:1}}
+              style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
             >🔊</button>
           </div>
 
@@ -2058,24 +2070,23 @@ function TokkunScreen({ onHome }) {
             {/* 判定結果オーバーレイ */}
             {phase !== "idle" && (
               <div style={{
-                position:"absolute", inset:0, zIndex:20, borderRadius:16,
+                position:"absolute", inset:0, zIndex:20,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 background: phase === "ok"
-                  ? "rgba(34,197,94,0.18)"
-                  : "rgba(239,68,68,0.18)",
-                border: `2.5px solid ${phase === "ok" ? "#22c55e" : "#ef4444"}`,
+                  ? "rgba(57,255,20,0.12)"
+                  : "rgba(255,34,34,0.12)",
+                border: `2px solid ${phase === "ok" ? C.text : C.primary}`,
                 animation:"correctFlash 0.9s ease-out forwards",
                 pointerEvents:"none",
               }}>
                 <div style={{
-                  fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                  fontWeight:900,
-                  fontSize:"clamp(2rem,10vw,3.5rem)",
-                  color: phase === "ok" ? "#86efac" : "#f87171",
+                  fontFamily:"'Press Start 2P',monospace",
+                  fontSize:"clamp(0.7rem,5vw,1.1rem)",
+                  color: phase === "ok" ? C.text : C.primary,
                   textShadow: phase === "ok"
-                    ? "0 0 20px rgba(34,197,94,0.9)"
-                    : "0 0 20px rgba(239,68,68,0.9)",
-                  letterSpacing:"0.06em",
+                    ? `0 0 20px ${C.text}`
+                    : `0 0 20px ${C.primary}`,
+                  letterSpacing:"0.05em",
                   animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
                 }}>
                   {phase === "ok" ? "できた！" : "もう一度！"}
@@ -2086,48 +2097,46 @@ function TokkunScreen({ onHome }) {
 
           {/* ヒント */}
           <div style={{
-            fontFamily:"monospace", fontSize:"0.6rem",
-            color:"rgba(100,116,139,0.7)", letterSpacing:"0.1em",
-            textAlign:"center",
+            fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem",
+            color: C.muted, letterSpacing:"0.05em",
+            textAlign:"center", animation:"hint-blink 2s step-end infinite",
           }}>
-            オレンジのもじをスタイラスでなぞろう
+            オレンジのもじをなぞろう
           </div>
 
           {/* 操作ボタン */}
-          <div style={{ display:"flex", gap:12, width:"100%", maxWidth:380, marginTop:4 }}>
+          <div style={{ display:"flex", gap:8, width:"100%", maxWidth:380, marginTop:4 }}>
             <button
               onClick={clearCanvas}
               disabled={!hasStroke || phase !== "idle"}
               style={{
-                flex:1, height:52,
-                background:"rgba(22,10,10,0.85)",
-                border:"1.5px solid rgba(120,60,60,0.4)",
-                borderRadius:12,
-                color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
-                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
-                fontWeight:700, fontSize:"0.95rem", letterSpacing:"0.08em",
+                flex:1, height:50,
+                background:"rgba(4,16,4,0.9)",
+                border:`1px solid ${C.border}`,
+                borderBottom:`3px solid rgba(57,255,20,0.15)`,
+                color: hasStroke && phase === "idle" ? C.text : C.muted,
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"0.45rem", letterSpacing:"0.04em",
                 cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-                opacity: hasStroke && phase === "idle" ? 1 : 0.4,
-                transition:"all 0.2s",
+                opacity: hasStroke && phase === "idle" ? 1 : 0.35,
+                transition:"all 0.15s",
               }}
             >けす</button>
             <button
               onClick={handleJudge}
               disabled={!hasStroke || phase !== "idle"}
               style={{
-                flex:2, height:52,
-                background: hasStroke && phase === "idle"
-                  ? "linear-gradient(180deg, #f87171 0%, #dc2626 100%)"
-                  : "rgba(60,20,20,0.6)",
-                border:"2px solid rgba(255,255,255,0.15)",
-                borderRadius:12,
+                flex:2, height:50,
+                background: hasStroke && phase === "idle" ? C.primary : "rgba(40,10,10,0.7)",
+                border:`2px solid ${hasStroke && phase === "idle" ? "#ff6666" : "rgba(255,34,34,0.2)"}`,
+                borderBottom:`4px solid ${hasStroke && phase === "idle" ? "#880000" : "rgba(255,34,34,0.1)"}`,
                 color:"#fff",
-                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"clamp(0.5rem,2.5vw,0.65rem)", letterSpacing:"0.05em",
                 cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-                opacity: hasStroke && phase === "idle" ? 1 : 0.5,
-                boxShadow: hasStroke && phase === "idle" ? "0 3px 14px rgba(239,68,68,0.45)" : "none",
-                transition:"all 0.2s",
+                opacity: hasStroke && phase === "idle" ? 1 : 0.4,
+                boxShadow: hasStroke && phase === "idle" ? `0 0 14px rgba(255,34,34,0.5)` : "none",
+                transition:"all 0.15s",
               }}
             >はんてい！</button>
           </div>
@@ -2138,35 +2147,38 @@ function TokkunScreen({ onHome }) {
       {done && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
-          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(6px)",
+          background:"rgba(0,0,0,0.88)",
           display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center", gap:18,
+          alignItems:"center", justifyContent:"center", gap:16,
         }}>
-          <div style={{ fontSize:"4rem" }}>⚡</div>
+          <div style={{ fontSize:"3rem" }}>⚡</div>
           <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-            fontWeight:900, fontSize:"clamp(1.5rem,7vw,2.2rem)",
-            color: C.gold, letterSpacing:"0.1em",
-            textShadow:"0 0 20px rgba(251,191,36,0.7)",
+            fontFamily:"'Press Start 2P',monospace",
+            fontSize:"clamp(0.7rem,4vw,1rem)",
+            color: C.gold, letterSpacing:"0.05em",
+            textShadow:`0 0 20px ${C.gold}`,
+            animation:"phosphor-glow 2s ease-in-out infinite",
           }}>とっくん かんりょう！</div>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.75rem" }}>
+          <div style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem" }}>
             {total}もじ なぞった！
           </div>
-          <div style={{ display:"flex", gap:12, marginTop:8 }}>
+          <div style={{ display:"flex", gap:10, marginTop:8 }}>
             <button onClick={restart} style={{
-              padding:"12px 28px", borderRadius:999,
-              background:"linear-gradient(180deg,#f87171,#dc2626)",
-              border:"none", color:"#fff",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"0.95rem", letterSpacing:"0.1em",
-              cursor:"pointer", boxShadow:"0 4px 16px rgba(239,68,68,0.5)",
+              padding:"10px 24px",
+              background: C.primary,
+              border:"2px solid #ff6666",
+              borderBottom:"4px solid #880000",
+              color:"#fff",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.55rem", letterSpacing:"0.05em",
+              cursor:"pointer", boxShadow:`0 0 14px rgba(255,34,34,0.5)`,
             }}>もういちど</button>
             <button onClick={onHome} style={{
-              padding:"12px 28px", borderRadius:999,
-              background:"rgba(30,15,15,0.9)",
-              border:"1px solid rgba(120,60,60,0.5)",
-              color: C.muted, fontFamily:"monospace",
-              fontSize:"0.9rem", cursor:"pointer",
+              padding:"10px 24px",
+              background:"rgba(4,16,4,0.9)",
+              border:`1px solid ${C.border}`,
+              borderBottom:`3px solid rgba(57,255,20,0.15)`,
+              color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.5rem", cursor:"pointer",
             }}>ホームへ</button>
           </div>
         </div>
@@ -2181,9 +2193,9 @@ function TokkunScreen({ onHome }) {
 const KAKITORI_XP = 8; // 1文字成功で獲得するXP
 
 function KakitoriScreen({ onHome, enemy }) {
-  const PP = "#a855f7";
-  const PL = "#c084fc";
-  const PD = "#7c3aed";
+  const PP = "#dd88ff";
+  const PL = "#bb66dd";
+  const PD = "#440077";
 
   const kanaSet     = useRef(kanaOf(enemy.kana)).current;
   const pickKana    = useCallback(() => kanaSet[Math.floor(Math.random() * kanaSet.length)], [kanaSet]);
@@ -2312,13 +2324,12 @@ function KakitoriScreen({ onHome, enemy }) {
   return (
     <div style={{
       position:"relative", minHeight:"100dvh", width:"100%",
-      background:"#0e0618",
+      background: C.bg,
       display:"flex", flexDirection:"column", alignItems:"center",
       overflow:"hidden",
     }}>
       {confettiKey > 0 && <Confetti key={confettiKey}/>}
       <CityBokeh />
-      <div style={{ position:"absolute", inset:0, zIndex:1, pointerEvents:"none", background:"rgba(88,28,135,0.18)" }} />
 
       {/* チラ見オーバーレイ */}
       {peeking && (
@@ -2326,38 +2337,40 @@ function KakitoriScreen({ onHome, enemy }) {
           position:"fixed", inset:0, zIndex:250, pointerEvents:"none",
           display:"flex", flexDirection:"column",
           alignItems:"center", justifyContent:"center", gap:12,
-          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(4px)",
+          background:"rgba(0,0,0,0.88)",
         }}>
           <div style={{
             fontSize:"min(48vw, 220px)",
-            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-            fontWeight:900, color:"rgba(255,255,255,0.95)",
-            textShadow:`0 0 40px ${PP}, 0 0 80px rgba(168,85,247,0.4)`,
+            fontFamily:"monospace",
+            fontWeight:900, color: PP,
+            textShadow:`0 0 40px ${PP}`,
             lineHeight:1,
             animation:"shuwatchAppear 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
           }}>{kana.kana}</div>
-          <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"clamp(1.2rem,4vw,1.6rem)", color:PP, letterSpacing:"0.12em" }}>
+          <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(0.7rem,4vw,1rem)", color: PP, letterSpacing:"0.08em" }}>
             {kana.roma}
           </div>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.65rem", letterSpacing:"0.1em" }}>おぼえてね！</div>
+          <div style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem" }}>おぼえてね！</div>
         </div>
       )}
 
       {/* HEADER */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        position:"relative", zIndex:10, width:"100%",
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"12px 20px 4px",
+        padding:"10px 16px 6px",
+        borderBottom:`1px solid ${C.border}`,
+        background:"rgba(4,10,4,0.85)",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(168,85,247,0.08)", border:"1px solid rgba(168,85,247,0.3)",
-          borderRadius:8, color:PP, cursor:"pointer",
-          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-        }}>← もどる</button>
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
-          <div style={{ fontFamily:"monospace", fontSize:"0.45rem", color:PL, letterSpacing:"0.15em" }}>⚔ HARD MODE</div>
-          <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
-            スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+          background:"rgba(57,255,20,0.05)", border:`1px solid ${C.border}`,
+          color: C.text, cursor:"pointer",
+          padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
+        }}>◀ もどる</button>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+          <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.35rem", color: PP, letterSpacing:"0.1em" }}>⚔ HARD MODE</div>
+          <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem", color: C.gold }}>
+            SCORE <span style={{ color: C.gold }}>{score}</span>
           </div>
         </div>
         <ColorTimer danger={heroDanger} />
@@ -2378,14 +2391,14 @@ function KakitoriScreen({ onHome, enemy }) {
 
       {/* ARENA */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
-        padding:"6px 20px 0",
+        position:"relative", zIndex:10, width:"100%",
+        padding:"6px 16px 0",
       }}>
         <div style={{
           position:"relative", height:"min(36vw, 160px)",
-          background:"linear-gradient(180deg, rgba(14,6,26,0.85) 0%, rgba(6,3,14,0.95) 100%)",
-          border:"1px solid rgba(168,85,247,0.2)",
-          borderRadius:12,
+          background:"linear-gradient(180deg, #010a01 0%, #020d02 100%)",
+          border:`1px solid ${C.border}`,
+          boxShadow:`inset 0 0 16px rgba(57,255,20,0.04)`,
           display:"flex", alignItems:"center", justifyContent:"space-between",
           padding:"0 clamp(12px,5vw,36px)",
           overflow:"hidden",
@@ -2411,11 +2424,11 @@ function KakitoriScreen({ onHome, enemy }) {
               display:"flex", alignItems:"center", justifyContent:"center",
             }}>
               <div style={{
-                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                fontWeight:900, fontSize:"clamp(1.2rem,5vw,1.8rem)",
-                color: isCorrect ? C.gold : "#f87171",
-                textShadow: isCorrect ? "0 0 16px rgba(251,191,36,0.9)" : "0 0 16px rgba(239,68,68,0.9)",
-                letterSpacing:"0.06em",
+                fontFamily:"'Press Start 2P',monospace",
+                fontSize:"clamp(0.6rem,3.5vw,0.9rem)",
+                color: isCorrect ? C.gold : C.primary,
+                textShadow: isCorrect ? `0 0 16px ${C.gold}` : `0 0 16px ${C.primary}`,
+                letterSpacing:"0.05em",
                 animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
               }}>{feedback}</div>
             </div>
@@ -2439,8 +2452,8 @@ function KakitoriScreen({ onHome, enemy }) {
               right:"clamp(55px,16vw,95px)",
               top:"50%", transform:"translateY(-50%)",
               height:6, borderRadius:3,
-              background:"linear-gradient(90deg, #a78bfa, #c084fc, #f472b6)",
-              boxShadow:"0 0 16px #a78bfa, 0 0 30px #c084fc",
+              background:`linear-gradient(90deg, ${PP}, ${C.teal}, ${PP})`,
+              boxShadow:`0 0 16px ${PP}, 0 0 30px ${C.teal}`,
               animation:"beamShoot 0.8s ease-out forwards",
               transformOrigin:"left center",
               zIndex:4,
@@ -2460,30 +2473,31 @@ function KakitoriScreen({ onHome, enemy }) {
 
       {/* 書き取りエリア */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:520,
-        padding:"8px 20px 0",
+        position:"relative", zIndex:10, width:"100%",
+        padding:"8px 16px 0",
         display:"flex", flexDirection:"column", alignItems:"center", gap:8,
         flex:1,
       }}>
         {/* 読み方ラベル */}
         <div style={{
           display:"flex", alignItems:"center", gap:8,
-          background:"rgba(168,85,247,0.1)",
-          border:`1px solid rgba(168,85,247,0.3)`,
-          borderRadius:24, padding:"5px 18px",
+          background:`${PP}0a`,
+          border:`1px solid ${PP}`,
+          padding:"6px 16px",
+          boxShadow:`0 0 8px ${PP}33`,
         }}>
           <span style={{
-            fontFamily:"monospace", fontWeight:900,
-            fontSize:"clamp(0.85rem,3vw,1.1rem)",
-            color:PP, letterSpacing:"0.12em",
+            fontFamily:"'Press Start 2P',monospace",
+            fontSize:"clamp(0.7rem,3vw,0.9rem)",
+            color: PP, letterSpacing:"0.08em",
             textShadow:`0 0 10px ${PP}`,
           }}>{kana.roma}</span>
-          <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
-            このもじをかけ！
+          <span style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem" }}>
+            かけ！
           </span>
           <button
             onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
-            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"2px 4px",lineHeight:1}}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",padding:"2px 4px",lineHeight:1}}
           >🔊</button>
         </div>
 
@@ -2499,60 +2513,61 @@ function KakitoriScreen({ onHome, enemy }) {
 
         {/* ミス残り */}
         {missCount > 0 && phase === "idle" && (
-          <div style={{ display:"flex", gap:6 }}>
+          <div style={{ display:"flex", gap:5 }}>
             {Array.from({ length: MAX_MISS }).map((_, i) => (
               <div key={i} style={{
-                width:10, height:10, borderRadius:"50%",
-                background: i < missCount ? "#ef4444" : "rgba(239,68,68,0.2)",
-                boxShadow: i < missCount ? "0 0 6px #ef4444" : "none",
+                width:10, height:10,
+                background: i < missCount ? C.primary : "rgba(255,34,34,0.15)",
+                border: `1px solid ${i < missCount ? C.primary : "rgba(255,34,34,0.3)"}`,
+                boxShadow: i < missCount ? `0 0 6px ${C.primary}` : "none",
               }} />
             ))}
           </div>
         )}
 
         {/* ボタン */}
-        <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
+        <div style={{ display:"flex", gap:8, width:"100%", maxWidth:380 }}>
           <button onClick={handleClear} disabled={!hasStroke || phase !== "idle"}
             style={{
               flex:1, height:50,
-              background:"rgba(14,8,24,0.85)",
-              border:"1.5px solid rgba(80,40,120,0.4)", borderRadius:12,
-              color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
+              background:"rgba(4,16,4,0.9)",
+              border:`1px solid ${C.border}`,
+              borderBottom:`3px solid rgba(57,255,20,0.15)`,
+              color: hasStroke && phase === "idle" ? C.text : C.muted,
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.45rem", letterSpacing:"0.04em",
               cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-              opacity: hasStroke && phase === "idle" ? 1 : 0.4,
-              transition:"all 0.2s",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.35,
+              transition:"all 0.15s",
             }}>けす</button>
 
           <button onClick={handleJudge} disabled={!hasStroke || phase !== "idle"}
             style={{
               flex:2, height:50,
-              background: hasStroke && phase === "idle"
-                ? `linear-gradient(180deg, ${PL}, ${PD})`
-                : "rgba(20,10,40,0.6)",
-              border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
-              color:"#fff",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"clamp(0.95rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
+              background: hasStroke && phase === "idle" ? PD : "rgba(20,10,40,0.7)",
+              border:`2px solid ${hasStroke && phase === "idle" ? PP : `${PP}33`}`,
+              borderBottom:`4px solid ${hasStroke && phase === "idle" ? "#220033" : `${PP}11`}`,
+              color: hasStroke && phase === "idle" ? PP : C.muted,
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.5rem,2.5vw,0.65rem)", letterSpacing:"0.05em",
               cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-              opacity: hasStroke && phase === "idle" ? 1 : 0.45,
-              boxShadow: hasStroke && phase === "idle" ? `0 3px 14px rgba(168,85,247,0.5)` : "none",
-              transition:"all 0.2s",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.4,
+              boxShadow: hasStroke && phase === "idle" ? `0 0 14px ${PP}66` : "none",
+              transition:"all 0.15s",
             }}>はんてい！</button>
 
           <button onClick={handlePeek} disabled={peekLock || peeking || phase !== "idle"}
             style={{
               flex:1, height:50,
-              background: peekLock ? "rgba(20,10,30,0.6)" : "rgba(168,85,247,0.1)",
-              border:`1.5px solid ${peekLock ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.45)"}`,
-              borderRadius:12,
+              background: peekLock ? "rgba(4,16,4,0.9)" : `${PP}15`,
+              border:`1px solid ${peekLock ? `${PP}22` : `${PP}88`}`,
+              borderBottom:`3px solid ${peekLock ? `${PP}11` : `${PP}44`}`,
               color: peekLock ? C.muted : PP,
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:700, fontSize:"0.75rem", letterSpacing:"0.04em",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.5rem", letterSpacing:"0.03em",
               cursor: (peekLock || peeking || phase !== "idle") ? "default" : "pointer",
-              opacity: phase !== "idle" ? 0.4 : 1,
-              transition:"all 0.2s",
+              opacity: phase !== "idle" ? 0.35 : 1,
+              transition:"all 0.15s",
             }}>{peekLock ? "⏳" : "👁"}</button>
         </div>
       </div>
@@ -2563,51 +2578,55 @@ function KakitoriScreen({ onHome, enemy }) {
       {(isWin || isLose) && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
-          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(6px)",
+          background:"rgba(0,0,0,0.88)",
           display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center", gap:20,
+          alignItems:"center", justifyContent:"center", gap:16,
         }}>
           <div style={{
-            fontSize:"clamp(3rem,14vw,5rem)",
+            fontSize:"clamp(2.5rem,12vw,4rem)",
             animation:"shuwatchAppear 0.55s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
           }}>{isWin ? "🏆" : "💀"}</div>
           <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif", fontWeight:900,
-            fontSize:"clamp(1.5rem,7vw,2.5rem)",
-            color: isWin ? PP : "#f87171",
-            textShadow: isWin ? `0 0 20px rgba(168,85,247,0.8)` : "0 0 20px rgba(239,68,68,0.8)",
-            letterSpacing:"0.1em",
-          }}>{isWin ? "かきとりバトル かんりょう！" : "やられた…"}</div>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.8rem" }}>
-            スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
-            {isWin && <span style={{ color:PP, marginLeft:8 }}>+{score} XP</span>}
+            fontFamily:"'Press Start 2P',monospace",
+            fontSize:"clamp(0.65rem,4vw,0.9rem)",
+            color: isWin ? PP : C.primary,
+            textShadow: isWin ? `0 0 20px ${PP}` : `0 0 20px ${C.primary}`,
+            letterSpacing:"0.05em",
+            animation:"phosphor-glow 2s ease-in-out infinite",
+          }}>{isWin ? "かきとり かんりょう！" : "やられた…"}</div>
+          <div style={{ color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem" }}>
+            SCORE <span style={{ color: C.gold }}>{score}</span>
+            {isWin && <span style={{ color: PP, marginLeft:8 }}>+{score} XP</span>}
           </div>
           {isWin && leveledUp && (
             <div style={{
-              background:`linear-gradient(135deg, ${PL}, ${PP})`,
-              border:`2px solid ${PL}`,
-              borderRadius:16, padding:"8px 28px",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"clamp(1rem,4vw,1.4rem)",
-              color:"#fff", letterSpacing:"0.08em",
-              boxShadow:`0 0 24px rgba(168,85,247,0.7)`,
+              background:"rgba(4,10,4,0.95)",
+              border:`2px solid ${PP}`,
+              padding:"8px 24px",
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"clamp(0.5rem,3vw,0.7rem)",
+              color: PP, letterSpacing:"0.05em",
+              boxShadow:`0 0 24px ${PP}66`,
               animation:"levelUpBadge 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
-            }}>⬆ LEVEL UP！ Lv.{calcLevel(xp)}</div>
+            }}>▲ LEVEL UP! Lv.{calcLevel(xp)}</div>
           )}
-          <div style={{ display:"flex", gap:12, marginTop:8 }}>
+          <div style={{ display:"flex", gap:10, marginTop:8 }}>
             <button onClick={restart} style={{
-              padding:"12px 32px", borderRadius:999,
-              background:`linear-gradient(180deg, ${PL}, ${PD})`,
-              border:"none", color:"#fff",
-              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
-              cursor:"pointer", boxShadow:`0 4px 16px rgba(168,85,247,0.5)`,
+              padding:"10px 24px",
+              background: PD,
+              border:`2px solid ${PP}`,
+              borderBottom:`4px solid #110022`,
+              color: PP,
+              fontFamily:"'Press Start 2P',monospace",
+              fontSize:"0.55rem", letterSpacing:"0.05em",
+              cursor:"pointer", boxShadow:`0 0 14px ${PP}66`,
             }}>もういちど</button>
             <button onClick={onHome} style={{
-              padding:"12px 32px", borderRadius:999,
-              background:"rgba(20,10,30,0.9)",
-              border:"1px solid rgba(80,40,120,0.5)",
-              color: C.muted, fontFamily:"monospace", fontSize:"0.9rem", cursor:"pointer",
+              padding:"10px 24px",
+              background:"rgba(4,16,4,0.9)",
+              border:`1px solid ${C.border}`,
+              borderBottom:`3px solid rgba(57,255,20,0.15)`,
+              color: C.muted, fontFamily:"'Press Start 2P',monospace", fontSize:"0.5rem", cursor:"pointer",
             }}>ホームへ</button>
           </div>
         </div>
