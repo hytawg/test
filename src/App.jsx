@@ -1803,6 +1803,13 @@ function StrokeOrderGuide({ kana, visible }) {
               overflow:"hidden",
             }}>
               <svg viewBox="0 0 109 109" width="68" height="68">
+                {/* 背景に明朝体フォントで文字を薄く表示 */}
+                <text x="54.5" y="54.5"
+                  textAnchor="middle" dominantBaseline="central"
+                  fontSize="90" fontWeight="900"
+                  fontFamily="'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif"
+                  fill="rgba(0,0,0,0.10)"
+                >{kana}</text>
                 {strokes.map((s, i) => i > stepIdx && (
                   <path key={`g${i}`} d={s.d}
                     stroke="#d1d5db" strokeWidth="3.5" fill="none"
@@ -1956,22 +1963,8 @@ function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
           strokeDasharray="4 3"
         />
 
-        {/* ガイド文字：KanjiVGパスをスケールして表示 */}
-        {!freeWrite && (STROKE_DATA[guideKana] || []).map((s, i) => (
-          <path
-            key={i}
-            d={s.d}
-            stroke="rgba(231,19,44,0.38)"
-            strokeWidth="4.5"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            /* KanjiVGは109×109座標系 → 100×100にスケール */
-            transform="scale(0.9174)"
-          />
-        ))}
-        {/* STROKE_DATA がない文字はフォントでガイド表示（evalCoverageと同じ中央配置） */}
-        {!freeWrite && (STROKE_DATA[guideKana] || []).length === 0 && (
+        {/* ガイド文字：常に明朝体フォントで描画（evalCoverageと同じ中央配置） */}
+        {!freeWrite && (
           <text
             x="50" y="50"
             textAnchor="middle"
@@ -1979,9 +1972,22 @@ function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
             fontSize="77"
             fontWeight="900"
             fontFamily="'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif"
-            fill="rgba(231,19,44,0.35)"
+            fill={`rgba(231,19,44,${(STROKE_DATA[guideKana]||[]).length > 0 ? 0.15 : 0.38})`}
           >{guideKana}</text>
         )}
+        {/* STROKE_DATA があれば筆順パスを上に重ねて表示 */}
+        {!freeWrite && (STROKE_DATA[guideKana] || []).map((s, i) => (
+          <path
+            key={i}
+            d={s.d}
+            stroke="rgba(231,19,44,0.42)"
+            strokeWidth="4.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            transform="scale(0.9174)"
+          />
+        ))}
       </svg>
 
       {/* 描画キャンバス — 背景は透明にして下のガイドを見せる */}
