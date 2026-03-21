@@ -1424,12 +1424,13 @@ function BattleScreen({ onHome, enemy }) {
               style={{
                 flexShrink:0,
                 padding:"6px 10px",
-                background: guideOn ? "rgba(0,229,255,0.15)" : "rgba(4,16,4,0.9)",
-                border:`1px solid ${guideOn ? C.teal : C.border}`,
-                color: guideOn ? C.teal : C.muted,
+                background: guideOn ? C.teal : "#005566",
+                border:`2px solid ${C.teal}`,
+                borderBottom:`4px solid #003344`,
+                color: guideOn ? "#000" : C.teal,
                 fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
                 cursor:"pointer",
-                boxShadow: guideOn ? `0 0 8px rgba(0,229,255,0.3)` : "none",
+                boxShadow: `0 0 10px rgba(0,229,255,0.5)`,
               }}
             >✍<br/>かきじゅん</button>
           )}
