@@ -936,13 +936,12 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
         padding:"0 24px",
         display:"flex", flexDirection:"column", alignItems:"center", gap:12,
       }}>
-        {/* しゅつげき — big red pill with dashed outline ring */}
+        {/* しゅつげき — big red pill */}
         <div style={{ position:"relative", width:"100%" }}>
           <div style={{
             position:"absolute", inset:-5,
             border:"1.5px dashed rgba(239,68,68,0.35)",
-            borderRadius:999,
-            pointerEvents:"none",
+            borderRadius:999, pointerEvents:"none",
           }} />
           <button
             onClick={onBattle}
@@ -950,8 +949,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
               width:"100%", height:62,
               background:"linear-gradient(180deg, #f87171 0%, #dc2626 50%, #b91c1c 100%)",
               border:"2px solid rgba(255,255,255,0.18)",
-              borderRadius:999,
-              color:"#fff",
+              borderRadius:999, color:"#fff",
               fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
               fontWeight:900,
               fontSize:"clamp(1.4rem, 5.5vw, 1.8rem)",
@@ -964,7 +962,30 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
           </button>
         </div>
 
-        {/* second row: とっくん + ずかん */}
+        {/* かきとりバトル — big purple pill (HARD) */}
+        <div style={{ position:"relative", width:"100%" }}>
+          <div style={{
+            position:"absolute", inset:-5,
+            border:"1.5px dashed rgba(168,85,247,0.4)",
+            borderRadius:999, pointerEvents:"none",
+          }} />
+          <button
+            onClick={onKakitori}
+            style={{
+              width:"100%", height:54,
+              background:"linear-gradient(180deg, #c084fc 0%, #9333ea 50%, #7c3aed 100%)",
+              border:"2px solid rgba(255,255,255,0.15)",
+              borderRadius:999, color:"#fff",
+              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+              fontWeight:900, fontSize:"clamp(1.1rem,4.5vw,1.4rem)",
+              letterSpacing:"0.12em", cursor:"pointer",
+              boxShadow:"0 0 20px rgba(168,85,247,0.45)",
+              animation:"btnPulse 2.3s ease-in-out infinite",
+            }}
+          >⚔ かきとりバトル</button>
+        </div>
+
+        {/* とっくん + ずかん */}
         {(() => {
           const subBtnStyle = {
             flex:1, height:46,
@@ -975,26 +996,12 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
             fontWeight:700, fontSize:"clamp(0.8rem, 3vw, 1rem)",
             letterSpacing:"0.1em", cursor:"pointer",
           };
-          return (<>
+          return (
             <div style={{ display:"flex", gap:10, width:"100%" }}>
               <button onClick={onTokkun} style={subBtnStyle}>⚡ とっくん</button>
               <button onClick={onZukan}  style={subBtnStyle}>📖 ずかん</button>
             </div>
-            <button
-              onClick={onKakitori}
-              style={{
-                width:"100%", height:48,
-                background:"linear-gradient(180deg, rgba(8,24,32,0.95) 0%, rgba(4,14,20,0.98) 100%)",
-                border:`1.5px solid rgba(14,165,233,0.5)`,
-                borderRadius:999, color: C.teal,
-                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                fontWeight:900, fontSize:"clamp(0.85rem,3.2vw,1.05rem)",
-                letterSpacing:"0.1em", cursor:"pointer",
-                boxShadow:"0 0 12px rgba(14,165,233,0.2)",
-                transition:"all 0.2s",
-              }}
-            >✏ かきとりモード</button>
-          </>);
+          );
         })()}
       </div>
 
@@ -2099,19 +2106,12 @@ function TokkunScreen({ onHome }) {
 }
 
 // ============================================================
-// KAKITORI SCREEN  (下書きなし自由書き判定)
+// KAKITORI SCREEN  (下書きなし書き取り判定 / HARD MODE)
 // ============================================================
 const KAKITORI_XP = 8; // 1文字成功で獲得するXP
 
-function KakitoriScreen({ onHome }) {
-  // スタンプ済み文字を優先、3文字未満なら全文字
-  const stamps  = useRef(getStamps()).current;
-  const raw     = useRef(
-    stamps.size >= 3
-      ? ALL_KANA.filter(k => stamps.has(k.kana))
-      : [...ALL_KANA]
-  ).current;
-  const deck    = useRef([...raw].sort(() => Math.random() - 0.5)).current;
+function KakitoriScreen({ onHome, enemy }) {
+  const deck = useRef(kanaOf(enemy.kana).sort(() => Math.random() - 0.5)).current;
 
   const [idx,         setIdx]         = useState(0);
   const [done,        setDone]        = useState(false);
@@ -2178,37 +2178,46 @@ function KakitoriScreen({ onHome }) {
     setPhase("idle"); setXpEarned(0); setCorrectCount(0);
   };
 
+  const PP = "#a855f7";
+  const PL = "#c084fc";
+  const PD = "#7c3aed";
+
   return (
     <div style={{
       position:"relative", minHeight:"100dvh", width:"100%",
-      background: C.bg,
+      background:"#0e0618",
       display:"flex", flexDirection:"column", alignItems:"center",
       overflow:"hidden",
     }}>
       {confettiKey > 0 && <Confetti key={confettiKey}/>}
       <CityBokeh />
+      {/* 紫オーバーレイ */}
+      <div style={{
+        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
+        background:"rgba(88,28,135,0.2)",
+      }} />
 
-      {/* ── チラ見オーバーレイ ───────────────────────────── */}
+      {/* チラ見オーバーレイ */}
       {peeking && (
         <div style={{
           position:"fixed", inset:0, zIndex:250, pointerEvents:"none",
           display:"flex", flexDirection:"column",
           alignItems:"center", justifyContent:"center", gap:12,
-          background:"rgba(0,0,0,0.78)", backdropFilter:"blur(4px)",
+          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(4px)",
         }}>
           <div style={{
             fontSize:"min(48vw, 220px)",
             fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
             fontWeight:900, color:"rgba(255,255,255,0.95)",
-            textShadow:`0 0 40px ${C.teal}, 0 0 80px rgba(14,165,233,0.4)`,
+            textShadow:`0 0 40px ${PP}, 0 0 80px rgba(168,85,247,0.4)`,
             lineHeight:1,
             animation:"shuwatchAppear 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
           }}>{card.kana}</div>
           <div style={{
             fontFamily:"monospace", fontWeight:900,
             fontSize:"clamp(1.2rem,4vw,1.6rem)",
-            color: C.teal, letterSpacing:"0.12em",
-            textShadow:`0 0 10px ${C.teal}`,
+            color: PP, letterSpacing:"0.12em",
+            textShadow:`0 0 10px ${PP}`,
           }}>{card.roma}</div>
           <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.65rem", letterSpacing:"0.1em", marginTop:4 }}>
             おぼえてね！
@@ -2216,37 +2225,72 @@ function KakitoriScreen({ onHome }) {
         </div>
       )}
 
-      {/* ── HEADER ─────────────────────────────────────── */}
+      {/* HEADER */}
       <div style={{
         position:"relative", zIndex:10, width:"100%", maxWidth:520,
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 8px",
+        padding:"14px 20px 6px",
       }}>
         <button onClick={onHome} style={{
-          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
-          borderRadius:8, color:C.primary, cursor:"pointer",
+          background:"rgba(168,85,247,0.08)", border:"1px solid rgba(168,85,247,0.3)",
+          borderRadius:8, color:PP, cursor:"pointer",
           padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
         }}>← もどる</button>
-        <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
-          ✏ かきとりモード
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+          <div style={{ fontFamily:"monospace", fontSize:"0.5rem", letterSpacing:"0.15em", color:PL, opacity:0.8 }}>
+            ⚔ HARD MODE
+          </div>
+          <div style={{ fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.1em", color:PP }}>
+            {enemy.name}
+          </div>
         </div>
         <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
           {idx + 1} / {total}
         </div>
       </div>
 
-      {/* ── プログレスバー ──────────────────────────────── */}
-      <div style={{ position:"relative", zIndex:10, width:"100%", maxWidth:520, padding:"0 20px 8px" }}>
+      {/* プログレスバー */}
+      <div style={{ position:"relative", zIndex:10, width:"100%", maxWidth:520, padding:"0 20px 6px" }}>
         <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden" }}>
           <div style={{
             height:"100%", width:`${progress}%`,
-            background:`linear-gradient(90deg, ${C.teal}, ${C.gold})`,
+            background:`linear-gradient(90deg, ${PD}, ${PP})`,
             borderRadius:2, transition:"width 0.3s ease-out",
           }} />
         </div>
       </div>
 
-      {/* ── メインエリア ────────────────────────────────── */}
+      {/* 敵ミニ表示 */}
+      <div style={{
+        position:"relative", zIndex:10,
+        display:"flex", alignItems:"center", gap:12,
+        background:"rgba(88,28,135,0.15)",
+        border:"1px solid rgba(168,85,247,0.2)",
+        borderRadius:12, padding:"8px 18px",
+        marginBottom:6, width:"100%", maxWidth:520,
+        margin:"0 20px 8px",
+      }}>
+        <enemy.Svg size={36} />
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"monospace", fontSize:"0.45rem", color:PL, letterSpacing:"0.1em" }}>vs</div>
+          <div style={{
+            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+            fontWeight:900, fontSize:"0.9rem", color:"#f1f5f9",
+          }}>{enemy.name}</div>
+          <div style={{ fontFamily:"monospace", fontSize:"0.45rem", color: C.muted, letterSpacing:"0.04em" }}>
+            {enemy.desc}
+          </div>
+        </div>
+        <div style={{
+          background:"rgba(168,85,247,0.18)",
+          border:"1px solid rgba(168,85,247,0.4)",
+          borderRadius:6, padding:"3px 10px",
+          fontFamily:"monospace", fontSize:"0.5rem",
+          color:PP, letterSpacing:"0.1em", fontWeight:700,
+        }}>NO GUIDE</div>
+      </div>
+
+      {/* メインエリア */}
       {!done && (
         <div style={{
           position:"relative", zIndex:10, width:"100%", maxWidth:520,
@@ -2257,15 +2301,15 @@ function KakitoriScreen({ onHome }) {
           {/* プロンプト */}
           <div style={{
             display:"flex", alignItems:"center", gap:10,
-            background:"rgba(14,165,233,0.1)",
-            border:"1px solid rgba(14,165,233,0.3)",
+            background:"rgba(168,85,247,0.1)",
+            border:"1px solid rgba(168,85,247,0.35)",
             borderRadius:24, padding:"8px 22px",
           }}>
             <span style={{
               fontFamily:"monospace", fontWeight:900,
               fontSize:"clamp(1rem,3.5vw,1.3rem)",
-              color: C.teal, letterSpacing:"0.14em",
-              textShadow:`0 0 10px ${C.teal}`,
+              color:PP, letterSpacing:"0.14em",
+              textShadow:`0 0 10px ${PP}`,
             }}>{card.roma}</span>
             <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.6rem", letterSpacing:"0.1em" }}>
               のもじをかいてみよう！
@@ -2284,14 +2328,11 @@ function KakitoriScreen({ onHome }) {
               <div style={{
                 position:"absolute", inset:0, zIndex:20, borderRadius:16,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                background: phase === "ok"
-                  ? "rgba(34,197,94,0.18)"
-                  : "rgba(239,68,68,0.18)",
+                background: phase === "ok" ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)",
                 border:`2.5px solid ${phase === "ok" ? "#22c55e" : "#ef4444"}`,
                 animation:"correctFlash 0.9s ease-out forwards",
                 pointerEvents:"none",
               }}>
-                {/* 正解時は文字を表示 */}
                 {phase === "ok" && (
                   <div style={{
                     fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
@@ -2317,18 +2358,15 @@ function KakitoriScreen({ onHome }) {
 
           {/* チラ見 + 操作ボタン */}
           <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
-            {/* チラ見ボタン */}
             <button
               onClick={handlePeek}
               disabled={peekLock || peeking || phase !== "idle"}
               style={{
                 flex:1, height:52,
-                background: peekLock
-                  ? "rgba(14,30,30,0.6)"
-                  : "rgba(14,165,233,0.12)",
-                border:`1.5px solid ${peekLock ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.5)"}`,
+                background: peekLock ? "rgba(20,10,30,0.6)" : "rgba(168,85,247,0.12)",
+                border:`1.5px solid ${peekLock ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.5)"}`,
                 borderRadius:12,
-                color: peekLock ? C.muted : C.teal,
+                color: peekLock ? C.muted : PP,
                 fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
                 fontWeight:700, fontSize:"0.85rem", letterSpacing:"0.06em",
                 cursor: (peekLock || peeking || phase !== "idle") ? "default" : "pointer",
@@ -2337,14 +2375,13 @@ function KakitoriScreen({ onHome }) {
               }}
             >{peekLock ? "⏳" : "👁 チラ見"}</button>
 
-            {/* 消すボタン */}
             <button
               onClick={clearCanvas}
               disabled={!hasStroke || phase !== "idle"}
               style={{
                 flex:1, height:52,
-                background:"rgba(22,10,10,0.85)",
-                border:"1.5px solid rgba(120,60,60,0.4)", borderRadius:12,
+                background:"rgba(14,8,24,0.85)",
+                border:"1.5px solid rgba(80,40,120,0.4)", borderRadius:12,
                 color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
                 fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
                 fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
@@ -2353,51 +2390,46 @@ function KakitoriScreen({ onHome }) {
                 transition:"all 0.2s",
               }}>消す</button>
 
-            {/* はんていボタン */}
             <button
               onClick={handleJudge}
               disabled={!hasStroke || phase !== "idle"}
               style={{
                 flex:2, height:52,
                 background: hasStroke && phase === "idle"
-                  ? `linear-gradient(180deg, ${C.teal} 0%, #0284c7 100%)`
-                  : "rgba(14,30,40,0.6)",
+                  ? `linear-gradient(180deg, ${PL} 0%, ${PD} 100%)`
+                  : "rgba(20,10,40,0.6)",
                 border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
                 color:"#fff",
                 fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
                 fontWeight:900, fontSize:"clamp(0.9rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
                 cursor: hasStroke && phase === "idle" ? "pointer" : "default",
                 opacity: hasStroke && phase === "idle" ? 1 : 0.45,
-                boxShadow: hasStroke && phase === "idle" ? `0 3px 14px rgba(14,165,233,0.5)` : "none",
+                boxShadow: hasStroke && phase === "idle" ? `0 3px 14px rgba(168,85,247,0.5)` : "none",
                 transition:"all 0.2s",
               }}>はんてい！</button>
           </div>
 
-          {/* XPヒント */}
-          <div style={{
-            fontFamily:"monospace", fontSize:"0.6rem",
-            color:"rgba(14,165,233,0.5)", letterSpacing:"0.08em",
-          }}>
+          <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color:"rgba(168,85,247,0.5)", letterSpacing:"0.08em" }}>
             せいかいで +{KAKITORI_XP} XP
           </div>
         </div>
       )}
 
-      {/* ── DONE OVERLAY ────────────────────────────────── */}
+      {/* DONE OVERLAY */}
       {done && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
-          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(6px)",
+          background:"rgba(0,0,0,0.88)", backdropFilter:"blur(6px)",
           display:"flex", flexDirection:"column",
           alignItems:"center", justifyContent:"center", gap:16,
         }}>
-          <div style={{ fontSize:"4rem" }}>✏</div>
+          <div style={{ fontSize:"4rem" }}>⚔</div>
           <div style={{
             fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
             fontWeight:900, fontSize:"clamp(1.4rem,6vw,2rem)",
-            color: C.gold, letterSpacing:"0.1em",
-            textShadow:"0 0 20px rgba(251,191,36,0.7)",
-          }}>かきとり かんりょう！</div>
+            color:PP, letterSpacing:"0.1em",
+            textShadow:`0 0 20px rgba(168,85,247,0.7)`,
+          }}>かきとりバトル かんりょう！</div>
           <div style={{ display:"flex", gap:16, marginTop:4 }}>
             <div style={{ textAlign:"center" }}>
               <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color: C.muted, marginBottom:2 }}>せいかい</div>
@@ -2415,21 +2447,180 @@ function KakitoriScreen({ onHome }) {
           <div style={{ display:"flex", gap:12, marginTop:8 }}>
             <button onClick={restart} style={{
               padding:"12px 28px", borderRadius:999,
-              background:`linear-gradient(180deg, ${C.teal}, #0284c7)`,
+              background:`linear-gradient(180deg, ${PL}, ${PD})`,
               border:"none", color:"#fff",
               fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
               fontWeight:900, fontSize:"0.95rem", letterSpacing:"0.1em",
-              cursor:"pointer", boxShadow:`0 4px 16px rgba(14,165,233,0.5)`,
+              cursor:"pointer", boxShadow:`0 4px 16px rgba(168,85,247,0.5)`,
             }}>もういちど</button>
             <button onClick={onHome} style={{
               padding:"12px 28px", borderRadius:999,
-              background:"rgba(30,15,15,0.9)",
-              border:"1px solid rgba(120,60,60,0.5)",
+              background:"rgba(20,10,30,0.9)",
+              border:"1px solid rgba(80,40,120,0.5)",
               color: C.muted, fontFamily:"monospace", fontSize:"0.9rem", cursor:"pointer",
             }}>ホームへ</button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// KAKITORI SELECT SCREEN  (かきとりバトル / HARD MODE)
+// ============================================================
+function KakitoriSelectScreen({ onSelect, onHome }) {
+  const PP = "#a855f7";
+  const PL = "#c084fc";
+  return (
+    <div style={{
+      position:"relative", minHeight:"100dvh", width:"100%",
+      background:"#0e0618",
+      display:"flex", flexDirection:"column", alignItems:"center",
+      overflow:"hidden",
+    }}>
+      <CityBokeh />
+      <div style={{
+        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
+        background:"rgba(88,28,135,0.22)",
+      }} />
+
+      {/* header */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"14px 20px 6px",
+      }}>
+        <button onClick={onHome} style={{
+          background:"rgba(168,85,247,0.08)", border:"1px solid rgba(168,85,247,0.3)",
+          borderRadius:8, color:PP, cursor:"pointer",
+          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
+        }}>← もどる</button>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontFamily:"monospace", fontSize:"0.5rem", color:PL, letterSpacing:"0.15em" }}>⚔ HARD MODE</div>
+          <div style={{
+            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+            fontWeight:900, fontSize:"clamp(1rem,4vw,1.2rem)",
+            color:PP, letterSpacing:"0.08em",
+            textShadow:`0 0 12px rgba(168,85,247,0.6)`,
+          }}>かきとりバトル</div>
+        </div>
+        <div style={{ width:60 }} />
+      </div>
+
+      {/* description */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"4px 16px 10px",
+      }}>
+        <div style={{
+          background:"rgba(88,28,135,0.2)",
+          border:"1px solid rgba(168,85,247,0.2)",
+          borderRadius:10, padding:"8px 14px",
+          fontFamily:"monospace", fontSize:"0.6rem",
+          color:"rgba(192,132,252,0.85)", letterSpacing:"0.06em", lineHeight:1.7,
+        }}>
+          ✦ ガイドなし！こえをよくきいてもじをかこう
+        </div>
+      </div>
+
+      {/* enemy cards */}
+      <div style={{
+        position:"relative", zIndex:10,
+        width:"100%", maxWidth:520,
+        padding:"4px 16px 24px",
+        display:"flex", flexDirection:"column", gap:12,
+        overflowY:"auto", flex:1,
+      }}>
+        {ENEMY_DEFS.map((enemy, i) => (
+          <button
+            key={enemy.id}
+            onClick={() => onSelect(enemy)}
+            style={{
+              width:"100%",
+              background:"linear-gradient(135deg, rgba(14,6,26,0.92) 0%, rgba(8,4,16,0.96) 100%)",
+              border:`2px solid ${i === 0 ? PP : "rgba(80,40,120,0.4)"}`,
+              borderRadius:14,
+              padding:"12px 16px",
+              cursor:"pointer",
+              display:"flex", alignItems:"center", gap:14,
+              boxShadow: i === 0 ? `0 0 16px rgba(168,85,247,0.35)` : "none",
+              transition:"all 0.15s",
+              textAlign:"left",
+              position:"relative",
+              overflow:"hidden",
+            }}
+          >
+            {i === 0 && (
+              <div style={{
+                position:"absolute", top:8, right:10,
+                background:PP, borderRadius:6,
+                padding:"2px 8px",
+                fontFamily:"monospace", fontSize:"0.55rem", color:"#fff",
+                fontWeight:700, letterSpacing:"0.1em",
+              }}>さいしょの てき</div>
+            )}
+            <div style={{
+              position:"absolute", bottom:8, right:10,
+              background:"rgba(168,85,247,0.15)",
+              border:"1px solid rgba(168,85,247,0.35)",
+              borderRadius:6, padding:"2px 8px",
+              fontFamily:"monospace", fontSize:"0.45rem",
+              color:PP, letterSpacing:"0.08em",
+            }}>NO GUIDE</div>
+
+            <div style={{ flexShrink:0, filter:`drop-shadow(0 0 8px rgba(168,85,247,0.65))` }}>
+              <enemy.Svg size={56}/>
+            </div>
+
+            <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+              <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+                <span style={{
+                  fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                  fontWeight:900, fontSize:"clamp(1rem,4vw,1.2rem)",
+                  color:"#f1f5f9", letterSpacing:"0.04em",
+                }}>{enemy.name}</span>
+                <span style={{
+                  fontFamily:"monospace", fontSize:"0.6rem",
+                  color: C.muted, letterSpacing:"0.06em",
+                }}>{enemy.desc}</span>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {enemy.row && (
+                  <div style={{
+                    fontFamily:"monospace", fontSize:"0.6rem",
+                    color:PP, letterSpacing:"0.08em", fontWeight:700,
+                  }}>{enemy.row}</div>
+                )}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {enemy.kana.map(k => (
+                    <div key={k} style={{
+                      width:38, height:38,
+                      background:"rgba(168,85,247,0.12)",
+                      border:"1.5px solid rgba(168,85,247,0.4)",
+                      borderRadius:8,
+                      display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center",
+                    }}>
+                      <div style={{
+                        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                        fontWeight:900, fontSize:"1.1rem",
+                        color:"#f1f5f9", lineHeight:1,
+                      }}>{k}</div>
+                      <div style={{
+                        fontFamily:"monospace", fontSize:"0.45rem",
+                        color:PP, letterSpacing:"0.04em",
+                      }}>{ALL_KANA.find(a => a.kana === k)?.roma}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ color:PP, fontSize:"1.4rem", flexShrink:0 }}>›</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2855,9 +3046,10 @@ function ScreenTransition({ screenKey, children }) {
 const SCREENS = ["home", "battle", "tokkun", "zukan"];
 
 export default function App() {
-  const [screen,  setScreen]  = useState("home");
-  const [prevScr, setPrevScr] = useState(null);
-  const [enemy,   setEnemy]   = useState(ENEMY_DEFS[0]); // 選択中の敵
+  const [screen,        setScreen]        = useState("home");
+  const [prevScr,       setPrevScr]       = useState(null);
+  const [enemy,         setEnemy]         = useState(ENEMY_DEFS[0]);
+  const [kakitoriEnemy, setKakitoriEnemy] = useState(ENEMY_DEFS[0]);
 
   // スクロールをトップにリセット
   const go = useCallback((next) => {
@@ -2893,7 +3085,7 @@ export default function App() {
             onBattle   ={() => go("enemySelect")}
             onTokkun   ={() => go("tokkun")}
             onZukan    ={() => go("zukan")}
-            onKakitori ={() => go("kakitori")}
+            onKakitori ={() => go("kakitori_select")}
           />
         )}
         {screen === "enemySelect" && (
@@ -2903,8 +3095,14 @@ export default function App() {
           />
         )}
         {screen === "battle" && <BattleScreen onHome={() => go("home")} enemy={enemy} />}
+        {screen === "kakitori_select" && (
+          <KakitoriSelectScreen
+            onHome={() => go("home")}
+            onSelect={(e) => { setKakitoriEnemy(e); go("kakitori"); }}
+          />
+        )}
+        {screen === "kakitori" && <KakitoriScreen onHome={() => go("home")} enemy={kakitoriEnemy} />}
         {screen === "tokkun"   && <TokkunScreen   onHome={() => go("home")} />}
-        {screen === "kakitori" && <KakitoriScreen onHome={() => go("home")} />}
         {screen === "zukan"    && <ZukanScreen    onHome={() => go("home")} />}
       </ScreenTransition>
     </div>
