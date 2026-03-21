@@ -1505,10 +1505,8 @@ function BattleScreen({ onHome, enemy }) {
           />
         </div>
 
-        {/* 書き順ガイド（キャンバス直下） */}
-        <div style={{ width:"min(68vw, 320px)" }}>
-          <StrokeOrderGuide kana={kana.kana} visible={guideOn} />
-        </div>
+        {/* 書き順ガイド（ボトムシート） */}
+        <StrokeOrderGuide kana={kana.kana} visible={guideOn} onClose={() => setGuideOn(false)} />
 
         {/* ミス残り表示 */}
         {missCount > 0 && phase === "idle" && (
@@ -1764,18 +1762,30 @@ const STROKE_DATA = {
 // ============================================================
 // STROKE ORDER POPUP  (happylilac 形式・静的表示)
 // ============================================================
-function StrokeOrderGuide({ kana, visible }) {
+function StrokeOrderGuide({ kana, visible, onClose }) {
   const strokes = STROKE_DATA[kana] || [];
   if (!visible || strokes.length === 0) return null;
 
   return (
-    <div style={{
-      width:"100%",
-      background:"rgba(4,16,4,0.97)",
-      border:`1px solid ${C.border}`,
-      borderTop:`2px solid ${C.teal}`,
-      padding:"10px 8px 14px",
-    }}>
+    <>
+      {/* 背景オーバーレイ（タップで閉じる） */}
+      <div
+        onClick={onClose}
+        style={{
+          position:"fixed", inset:0, zIndex:90,
+          background:"rgba(0,0,0,0.45)",
+        }}
+      />
+      {/* ボトムシート本体 */}
+      <div style={{
+        position:"fixed", left:0, right:0, bottom:0, zIndex:91,
+        background:"rgba(4,16,4,0.98)",
+        borderTop:`2px solid ${C.teal}`,
+        padding:"10px 8px 20px",
+        maxHeight:"50dvh",
+        overflowY:"auto",
+        boxShadow:"0 -4px 24px rgba(0,229,255,0.18)",
+      }}>
       {/* ヘッダー */}
       <div style={{
         fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem",
@@ -1837,6 +1847,7 @@ function StrokeOrderGuide({ kana, visible }) {
         ))}
       </div>
     </div>
+    </>
   );
 }
 
@@ -2242,10 +2253,8 @@ function TokkunScreen({ onHome, kanaMode = "hiragana" }) {
             >はんてい！</button>
           </div>
 
-          {/* 書き順ガイド（キャンバス直下） */}
-          <div style={{ width:"min(80vw, 440px)" }}>
-            <StrokeOrderGuide kana={card.kana} visible={guideOn} />
-          </div>
+          {/* 書き順ガイド（ボトムシート） */}
+          <StrokeOrderGuide kana={card.kana} visible={guideOn} onClose={() => setGuideOn(false)} />
         </div>
       )}
 
