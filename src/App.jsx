@@ -332,7 +332,8 @@ function SvgBemstar({ size = 120 }) {
 }
 
 // ── 敵定義 (各3文字セット + 固有SVG) ───────────────────────
-function EnemyImg({ src, size = 120 }) {
+function EnemyImg({ file, size = 120 }) {
+  const src = `${import.meta.env.BASE_URL}${file}`;
   return (
     <img src={src} alt="てき" width={size} height={size}
       style={{ display:"block", objectFit:"contain" }} />
@@ -340,23 +341,24 @@ function EnemyImg({ src, size = 120 }) {
 }
 
 const ENEMY_DEFS = [
-  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy1.png" size={size} />  },
-  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#0ea5e9", desc:"うちゅうのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy2.png" size={size} />  },
-  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy3.png" size={size} />  },
-  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy4.png" size={size} />  },
-  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy5.png" size={size} />  },
-  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy6.png" size={size} />  },
+  { id:0, name:"エレキング",   kana:["ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy1.png" size={size} />  },
+  { id:1, name:"バルタン星人", kana:["あ","い","う"], color:"#0ea5e9", desc:"うちゅうのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy2.png" size={size} />  },
+  { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy3.png" size={size} />  },
+  { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} />  },
+  { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} />  },
+  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} />  },
 ];
 
 // ============================================================
 // HERO SVG  (ウルトラマンゆずき / レベル対応)
 // ============================================================
 function HeroImg({ size = 120, mode = "shomen", style = {} }) {
+  const base = import.meta.env.BASE_URL;
   const src = mode === "kougeki"
-    ? "/senshi_kougeki.png"
+    ? `${base}senshi_kougeki.png`
     : mode === "migi"
-    ? "/senshi_migi.png"
-    : "/senshi_shomen.png";
+    ? `${base}senshi_migi.png`
+    : `${base}senshi_shomen.png`;
   const h = Math.round(size * 1.72);
   return (
     <img src={src} alt="せんし" width={size} height={h}
