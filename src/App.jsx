@@ -487,82 +487,102 @@ function CityBokeh() {
 }
 
 // ============================================================
-// HP BAR
+// HP BAR (ピクセルセグメント)
 // ============================================================
 function HPBar({ hp, maxHp, label }) {
   const pct = Math.max(0, (hp / maxHp) * 100);
-  const color = pct > 60 ? "#22c55e" : pct > 30 ? "#fbbf24" : "#ef4444";
+  const segs = 20;
+  const filled = Math.round((pct / 100) * segs);
+  const color = pct > 60 ? "#39ff14" : pct > 30 ? "#ffb800" : "#ff2222";
   return (
-    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:2 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"0.6rem", color: C.muted, fontFamily:"monospace", letterSpacing:"0.08em" }}>
+    <div style={{ width:"100%", display:"flex", flexDirection:"column", gap:3 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"0.45rem", color: C.gold, fontFamily:"'Press Start 2P',monospace", letterSpacing:"0.05em" }}>
         <span>{label}</span><span>{hp}/{maxHp}</span>
       </div>
-      <div style={{ width:"100%", height:8, background:"rgba(0,0,0,0.5)", borderRadius:4, overflow:"hidden", border:"1px solid rgba(255,255,255,0.1)" }}>
-        <div style={{ height:"100%", width:`${pct}%`, background:color, boxShadow:`0 0 8px ${color}`, borderRadius:4, transition:"width 0.4s ease-out, background 0.4s" }} />
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// COLOR TIMER
-// ============================================================
-function ColorTimer({ danger }) {
-  return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-      <div style={{ display:"flex", gap:6 }}>
-        {[0, 0.3, 0.6].map((delay, i) => (
+      <div style={{ display:"flex", gap:2 }}>
+        {Array.from({ length: segs }, (_, i) => (
           <div key={i} style={{
-            width:12, height:12, borderRadius:"50%",
-            animation: danger
-              ? `timerDanger 0.5s ease-in-out ${delay}s infinite`
-              : `timerBlink 1.2s ease-in-out ${delay}s infinite`,
+            flex:1, height:8,
+            background: i < filled ? color : "rgba(0,0,0,0.6)",
+            border: `1px solid ${i < filled ? color : "rgba(57,255,20,0.15)"}`,
+            boxShadow: i < filled ? `0 0 4px ${color}` : "none",
+            transition: "background 0.3s, box-shadow 0.3s",
           }} />
         ))}
       </div>
-      <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.5rem", letterSpacing:"0.1em" }}>カラータイマー</div>
     </div>
   );
 }
 
 // ============================================================
-// PILL BUTTON
+// COLOR TIMER (アーケードスタイル)
+// ============================================================
+function ColorTimer({ danger }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+      <div style={{ display:"flex", gap:5, padding:"4px 8px", border:`1px solid ${danger ? "#ff2222" : C.gold}`, background:"rgba(0,0,0,0.7)" }}>
+        {[0, 0.25, 0.5].map((delay, i) => (
+          <div key={i} style={{
+            width:10, height:10,
+            background: danger ? "#ff2222" : C.gold,
+            animation: danger
+              ? `timerDanger 0.4s ease-in-out ${delay}s infinite`
+              : `seg-pulse 1.0s ease-in-out ${delay}s infinite`,
+            boxShadow: danger ? `0 0 6px #ff2222` : `0 0 6px ${C.gold}`,
+          }} />
+        ))}
+      </div>
+      <div style={{ color: C.gold, fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", letterSpacing:"0.05em", animation:"amber-flicker 4s linear infinite" }}>からーたいまー</div>
+    </div>
+  );
+}
+
+// ============================================================
+// PILL BUTTON (アーケードベベルボタン)
 // ============================================================
 function PillBtn({ children, onClick, variant="primary", style={}, disabled=false }) {
   const base = {
-    borderRadius: 999,
-    border: "none",
+    borderRadius: 0,
     cursor: disabled ? "default" : "pointer",
-    fontFamily: "'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-    fontWeight: 900,
-    letterSpacing: "0.12em",
-    transition: "all 0.15s",
+    fontFamily: "'Press Start 2P', monospace",
+    letterSpacing: "0.05em",
+    transition: "all 0.1s",
     userSelect: "none",
     WebkitUserSelect: "none",
     touchAction: "manipulation",
-    opacity: disabled ? 0.45 : 1,
+    opacity: disabled ? 0.4 : 1,
+    textTransform: "uppercase",
+    position: "relative",
+    display: "inline-block",
   };
   const variants = {
     primary: {
-      background: "linear-gradient(180deg, #f87171 0%, #dc2626 50%, #b91c1c 100%)",
-      boxShadow: `0 4px 20px rgba(239,68,68,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 0 2px rgba(185,28,28,0.8)`,
+      background: "#ff2222",
+      border: "2px solid #ff6666",
+      borderBottom: "4px solid #880000",
+      boxShadow: `0 0 12px rgba(255,34,34,0.6), inset 0 1px 0 rgba(255,150,150,0.3)`,
       color: "#fff",
-      fontSize: "clamp(1.3rem, 5vw, 1.7rem)",
-      padding: "14px 48px",
+      fontSize: "clamp(0.7rem, 3.5vw, 0.9rem)",
+      padding: "12px 32px",
+      animation: disabled ? "none" : "btnPulse 2s ease-in-out infinite",
     },
     secondary: {
-      background: "linear-gradient(180deg, rgba(30,20,20,0.9) 0%, rgba(15,10,10,0.95) 100%)",
-      boxShadow: `0 2px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(100,80,80,0.5)`,
+      background: "rgba(4,16,4,0.9)",
+      border: `1px solid ${C.border}`,
+      borderBottom: `3px solid rgba(57,255,20,0.15)`,
+      boxShadow: `0 0 6px rgba(57,255,20,0.1)`,
       color: C.muted,
-      fontSize: "clamp(0.85rem, 3vw, 1rem)",
-      padding: "10px 32px",
+      fontSize: "clamp(0.55rem, 2.5vw, 0.7rem)",
+      padding: "10px 24px",
     },
     teal: {
-      background: "linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%)",
-      boxShadow: `0 3px 15px rgba(14,165,233,0.4)`,
-      color: "#fff",
-      fontSize: "clamp(1rem, 3.5vw, 1.2rem)",
-      padding: "12px 40px",
+      background: "#003344",
+      border: `2px solid ${C.teal}`,
+      borderBottom: `4px solid #001a22`,
+      boxShadow: `0 0 12px rgba(0,229,255,0.4)`,
+      color: C.teal,
+      fontSize: "clamp(0.6rem, 3vw, 0.8rem)",
+      padding: "10px 28px",
     },
   };
   return (
