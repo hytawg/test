@@ -37,6 +37,24 @@ const ALL_KANA = [
   { kana: "が", roma: "ga" }, // ステージ1特殊文字
 ];
 
+const KATAKANA_ROWS = [
+  { row: "アぎょう", kana: ["ア","イ","ウ","エ","オ"], roma: ["a","i","u","e","o"] },
+  { row: "カぎょう", kana: ["カ","キ","ク","ケ","コ"], roma: ["ka","ki","ku","ke","ko"] },
+  { row: "サぎょう", kana: ["サ","シ","ス","セ","ソ"], roma: ["sa","shi","su","se","so"] },
+  { row: "タぎょう", kana: ["タ","チ","ツ","テ","ト"], roma: ["ta","chi","tsu","te","to"] },
+  { row: "ナぎょう", kana: ["ナ","ニ","ヌ","ネ","ノ"], roma: ["na","ni","nu","ne","no"] },
+  { row: "ハぎょう", kana: ["ハ","ヒ","フ","ヘ","ホ"], roma: ["ha","hi","fu","he","ho"] },
+  { row: "マぎょう", kana: ["マ","ミ","ム","メ","モ"], roma: ["ma","mi","mu","me","mo"] },
+  { row: "ザぎょう", kana: ["ザ","ジ","ズ","ゼ","ゾ"], roma: ["za","ji","zu","ze","zo"] },
+  { row: "ヤぎょう", kana: ["ヤ","ユ","ヨ"],           roma: ["ya","yu","yo"] },
+  { row: "ラぎょう", kana: ["ラ","リ","ル","レ","ロ"], roma: ["ra","ri","ru","re","ro"] },
+  { row: "ワぎょう", kana: ["ワ","ヲ","ン"],           roma: ["wa","wo","n"] },
+];
+const ALL_KATAKANA = [
+  ...KATAKANA_ROWS.flatMap((r) => r.kana.map((k, i) => ({ kana: k, roma: r.roma[i] }))),
+  { kana: "ガ", roma: "ga" },
+];
+
 // ── 音声フィードバック (Web Speech API) ─────────────────────
 const PRAISE    = ["すごーい！","やったね！","うまい！","かんぺき！","さいこう！","よくできました！"];
 const ENCOURAGE = ["もういちど！","がんばれ！","できるよ！"];
@@ -359,6 +377,21 @@ const ENEMY_DEFS = [
   { id:9, name:"あんくがん",   row:"ヤぎょう",     kana:["や","ゆ","よ"],                 color:"#b45309", desc:"こだいからよみがえったかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
   { id:10, name:"ぐらびどん",  row:"ラぎょう",     kana:["ら","り","る","れ","ろ"],       color:"#7c3aed", desc:"ちょうじゅうりょくのかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
   { id:11, name:"ぐらびどん",  row:"ワぎょう",     kana:["わ","を","ん"],                 color:"#6d28d9", desc:"ちょうじゅうりょくのさいきょうかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
+];
+
+const KATAKANA_ENEMY_DEFS = [
+  { id:100, name:"かたかなおう",  row:"とくべつ", kana:["ア","ワ","ガ","ユ","ズ","キ"], color:"#8b5cf6", desc:"かたかなのおうさま",           Svg: ({ size }) => <EnemyImg file="enemy1.png" size={size} /> },
+  { id:101, name:"あるふぁ",     row:"アぎょう", kana:["ア","イ","ウ","エ","オ"],     color:"#0ea5e9", desc:"うちゅうのかいじゅう",         Svg: ({ size }) => <EnemyImg file="enemy2.png" size={size} /> },
+  { id:102, name:"かっぱ",       row:"カぎょう", kana:["カ","キ","ク","ケ","コ"],     color:"#f97316", desc:"ちからじまんのかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy3.png" size={size} /> },
+  { id:103, name:"しぐま",       row:"サぎょう", kana:["サ","シ","ス","セ","ソ"],     color:"#a16207", desc:"しっぽがつよいかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} /> },
+  { id:104, name:"たう",         row:"タぎょう", kana:["タ","チ","ツ","テ","ト"],     color:"#64748b", desc:"みつのかおのかいじゅう",       Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} /> },
+  { id:105, name:"ぬー",         row:"ナぎょう", kana:["ナ","ニ","ヌ","ネ","ノ"],     color:"#f59e0b", desc:"おなかでたべるかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} /> },
+  { id:106, name:"ふぁい",       row:"ハぎょう", kana:["ハ","ヒ","フ","ヘ","ホ"],     color:"#16a34a", desc:"からだじゅうとげのあるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy7.png" size={size} /> },
+  { id:107, name:"むー",         row:"マぎょう", kana:["マ","ミ","ム","メ","モ"],     color:"#4f46e5", desc:"くうかんをゆがめるかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy8.png" size={size} /> },
+  { id:108, name:"ぜーた",       row:"ザぎょう", kana:["ザ","ジ","ズ","ゼ","ゾ"],     color:"#0891b2", desc:"じばをあやつるかいじゅう",       Svg: ({ size }) => <EnemyImg file="enemy9.png" size={size} /> },
+  { id:109, name:"うぷしろん",   row:"ヤぎょう", kana:["ヤ","ユ","ヨ"],               color:"#b45309", desc:"こだいからよみがえったかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
+  { id:110, name:"らむだ",       row:"ラぎょう", kana:["ラ","リ","ル","レ","ロ"],     color:"#7c3aed", desc:"ちょうじゅうりょくのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
+  { id:111, name:"おめが",       row:"ワぎょう", kana:["ワ","ヲ","ン"],               color:"#6d28d9", desc:"さいきょうのかたかなかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
 ];
 
 // ============================================================
@@ -838,7 +871,7 @@ function Confetti() {
 // ============================================================
 // HOME SCREEN  (画像: 暗赤シネマ / Ultraman style)
 // ============================================================
-function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
+function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori, kanaMode, onToggleKanaMode }) {
   const [xp,    setXp]    = useState(getXP);
   const [level, setLevel] = useState(() => calcLevel(getXP()));
   useEffect(() => { const v = getXP(); setXp(v); setLevel(calcLevel(v)); }, []);
@@ -1066,6 +1099,33 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
           ))}
         </div>
       </div>
+
+        {/* かな モード切替 */}
+        <div style={{
+          position:"relative", zIndex:10,
+          width:"100%", maxWidth:380,
+          padding:"0 20px",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+          marginTop:4,
+        }}>
+          <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.muted }}>もじしゅるい:</span>
+          <button
+            onClick={onToggleKanaMode}
+            style={{
+              padding:"7px 16px",
+              background: kanaMode === "katakana" ? C.teal : "#003300",
+              border: `2px solid ${kanaMode === "katakana" ? C.teal : C.border}`,
+              borderBottom: `4px solid ${kanaMode === "katakana" ? "#007777" : "#001a00"}`,
+              color: kanaMode === "katakana" ? "#000" : C.muted,
+              fontFamily:"'Press Start 2P',monospace", fontSize:"0.45rem",
+              cursor:"pointer",
+              boxShadow: kanaMode === "katakana" ? `0 0 12px rgba(0,229,255,0.5)` : "none",
+              letterSpacing:"0.05em",
+            }}
+          >
+            {kanaMode === "hiragana" ? "ひらがな ▶" : "◀ カタカナ"}
+          </button>
+        </div>
 
       {/* bottom spacing */}
       <div style={{ height: 32 }} />
@@ -1879,8 +1939,9 @@ function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
 // ============================================================
 // TOKKUN SCREEN  (スタイラスなぞり練習)
 // ============================================================
-function TokkunScreen({ onHome }) {
-  const deck        = useRef([...ALL_KANA].sort(() => Math.random() - 0.5)).current;
+function TokkunScreen({ onHome, kanaMode = "hiragana" }) {
+  const srcDeck = kanaMode === "katakana" ? ALL_KATAKANA : ALL_KANA;
+  const deck        = useRef([...srcDeck].sort(() => Math.random() - 0.5)).current;
   const [idx,       setIdx]       = useState(0);
   const [done,      setDone]      = useState(false);
   const [hasStroke,   setHasStroke]   = useState(false);
@@ -2623,8 +2684,9 @@ function KakitoriScreen({ onHome, enemy }) {
 // ============================================================
 // KAKITORI SELECT SCREEN  (かきとりバトル / HARD MODE)
 // ============================================================
-function KakitoriSelectScreen({ onSelect, onHome }) {
+function KakitoriSelectScreen({ onSelect, onHome, kanaMode = "hiragana" }) {
   const PP = "#dd88ff";
+  const enemies = kanaMode === "katakana" ? KATAKANA_ENEMY_DEFS : ENEMY_DEFS;
   return (
     <div style={{
       position:"relative", minHeight:"100dvh", width:"100%",
@@ -2683,7 +2745,7 @@ function KakitoriSelectScreen({ onSelect, onHome }) {
         display:"flex", flexDirection:"column", gap:8,
         overflowY:"auto", flex:1,
       }}>
-        {ENEMY_DEFS.map((enemy, i) => (
+        {enemies.map((enemy, i) => (
           <button
             key={enemy.id}
             onClick={() => onSelect(enemy)}
@@ -2760,7 +2822,8 @@ function KakitoriSelectScreen({ onSelect, onHome }) {
 // ============================================================
 // ENEMY SELECT SCREEN  (てきをえらべ！)
 // ============================================================
-function EnemySelectScreen({ onSelect, onHome }) {
+function EnemySelectScreen({ onSelect, onHome, kanaMode = "hiragana" }) {
+  const enemies = kanaMode === "katakana" ? KATAKANA_ENEMY_DEFS : ENEMY_DEFS;
   return (
     <div style={{
       position:"relative", minHeight:"100dvh", width:"100%",
@@ -2801,7 +2864,7 @@ function EnemySelectScreen({ onSelect, onHome }) {
         display:"flex", flexDirection:"column", gap:8,
         overflowY:"auto", flex:1,
       }}>
-        {ENEMY_DEFS.map((enemy, i) => (
+        {enemies.map((enemy, i) => (
           <button
             key={enemy.id}
             onClick={() => onSelect(enemy)}
@@ -2874,7 +2937,7 @@ function EnemySelectScreen({ onSelect, onHome }) {
 // ============================================================
 // ZUKAN SCREEN  (50音ずかん)
 // ============================================================
-function ZukanScreen({ onHome }) {
+function ZukanScreen({ onHome, kanaMode = "hiragana" }) {
   const [selected, setSelected] = useState(null);
   const [stamps,   setStamps]   = useState(() => getStamps());
   const [tab,      setTab]      = useState("kana"); // "kana" | "stamp"
@@ -2917,7 +2980,7 @@ function ZukanScreen({ onHome }) {
           padding:"5px 12px", fontFamily:"'Press Start 2P',monospace", fontSize:"0.4rem",
         }}>◀ もどる</button>
         <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.45rem", letterSpacing:"0.05em", color: C.teal, animation:"amber-flicker 5s linear infinite" }}>
-          {tab === "kana" ? "ひらがなずかん" : "スタンプちょう"}
+          {tab === "kana" ? (kanaMode === "katakana" ? "カタカナずかん" : "ひらがなずかん") : "スタンプちょう"}
         </div>
         <div style={{ width:60 }} />
       </div>
@@ -2930,7 +2993,7 @@ function ZukanScreen({ onHome }) {
       }}>
         <button style={TAB(tab === "kana")}  onClick={() => setTab("kana")}>📖 ずかん</button>
         <button style={TAB(tab === "stamp")} onClick={() => { setStamps(getStamps()); setTab("stamp"); }}>
-          ⭐ スタンプ({stamps.size}/{ALL_KANA.length})
+          ⭐ スタンプ({stamps.size}/{kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length})
         </button>
       </div>
 
@@ -2941,7 +3004,7 @@ function ZukanScreen({ onHome }) {
           padding:"8px 12px 120px", overflowY:"auto",
           display:"flex", flexDirection:"column", gap:8,
         }}>
-          {HIRAGANA_ROWS.map((row) => (
+          {(kanaMode === "katakana" ? KATAKANA_ROWS : HIRAGANA_ROWS).map((row) => (
             <div key={row.row}>
               <div style={{
                 fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.gold,
@@ -3008,12 +3071,13 @@ function ZukanScreen({ onHome }) {
                 fontSize:"0.45rem", color: C.gold,
               }}>{stamps.size} もじ あつめた！</span>
               <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"0.38rem", color: C.muted }}>
-                / {ALL_KANA.length}
+                / {kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length}
               </span>
             </div>
             {(() => {
               const segs = 20;
-              const filled = Math.round((stamps.size / ALL_KANA.length) * segs);
+              const totalKana = kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length;
+              const filled = Math.round((stamps.size / totalKana) * segs);
               return (
                 <div style={{ display:"flex", gap:2 }}>
                   {Array.from({ length: segs }, (_, i) => (
@@ -3031,7 +3095,7 @@ function ZukanScreen({ onHome }) {
 
           {/* stamp grid */}
           <div style={{display:"flex", flexWrap:"wrap", gap:6, justifyContent:"center"}}>
-            {ALL_KANA.map(({kana, roma}) => {
+            {(kanaMode === "katakana" ? ALL_KATAKANA : ALL_KANA).map(({kana, roma}) => {
               const collected = stamps.has(kana);
               return (
                 <div
@@ -3071,7 +3135,7 @@ function ZukanScreen({ onHome }) {
             })}
           </div>
 
-          {stamps.size === ALL_KANA.length && (
+          {stamps.size === (kanaMode === "katakana" ? ALL_KATAKANA.length : ALL_KANA.length) && (
             <div style={{
               textAlign:"center", marginTop:20,
               fontFamily:"'Press Start 2P',monospace",
@@ -3172,6 +3236,7 @@ const SCREENS = ["home", "battle", "tokkun", "zukan"];
 export default function App() {
   const [screen,        setScreen]        = useState("home");
   const [prevScr,       setPrevScr]       = useState(null);
+  const [kanaMode,      setKanaMode]      = useState("hiragana"); // "hiragana" | "katakana"
   const [enemy,         setEnemy]         = useState(ENEMY_DEFS[0]);
   const [kakitoriEnemy, setKakitoriEnemy] = useState(ENEMY_DEFS[0]);
 
@@ -3207,16 +3272,19 @@ export default function App() {
       <ScreenTransition screenKey={screen}>
         {screen === "home"   && (
           <HomeScreen
-            onBattle   ={() => go("enemySelect")}
-            onTokkun   ={() => go("tokkun")}
-            onZukan    ={() => go("zukan")}
-            onKakitori ={() => go("kakitori_select")}
+            onBattle         ={() => go("enemySelect")}
+            onTokkun         ={() => go("tokkun")}
+            onZukan          ={() => go("zukan")}
+            onKakitori       ={() => go("kakitori_select")}
+            kanaMode         ={kanaMode}
+            onToggleKanaMode ={() => setKanaMode(m => m === "hiragana" ? "katakana" : "hiragana")}
           />
         )}
         {screen === "enemySelect" && (
           <EnemySelectScreen
             onHome={() => go("home")}
             onSelect={(e) => { setEnemy(e); go("battle"); }}
+            kanaMode={kanaMode}
           />
         )}
         {screen === "battle" && <BattleScreen onHome={() => go("home")} enemy={enemy} />}
@@ -3224,11 +3292,12 @@ export default function App() {
           <KakitoriSelectScreen
             onHome={() => go("home")}
             onSelect={(e) => { setKakitoriEnemy(e); go("kakitori"); }}
+            kanaMode={kanaMode}
           />
         )}
         {screen === "kakitori" && <KakitoriScreen onHome={() => go("home")} enemy={kakitoriEnemy} />}
-        {screen === "tokkun"   && <TokkunScreen   onHome={() => go("home")} />}
-        {screen === "zukan"    && <ZukanScreen    onHome={() => go("home")} />}
+        {screen === "tokkun"   && <TokkunScreen   onHome={() => go("home")} kanaMode={kanaMode} />}
+        {screen === "zukan"    && <ZukanScreen    onHome={() => go("home")} kanaMode={kanaMode} />}
       </ScreenTransition>
       </div>
     </div>
