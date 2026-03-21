@@ -52,6 +52,42 @@ const STAMP_KEY = "yuzuki_stamps_v1";
 function getStamps()     { try { return new Set(JSON.parse(localStorage.getItem(STAMP_KEY) || "[]")); } catch { return new Set(); } }
 function saveStamp(kana) { const s = getStamps(); s.add(kana); localStorage.setItem(STAMP_KEY, JSON.stringify([...s])); }
 
+// ── 経験値 / レベルシステム ───────────────────────────────────
+const XP_KEY   = "yuzuki_xp_v1";
+const LEVEL_XP = [0, 60, 160, 320, 540, 820, 1160, 1560, 2020]; // 各レベルの累計XP閾値
+const LEVEL_MAX = LEVEL_XP.length;
+function getXP()  { return parseInt(localStorage.getItem(XP_KEY) || "0", 10); }
+function addXP(n) { const v = getXP() + n; localStorage.setItem(XP_KEY, String(v)); return v; }
+function calcLevel(xp) {
+  for (let i = LEVEL_MAX - 1; i >= 0; i--) if (xp >= LEVEL_XP[i]) return i + 1;
+  return 1;
+}
+function xpBasePct(xp) {
+  const lv = calcLevel(xp);
+  if (lv >= LEVEL_MAX) return 100;
+  const base = LEVEL_XP[lv - 1], next = LEVEL_XP[lv];
+  return Math.round(((xp - base) / (next - base)) * 100);
+}
+// レベル別ヒーローカラーパレット
+function heroColors(lv) {
+  const gold = lv >= 7, blue = lv >= 5;
+  return {
+    crest:   lv >= 2 ? "#fbbf24" : "#c8d4e4",
+    gem:     lv >= 2 ? "#f59e0b" : "#4a90d0",
+    body:    gold ? "#fde68a" : blue ? "#b8d4e8" : "#bcc8d8",
+    shoulder:lv >= 3 ? "#22d3ee" : "#708090",
+    neck:    gold ? "#fcd34d" : blue ? "#a0c0d8" : "#8898ac",
+    stripe:  lv >= 6 ? "#fbbf24" : lv >= 4 ? "#ea7c1a" : "#b91c1c",
+    stripe2: lv >= 6 ? "#f59e0b" : lv >= 4 ? "#c96010" : "#991515",
+    timer:   lv >= 7 ? "#fbbf24" : "#ef4444",
+    armor:   gold ? "#fcd34d" : blue ? "#90b8d0" : "#9caabb",
+    waist:   lv >= 4 ? "#ca8a04" : "#506070",
+    foot:    lv >= 3 ? "#2563eb" : "#708090",
+    sideBar: lv >= 3 ? "#22d3ee" : "#4a90d0",
+    eye:     "#f59e0b",
+  };
+}
+
 // ── 敵定義 (各3文字セット) ──────────────────────────────────
 function kanaOf(chars) {
   return chars.map(k => ALL_KANA.find(a => a.kana === k)).filter(Boolean);
@@ -306,60 +342,101 @@ const ENEMY_DEFS = [
 ];
 
 // ============================================================
-// HERO SVG  (ウルトラマン風シルエット: シルバー×赤)
+// HERO SVG  (ウルトラマンゆずき / レベル対応)
 // ============================================================
-function HeroSVG({ size = 120, style = {} }) {
+function HeroSVG({ size = 120, level = 1, style = {} }) {
+  const hc = heroColors(level);
+  const timerVals = level >= 7
+    ? `${hc.timer};#a78bfa;${hc.timer}`
+    : `${hc.timer};#3b82f6;${hc.timer}`;
   return (
     <svg width={size} height={Math.round(size * 1.72)} viewBox="0 0 60 103" fill="none"
       xmlns="http://www.w3.org/2000/svg" style={{ display:"block", ...style }}>
+      {/* lv9+: crown */}
+      {level >= 9 && (
+        <g>
+          <polygon points="30,-8 24,2 30,0 36,2" fill="#fbbf24"/>
+          <polygon points="24,2 18,0 22,6" fill="#f59e0b"/>
+          <polygon points="36,2 42,0 38,6" fill="#f59e0b"/>
+          <circle cx="30" cy="-4" r="2.5" fill="#a78bfa"/>
+        </g>
+      )}
       {/* ─ crest ─ */}
-      <polygon points="30,0 25,11 35,11" fill="#c8d4e4"/>
-      <rect x="28" y="8" width="4" height="5" rx="1" fill="#4a90d0"/>
+      <polygon points="30,0 25,11 35,11" fill={hc.crest}/>
+      <rect x="28" y="8" width="4" height="5" rx="1" fill={hc.gem}/>
       {/* ─ head ─ */}
-      <ellipse cx="30" cy="20" rx="11" ry="13" fill="#bcc8d8"/>
+      <ellipse cx="30" cy="20" rx="11" ry="13" fill={hc.body}/>
       {/* face mask */}
       <ellipse cx="30" cy="21" rx="9" ry="9" fill="#1c2430"/>
       {/* eyes */}
-      <polygon points="21,18 27,14 29,20 23,21" fill="#f59e0b"/>
-      <polygon points="39,18 33,14 31,20 37,21" fill="#f59e0b"/>
+      <polygon points="21,18 27,14 29,20 23,21" fill={hc.eye}/>
+      <polygon points="39,18 33,14 31,20 37,21" fill={hc.eye}/>
       {/* head side marks */}
-      <rect x="19" y="18" width="2" height="6" rx="1" fill="#4a90d0"/>
-      <rect x="39" y="18" width="2" height="6" rx="1" fill="#4a90d0"/>
+      <rect x="19" y="18" width="2" height="6" rx="1" fill={hc.sideBar}/>
+      <rect x="39" y="18" width="2" height="6" rx="1" fill={hc.sideBar}/>
       {/* ─ neck ─ */}
-      <rect x="27" y="32" width="6" height="5" fill="#8898ac"/>
+      <rect x="27" y="32" width="6" height="5" fill={hc.neck}/>
       {/* ─ shoulders ─ */}
-      <ellipse cx="14" cy="41" rx="9" ry="6" fill="#708090"/>
-      <ellipse cx="46" cy="41" rx="9" ry="6" fill="#708090"/>
+      <ellipse cx="14" cy="41" rx="9" ry="6" fill={hc.shoulder}/>
+      <ellipse cx="46" cy="41" rx="9" ry="6" fill={hc.shoulder}/>
+      {/* lv3+: shoulder gems */}
+      {level >= 3 && <>
+        <circle cx="14" cy="41" r="3" fill="#0ea5e9" opacity="0.8"/>
+        <circle cx="46" cy="41" r="3" fill="#0ea5e9" opacity="0.8"/>
+      </>}
       {/* ─ torso ─ */}
-      <path d="M16,36 L44,36 L42,68 L18,68 Z" fill="#bcc8d8"/>
-      {/* red stripe pattern */}
-      <path d="M30,38 C23,43 17,52 20,59 C25,53 30,51 30,51 C30,51 35,53 40,59 C43,52 37,43 30,38 Z" fill="#b91c1c"/>
-      <path d="M30,51 C24,56 18,64 20,70 L30,65 L40,70 C42,64 36,56 30,51 Z" fill="#991515"/>
+      <path d="M16,36 L44,36 L42,68 L18,68 Z" fill={hc.body}/>
+      {/* stripe pattern */}
+      <path d="M30,38 C23,43 17,52 20,59 C25,53 30,51 30,51 C30,51 35,53 40,59 C43,52 37,43 30,38 Z" fill={hc.stripe}/>
+      <path d="M30,51 C24,56 18,64 20,70 L30,65 L40,70 C42,64 36,56 30,51 Z" fill={hc.stripe2}/>
+      {/* lv4+: waist gem */}
+      {level >= 4 && <circle cx="30" cy="71" r="2.5" fill="#fbbf24" opacity="0.9"/>}
       {/* color timer */}
-      <ellipse cx="30" cy="43" rx="4" ry="2.5" fill="#ef4444">
-        <animate attributeName="fill" values="#ef4444;#3b82f6;#ef4444" dur="1.5s" repeatCount="indefinite"/>
+      <ellipse cx="30" cy="43" rx="4" ry="2.5" fill={hc.timer}>
+        <animate attributeName="fill" values={timerVals} dur={level >= 7 ? "0.8s" : "1.5s"} repeatCount="indefinite"/>
       </ellipse>
+      {/* lv5+: second timer dot */}
+      {level >= 5 && (
+        <ellipse cx="30" cy="43" rx="2" ry="1.2" fill="rgba(255,255,255,0.5)">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="0.8s" repeatCount="indefinite"/>
+        </ellipse>
+      )}
       {/* ─ arms ─ */}
-      <rect x="5"  y="35" width="10" height="22" rx="3" fill="#bcc8d8" transform="rotate(-8 10 46)"/>
-      <rect x="4"  y="56" width="9"  height="17" rx="3" fill="#9caabb" transform="rotate(-14 8 64)"/>
-      <ellipse cx="7"  cy="74" rx="5" ry="4" fill="#9caabb" transform="rotate(-14 7 74)"/>
-      <rect x="45" y="35" width="10" height="22" rx="3" fill="#bcc8d8" transform="rotate(8 50 46)"/>
-      <rect x="47" y="56" width="9"  height="17" rx="3" fill="#9caabb" transform="rotate(14 52 64)"/>
-      <ellipse cx="53" cy="74" rx="5" ry="4" fill="#9caabb" transform="rotate(14 53 74)"/>
+      <rect x="5"  y="35" width="10" height="22" rx="3" fill={hc.body}    transform="rotate(-8 10 46)"/>
+      <rect x="4"  y="56" width="9"  height="17" rx="3" fill={hc.armor}   transform="rotate(-14 8 64)"/>
+      <ellipse cx="7"  cy="74" rx="5" ry="4" fill={hc.armor} transform="rotate(-14 7 74)"/>
+      <rect x="45" y="35" width="10" height="22" rx="3" fill={hc.body}    transform="rotate(8 50 46)"/>
+      <rect x="47" y="56" width="9"  height="17" rx="3" fill={hc.armor}   transform="rotate(14 52 64)"/>
+      <ellipse cx="53" cy="74" rx="5" ry="4" fill={hc.armor} transform="rotate(14 53 74)"/>
       {/* ─ waist ─ */}
-      <rect x="18" y="68" width="24" height="6" rx="2" fill="#506070"/>
+      <rect x="18" y="68" width="24" height="6" rx="2" fill={hc.waist}/>
       {/* ─ legs ─ */}
-      <rect x="18" y="74" width="11" height="17" rx="3" fill="#bcc8d8"/>
-      <rect x="31" y="74" width="11" height="17" rx="3" fill="#bcc8d8"/>
-      {/* red knee bands */}
-      <rect x="18" y="81" width="11" height="4" rx="1" fill="#b91c1c"/>
-      <rect x="31" y="81" width="11" height="4" rx="1" fill="#b91c1c"/>
+      <rect x="18" y="74" width="11" height="17" rx="3" fill={hc.body}/>
+      <rect x="31" y="74" width="11" height="17" rx="3" fill={hc.body}/>
+      {/* knee bands */}
+      <rect x="18" y="81" width="11" height="4" rx="1" fill={hc.stripe}/>
+      <rect x="31" y="81" width="11" height="4" rx="1" fill={hc.stripe}/>
       {/* shins */}
-      <rect x="19" y="91" width="9"  height="12" rx="2" fill="#9caabb"/>
-      <rect x="32" y="91" width="9"  height="12" rx="2" fill="#9caabb"/>
+      <rect x="19" y="91" width="9"  height="12" rx="2" fill={hc.armor}/>
+      <rect x="32" y="91" width="9"  height="12" rx="2" fill={hc.armor}/>
       {/* feet */}
-      <ellipse cx="23" cy="103" rx="9" ry="3.5" fill="#708090"/>
-      <ellipse cx="37" cy="103" rx="9" ry="3.5" fill="#708090"/>
+      <ellipse cx="23" cy="103" rx="9" ry="3.5" fill={hc.foot}/>
+      <ellipse cx="37" cy="103" rx="9" ry="3.5" fill={hc.foot}/>
+      {/* lv8+: energy sparks */}
+      {level >= 8 && <>
+        <circle cx="8"  cy="38" r="1.5" fill="#fbbf24" opacity="0.8">
+          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="0s"   repeatCount="indefinite"/>
+        </circle>
+        <circle cx="52" cy="38" r="1.5" fill="#a78bfa" opacity="0.8">
+          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="0.4s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="14" cy="70" r="1.5" fill="#fbbf24" opacity="0.8">
+          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="0.8s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="46" cy="70" r="1.5" fill="#a78bfa" opacity="0.8">
+          <animate attributeName="opacity" values="0.8;0;0.8" dur="1.2s" begin="1.2s" repeatCount="indefinite"/>
+        </circle>
+      </>}
     </svg>
   );
 }
@@ -676,6 +753,25 @@ const GLOBAL_CSS = `
     65%  { opacity: 1; transform: scale(1.2) rotate(4deg);   }
     100% { opacity: 1; transform: scale(1)   rotate(0deg);   }
   }
+  @keyframes strokeDraw {
+    from { stroke-dashoffset: 1; opacity: 0.4; }
+    to   { stroke-dashoffset: 0; opacity: 1;   }
+  }
+  @keyframes strokeNumPop {
+    0%   { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); }
+  }
+  @keyframes levelUpBadge {
+    0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+    50%  { transform: scale(1.3) rotate(5deg);  opacity: 1; }
+    100% { transform: scale(1) rotate(0deg);    opacity: 1; }
+  }
+  @keyframes xpFill {
+    from { width: 0; }
+  }
+  @keyframes heroAura {
+    0%,100% { filter: drop-shadow(0 0 12px rgba(251,191,36,0.7)); }
+    50%     { filter: drop-shadow(0 0 28px rgba(251,191,36,1.0)) drop-shadow(0 0 48px rgba(251,191,36,0.4)); }
+  }
 `;
 
 // ── 紙吹雪コンポーネント ────────────────────────────────────
@@ -709,6 +805,11 @@ function Confetti() {
 // HOME SCREEN  (画像: 暗赤シネマ / Ultraman style)
 // ============================================================
 function HomeScreen({ onBattle, onTokkun, onZukan }) {
+  const [xp,    setXp]    = useState(getXP);
+  const [level, setLevel] = useState(() => calcLevel(getXP()));
+  useEffect(() => { const v = getXP(); setXp(v); setLevel(calcLevel(v)); }, []);
+  const pct = xpBasePct(xp);
+
   return (
     <div style={{
       position:"relative", minHeight:"100dvh", width:"100%",
@@ -793,10 +894,14 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
             }} />
             {/* hero SVG */}
             <div style={{
-              filter:"drop-shadow(0 0 18px rgba(239,68,68,0.7))",
-              animation:"heroFloat 3s ease-in-out infinite",
+              filter: level >= 7
+                ? "none"
+                : "drop-shadow(0 0 18px rgba(239,68,68,0.7))",
+              animation: level >= 7
+                ? "heroAura 2s ease-in-out infinite"
+                : "heroFloat 3s ease-in-out infinite",
             }}>
-              <HeroSVG size={Math.min(window.innerWidth * 0.42, 200)}/>
+              <HeroSVG size={Math.min(window.innerWidth * 0.42, 200)} level={level}/>
             </div>
             {/* corner accent lines */}
             {[
@@ -810,18 +915,20 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
           </div>
         </div>
 
-        {/* STATUS badge (top-right of card) */}
+        {/* LEVEL badge (top-right of card) */}
         <div style={{
           position:"absolute", top:-10, right:-14,
           background:"rgba(8,6,4,0.95)",
-          border:"1.5px solid rgba(251,191,36,0.6)",
+          border:`1.5px solid ${level >= 7 ? "#fbbf24" : "rgba(251,191,36,0.6)"}`,
           borderRadius:20,
-          padding:"4px 10px",
+          padding:"4px 12px",
           backdropFilter:"blur(8px)",
           animation:"badgePulse 2.5s ease-in-out infinite",
         }}>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.42rem", letterSpacing:"0.15em" }}>STATUS</div>
-          <div style={{ color: C.gold,  fontFamily:"monospace", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.06em" }}>MAX ENERGY</div>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.42rem", letterSpacing:"0.15em" }}>LEVEL</div>
+          <div style={{ color: C.gold,  fontFamily:"monospace", fontSize:"0.78rem", fontWeight:900, letterSpacing:"0.06em" }}>
+            Lv.{level}
+          </div>
         </div>
       </div>
 
@@ -857,6 +964,36 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
           }}>
             ひかりのバトル
           </div>
+        </div>
+      </div>
+
+      {/* ── XP バー ───────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:380,
+        padding:"6px 24px 0",
+      }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <span style={{
+              fontFamily:"monospace", fontWeight:900, fontSize:"0.75rem",
+              color: C.gold, letterSpacing:"0.06em",
+            }}>Lv.{level}</span>
+            <span style={{ fontFamily:"monospace", fontSize:"0.58rem", color: C.muted, letterSpacing:"0.05em" }}>
+              {level < LEVEL_MAX ? `次のレベルまで ${LEVEL_XP[level] - xp} XP` : "MAX LEVEL！"}
+            </span>
+          </div>
+          <span style={{ fontFamily:"monospace", fontSize:"0.58rem", color:"rgba(251,191,36,0.6)" }}>
+            {xp} XP
+          </span>
+        </div>
+        <div style={{ height:7, background:"rgba(255,255,255,0.07)", borderRadius:4, overflow:"hidden", border:"1px solid rgba(251,191,36,0.18)" }}>
+          <div style={{
+            height:"100%", width:`${pct}%`,
+            background:`linear-gradient(90deg, ${C.teal}, ${C.gold})`,
+            borderRadius:4,
+            boxShadow:"0 0 8px rgba(251,191,36,0.4)",
+            transition:"width 0.8s ease-out",
+          }}/>
         </div>
       </div>
 
@@ -991,6 +1128,9 @@ function BattleScreen({ onHome, enemy }) {
   const [hasStroke,   setHasStroke]   = useState(false);
   const [feedback,    setFeedback]    = useState(""); // overlay text
   const [confettiKey, setConfettiKey] = useState(0);
+  const [xp,          setXp]          = useState(getXP);
+  const [leveledUp,   setLeveledUp]   = useState(false);
+  const level = calcLevel(xp);
 
   // 文字が変わるたびに読み上げ
   useEffect(() => { speak(kana.kana, { rate: 0.75, pitch: 1.1 }); }, [kana]);
@@ -1032,9 +1172,17 @@ function BattleScreen({ onHome, enemy }) {
 
     if (cov >= COVERAGE_THRESHOLD) {
       // ヒット
-      const nextMHp = monsterHp - 1;
+      const nextMHp  = monsterHp - 1;
+      const newScore = score + 10;
       setMonsterHp(nextMHp);
-      setScore(s => s + 10);
+      setScore(newScore);
+      // 勝利XP付与
+      if (nextMHp <= 0) {
+        const oldLv = calcLevel(xp);
+        const newXp = addXP(newScore);
+        setXp(newXp);
+        if (calcLevel(newXp) > oldLv) setLeveledUp(true);
+      }
       setFeedback("シュワッチ！");
       setPhase("correct");
       speak(randItem(PRAISE));
@@ -1092,6 +1240,8 @@ function BattleScreen({ onHome, enemy }) {
     setHeroHp(HERO_MAX_HP); setMonsterHp(MONSTER_MAX_HP);
     setScore(0); setPhase("idle");
     setMissCount(0); setHasStroke(false); setFeedback("");
+    setLeveledUp(false);
+    const v = getXP(); setXp(v); // 最新XPを反映
     setKana(pickKana());
   };
 
@@ -1189,14 +1339,17 @@ function BattleScreen({ onHome, enemy }) {
           <div style={{
             filter: isLose
               ? "grayscale(1) opacity(0.3)"
+              : level >= 7
+              ? "none"
               : heroDanger
               ? "drop-shadow(0 0 14px rgba(255,80,80,0.9))"
               : "drop-shadow(0 0 12px rgba(120,200,255,0.7))",
             animation: isLose ? "none"
+              : level >= 7 ? "heroAura 2s ease-in-out infinite"
               : isMonsterAtk ? "wrongShake 0.45s ease-out"
               : "heroFloat 3s ease-in-out infinite",
           }}>
-            <HeroSVG size={Math.min(window.innerWidth * 0.2, 88)}/>
+            <HeroSVG size={Math.min(window.innerWidth * 0.2, 88)} level={level}/>
           </div>
 
           {/* ビーム */}
@@ -1348,7 +1501,23 @@ function BattleScreen({ onHome, enemy }) {
           }}>{isWin ? "しょうり！" : "やられた…"}</div>
           <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.8rem" }}>
             スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+            {isWin && <span style={{ color: C.teal, marginLeft:8 }}>+{score} XP</span>}
           </div>
+          {/* レベルアップバッジ */}
+          {isWin && leveledUp && (
+            <div style={{
+              background:"linear-gradient(135deg, #fbbf24, #f59e0b)",
+              border:"2px solid #fde68a",
+              borderRadius:16, padding:"8px 28px",
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"clamp(1rem,4vw,1.4rem)",
+              color:"#1c1200", letterSpacing:"0.08em",
+              boxShadow:"0 0 24px rgba(251,191,36,0.7)",
+              animation:"levelUpBadge 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+            }}>
+              ⬆ LEVEL UP！ Lv.{calcLevel(xp)}
+            </div>
+          )}
           <div style={{ display:"flex", gap:12, marginTop:8 }}>
             <button onClick={restart} style={{
               padding:"12px 32px", borderRadius:999,
@@ -1375,13 +1544,158 @@ function BattleScreen({ onHome, enemy }) {
 // TOKKUN SCREEN  (フラッシュカード練習)
 // ============================================================
 // ============================================================
+// STROKE ORDER DATA  (書き順 SVG パス / 100×100 座標系)
+// s=stroke path、sx/sy=ストローク開始点
+// ============================================================
+const SD = (d, sx, sy) => ({ d, sx, sy });
+const STROKE_DATA = {
+  // ア行
+  "あ":[SD("M28,26 L72,26",28,26), SD("M14,45 L86,45",14,45), SD("M63,27 C70,46 58,66 40,75 C26,82 14,74 18,63 C23,52 50,48 63,45",63,27)],
+  "い":[SD("M36,18 C34,36 31,58 35,80",36,18), SD("M65,16 C62,33 57,55 48,74 C44,80 40,83 37,83",65,16)],
+  "う":[SD("M36,22 L64,22",36,22), SD("M36,36 L64,36 L64,50 L36,50 L36,36",36,36), SD("M50,50 C56,62 57,73 50,82 C44,88 36,88 30,84",50,50)],
+  "え":[SD("M20,26 L80,26",20,26), SD("M50,26 L50,48",50,26), SD("M18,60 L82,60",18,60), SD("M50,60 C56,68 60,74 56,82 C52,88 44,90 38,86",50,60)],
+  "お":[SD("M28,22 L72,22",28,22), SD("M14,42 L86,42",14,42), SD("M50,22 C56,35 58,52 54,68 C50,80 42,88 34,86",50,22)],
+  // カ行
+  "か":[SD("M22,22 L22,82",22,22), SD("M18,50 L82,50",18,50), SD("M65,18 C72,35 70,56 60,72 C52,84 44,88 38,86",65,18)],
+  "き":[SD("M18,22 L82,22",18,22), SD("M18,44 L82,44",18,44), SD("M50,22 C55,32 56,40 50,48",50,22), SD("M40,56 C55,62 68,72 64,82 C60,90 46,92 38,88 C26,82 22,68 30,60 C36,54 50,54 60,58",40,56)],
+  "く":[SD("M68,16 C74,30 72,50 60,64 C50,74 38,80 28,82",68,16)],
+  "け":[SD("M26,18 L26,82",26,18), SD("M26,46 L74,36",26,46), SD("M74,36 L74,82",74,36)],
+  "こ":[SD("M16,28 L84,28",16,28), SD("M16,72 L84,72",16,72)],
+  // サ行
+  "さ":[SD("M18,28 L82,28",18,28), SD("M18,56 L82,56",18,56), SD("M55,28 C60,46 58,64 50,76 C44,84 36,88 28,86",55,28)],
+  "し":[SD("M50,16 C52,35 54,58 50,74 C46,84 38,88 30,86",50,16)],
+  "す":[SD("M18,28 L82,28",18,28), SD("M50,14 L50,62 C52,70 58,74 64,72",50,14), SD("M34,76 C40,82 54,86 64,80",34,76)],
+  "せ":[SD("M28,18 L28,82",28,18), SD("M18,46 L82,46",18,46), SD("M28,46 C44,36 72,34 78,46 C82,54 76,68 56,72 C44,76 34,74 28,68",28,46)],
+  "そ":[SD("M20,22 L80,22",20,22), SD("M50,22 C58,36 64,50 56,64 C48,76 36,80 26,76",50,22), SD("M40,64 C50,70 64,72 72,64",40,64)],
+  // タ行
+  "た":[SD("M18,28 L82,28",18,28), SD("M50,14 L50,52",50,14), SD("M28,52 L72,52",28,52), SD("M65,52 C70,64 68,76 58,84 C50,90 40,90 34,86",65,52)],
+  "ち":[SD("M18,26 L82,26",18,26), SD("M55,18 C62,32 64,48 58,62 C52,74 42,80 32,76 C22,72 18,62 22,52 C26,40 40,36 56,40",55,18)],
+  "つ":[SD("M72,20 C80,36 78,58 64,72 C52,84 36,88 24,84",72,20)],
+  "て":[SD("M16,30 L84,30",16,30), SD("M50,16 L50,42 C52,56 60,64 68,68",50,16)],
+  "と":[SD("M44,16 L44,52",44,16), SD("M26,52 C32,60 50,70 66,60 C76,54 76,38 64,30",26,52)],
+  // ナ行
+  "な":[SD("M20,28 L80,28",20,28), SD("M50,14 L50,52",50,14), SD("M28,52 L72,52",28,52), SD("M65,52 C72,64 70,76 58,84 C44,90 30,86 24,76 C20,68 24,58 34,54 C44,50 56,52 62,58",65,52)],
+  "に":[SD("M26,18 L26,82",26,18), SD("M26,50 L74,50",26,50), SD("M74,36 L74,82",74,36)],
+  "ぬ":[SD("M26,18 C28,36 26,56 22,74 C18,82 14,84 12,82",26,18), SD("M54,18 C58,32 60,48 54,64 C46,78 36,82 28,80",54,18), SD("M40,60 C48,68 60,74 68,68 C76,60 76,46 68,38 C60,30 48,28 44,32",40,60)],
+  "ね":[SD("M26,18 L26,82",26,18), SD("M26,46 L74,36 L74,78 C72,86 60,88 48,84 C36,78 26,68 26,60",26,46)],
+  "の":[SD("M64,18 C74,28 78,44 72,58 C64,74 48,82 34,78 C20,72 14,58 18,44 C22,30 36,22 50,24 C62,26 72,36 72,48",64,18)],
+  // ハ行
+  "は":[SD("M26,18 L26,82",26,18), SD("M26,46 L74,36",26,46), SD("M74,36 C80,50 80,64 72,74 C64,82 52,84 44,78",74,36)],
+  "ひ":[SD("M50,14 C56,26 60,44 56,60 C50,74 38,82 28,80 C16,76 12,62 18,50 C24,38 40,34 56,38",50,14)],
+  "ふ":[SD("M30,22 L70,22",30,22), SD("M26,40 C36,30 64,30 74,40",26,40), SD("M20,60 C30,54 46,50 46,62 C46,72 36,78 26,76",20,60), SD("M54,60 C64,54 78,56 80,66 C82,76 72,82 60,78",54,60)],
+  "へ":[SD("M20,60 C36,28 56,22 80,50",20,60)],
+  "ほ":[SD("M26,18 L26,82",26,18), SD("M16,48 L84,48",16,48), SD("M58,18 C64,28 64,40 58,48",58,18), SD("M58,56 C66,66 68,76 60,84 C52,90 40,88 32,80",58,56)],
+  // マ行
+  "ま":[SD("M16,26 L84,26",16,26), SD("M16,48 L84,48",16,48), SD("M50,26 C56,38 58,56 52,70 C46,82 36,88 26,86",50,26)],
+  "み":[SD("M26,22 C28,38 26,54 20,70",26,22), SD("M58,18 C62,32 62,50 56,62 C48,76 34,80 24,76",58,18), SD("M50,54 C58,62 70,68 78,62",50,54)],
+  "む":[SD("M38,18 L38,52",38,18), SD("M18,40 L82,40",18,40), SD("M52,40 C62,50 68,64 60,74 C52,84 38,86 28,80 C18,74 16,62 22,52 C28,42 42,40 52,48",52,40)],
+  "め":[SD("M28,18 C30,34 28,52 24,70",28,18), SD("M58,18 C64,30 66,46 60,60 C52,74 40,78 30,74 C46,70 60,62 62,50 C64,38 56,28 46,26",58,18)],
+  "も":[SD("M16,28 L84,28",16,28), SD("M16,50 L84,50",16,50), SD("M50,28 C56,40 58,56 52,68 C46,78 38,84 30,82",50,28)],
+  // ヤ行
+  "や":[SD("M50,16 C54,30 54,48 48,62",50,16), SD("M22,44 C32,36 52,32 62,38 C72,44 74,58 64,66",22,44), SD("M28,72 L72,72",28,72)],
+  "ゆ":[SD("M26,28 C28,42 24,58 18,72",26,28), SD("M46,18 L46,86",46,18), SD("M46,40 L82,40 L82,76 L46,76",46,40)],
+  "よ":[SD("M44,16 C48,28 48,44 42,56",44,16), SD("M16,36 L84,36",16,36), SD("M16,66 L84,66",16,66)],
+  // ラ行
+  "ら":[SD("M16,26 L84,26",16,26), SD("M50,26 C58,40 62,58 54,70 C46,82 34,86 24,84",50,26)],
+  "り":[SD("M36,18 C38,36 34,58 28,76",36,18), SD("M64,18 C66,36 64,56 58,68 C52,80 42,84 34,82",64,18)],
+  "る":[SD("M50,16 C60,24 68,38 64,52 C58,66 44,70 34,64 C22,56 20,40 28,30 C36,20 52,20 60,28 C66,36 64,48 56,54",50,16)],
+  "れ":[SD("M26,18 L26,82",26,18), SD("M26,46 C40,38 62,36 72,46 C80,54 78,68 64,76 C52,82 38,80 28,72",26,46)],
+  "ろ":[SD("M18,26 L82,26",18,26), SD("M50,26 C60,38 64,54 56,66 C48,78 34,82 24,78",50,26)],
+  // ワ行
+  "わ":[SD("M26,18 L26,82",26,18), SD("M26,46 C40,36 64,34 74,46 C82,54 80,68 66,76 C52,82 38,78 30,68",26,46)],
+  "を":[SD("M14,22 L86,22",14,22), SD("M14,42 L86,42",14,42), SD("M50,42 C58,56 62,70 54,80 C46,90 32,90 24,82",50,42)],
+  "ん":[SD("M50,16 C56,26 60,42 54,56 C46,70 34,74 24,70",50,16)],
+  // 濁音
+  "が":[SD("M22,22 L22,82",22,22), SD("M18,50 L82,50",18,50), SD("M65,18 C72,35 70,56 60,72 C52,84 44,88 38,86",65,18)],
+  "ぎ":[SD("M18,22 L82,22",18,22), SD("M18,44 L82,44",18,44), SD("M50,22 C55,32 56,40 50,48",50,22), SD("M40,56 C55,62 68,72 64,82 C60,90 46,92 38,88 C26,82 22,68 30,60",40,56)],
+  "ぐ":[SD("M68,16 C74,30 72,50 60,64 C50,74 38,80 28,82",68,16)],
+  "ざ":[SD("M18,28 L82,28",18,28), SD("M18,56 L82,56",18,56), SD("M55,28 C60,46 58,64 50,76 C44,84 36,88 28,86",55,28)],
+  "ず":[SD("M18,28 L82,28",18,28), SD("M50,14 L50,62 C52,70 58,74 64,72",50,14), SD("M34,76 C40,82 54,86 64,80",34,76)],
+  "だ":[SD("M18,28 L82,28",18,28), SD("M50,14 L50,52",50,14), SD("M28,52 L72,52",28,52), SD("M65,52 C70,64 68,76 58,84 C50,90 40,90 34,86",65,52)],
+  "ぢ":[SD("M18,26 L82,26",18,26), SD("M55,18 C62,32 64,48 58,62 C52,74 42,80 32,76 C22,72 18,62 22,52 C26,40 40,36 56,40",55,18)],
+  "づ":[SD("M72,20 C80,36 78,58 64,72 C52,84 36,88 24,84",72,20)],
+  "で":[SD("M16,30 L84,30",16,30), SD("M50,16 L50,42 C52,56 60,64 68,68",50,16)],
+  "ど":[SD("M44,16 L44,52",44,16), SD("M26,52 C32,60 50,70 66,60 C76,54 76,38 64,30",26,52)],
+  "ば":[SD("M26,18 L26,82",26,18), SD("M26,46 L74,36",26,46), SD("M74,36 C80,50 80,64 72,74 C64,82 52,84 44,78",74,36)],
+  "び":[SD("M50,14 C56,26 60,44 56,60 C50,74 38,82 28,80 C16,76 12,62 18,50 C24,38 40,34 56,38",50,14)],
+  "ぶ":[SD("M30,22 L70,22",30,22), SD("M26,40 C36,30 64,30 74,40",26,40), SD("M20,60 C30,54 46,50 46,62 C46,72 36,78 26,76",20,60), SD("M54,60 C64,54 78,56 80,66 C82,76 72,82 60,78",54,60)],
+};
+
+// ============================================================
+// STROKE ORDER GUIDE  (書き順アニメーション)
+// ============================================================
+function StrokeOrderGuide({ kana, visible, onDone }) {
+  const [step, setStep] = useState(-1);
+  const strokes = STROKE_DATA[kana] || [];
+
+  useEffect(() => {
+    if (!visible || strokes.length === 0) { onDone?.(); return; }
+    setStep(0);
+    let cur = 0;
+    const timer = setInterval(() => {
+      cur++;
+      if (cur >= strokes.length) { clearInterval(timer); onDone?.(); return; }
+      setStep(cur);
+    }, 950);
+    return () => clearInterval(timer);
+  }, [visible, kana]); // eslint-disable-line
+
+  if (!visible || strokes.length === 0) return null;
+
+  return (
+    <div style={{ position:"absolute", inset:0, zIndex:10, pointerEvents:"none", borderRadius:14 }}>
+      <svg viewBox="0 0 100 100" style={{ position:"absolute", inset:0, width:"100%", height:"100%", overflow:"visible" }}>
+        {/* 完了済みストローク（薄く残す） */}
+        {strokes.slice(0, step).map((s, i) => (
+          <path key={`done-${i}`} d={s.d} stroke="rgba(14,165,233,0.45)" strokeWidth="5.5"
+            fill="none" strokeLinecap="round" strokeLinejoin="round" pathLength="1"/>
+        ))}
+        {/* 現在のストローク（アニメーション） */}
+        {step >= 0 && step < strokes.length && (
+          <path key={`cur-${step}-${kana}`} d={strokes[step].d}
+            stroke="#22d3ee" strokeWidth="6.5"
+            fill="none" strokeLinecap="round" strokeLinejoin="round"
+            pathLength="1" strokeDasharray="1" strokeDashoffset="1"
+            style={{ animation:"strokeDraw 0.85s ease-out forwards" }}
+          />
+        )}
+        {/* 番号サークル */}
+        {strokes.slice(0, step + 1).map((s, i) => (
+          <g key={`num-${i}`} style={{ animation: i === step ? "strokeNumPop 0.3s ease-out" : "none" }}>
+            <circle cx={s.sx} cy={s.sy} r="8.5"
+              fill={i === step ? "#0ea5e9" : "rgba(14,165,233,0.35)"}
+              stroke={i === step ? "#fff" : "rgba(255,255,255,0.3)"}
+              strokeWidth={i === step ? 1.5 : 0.8}
+            />
+            <text x={s.sx} y={s.sy + 3.8} textAnchor="middle"
+              fill="white" fontSize="9" fontWeight="900"
+              fontFamily="monospace">{i + 1}</text>
+          </g>
+        ))}
+      </svg>
+      {/* ラベル */}
+      <div style={{
+        position:"absolute", top:6, left:6,
+        background:"rgba(14,165,233,0.18)", border:"1px solid rgba(14,165,233,0.5)",
+        borderRadius:6, padding:"2px 8px",
+        fontFamily:"monospace", fontSize:"0.55rem", color:"#22d3ee", letterSpacing:"0.08em",
+      }}>
+        {step + 1} / {strokes.length} かくめ
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // TRACING CANVAS  (スタイラス・ペン入力)
 // ============================================================
-function TracingCanvas({ guideKana, onFirstStroke }) {
-  const canvasRef  = useRef(null);
-  const isDrawing  = useRef(false);
-  const lastPt     = useRef(null);
-  const hasDrawn   = useRef(false);
+function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true }) {
+  const canvasRef    = useRef(null);
+  const isDrawing    = useRef(false);
+  const lastPt       = useRef(null);
+  const hasDrawn     = useRef(false);
+  const [guideOn,    setGuideOn]    = useState(false);
+  const [guideKey,   setGuideKey]   = useState(0);
 
   // キャラが変わるたびにキャンバスをリセット + DPR 設定
   useEffect(() => {
@@ -1394,6 +1708,7 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
     const ctx = canvas.getContext("2d");
     ctx.scale(dpr, dpr);
     hasDrawn.current = false;
+    setGuideOn(false); // 文字が変わったらガイドをリセット
   }, [guideKana]);
 
   // 親から「消す」を呼べるよう imperative API を公開
@@ -1465,15 +1780,39 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
     lastPt.current    = null;
   };
 
+  const hasStrokeData = (STROKE_DATA[guideKana] || []).length > 0;
+
   return (
     <div style={{
       position:"relative", width:"100%", aspectRatio:"1/1",
-      background:"#ddd8d0",          // ← 背景はコンテナ側に移動
+      background:"#ddd8d0",
       borderRadius:14,
-      overflow:"hidden",             // ← 角丸でキャンバスをクリップ
+      overflow:"hidden",
       border:"2.5px solid rgba(239,68,68,0.65)",
       boxShadow:"0 0 10px rgba(239,68,68,0.18)",
     }}>
+      {/* 書き順ガイドオーバーレイ */}
+      <StrokeOrderGuide
+        kana={guideKana}
+        visible={guideOn}
+        onDone={() => setGuideOn(false)}
+      />
+
+      {/* 書き順ボタン */}
+      {showStrokeBtn && hasStrokeData && (
+        <button
+          onClick={() => { setGuideOn(true); setGuideKey(k => k + 1); }}
+          style={{
+            position:"absolute", bottom:8, right:8, zIndex:15,
+            background:"rgba(14,165,233,0.18)", border:"1px solid rgba(14,165,233,0.55)",
+            borderRadius:8, padding:"4px 10px",
+            color:"#22d3ee", fontFamily:"monospace", fontSize:"0.6rem",
+            letterSpacing:"0.08em", cursor:"pointer",
+            pointerEvents:"auto",
+          }}
+        >✍ 書き順</button>
+      )}
+
       {/* ガイド文字 (なぞる目安 — #E7132C で明確に表示) */}
       <div style={{
         position:"absolute", inset:0, zIndex:1,
