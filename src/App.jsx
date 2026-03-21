@@ -112,7 +112,8 @@ function heroColors(lv) {
 
 // ── 敵定義 (各行セット) ─────────────────────────────────────
 function kanaOf(chars) {
-  return chars.map(k => ALL_KANA.find(a => a.kana === k)).filter(Boolean);
+  const all = [...ALL_KANA, ...ALL_KATAKANA];
+  return chars.map(k => all.find(a => a.kana === k)).filter(Boolean);
 }
 
 // ── 怪獣SVG: エレキング (電気ウナギ型 / 紫×黄) ──────────────
