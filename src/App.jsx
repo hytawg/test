@@ -1915,6 +1915,17 @@ function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
             transform="scale(0.9174)"
           />
         ))}
+        {/* STROKE_DATA がない文字（カタカナ等）はフォントでガイド表示 */}
+        {!freeWrite && (STROKE_DATA[guideKana] || []).length === 0 && (
+          <text
+            x="50" y="58"
+            textAnchor="middle"
+            fontSize="72"
+            fontWeight="900"
+            fontFamily="'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif"
+            fill="rgba(231,19,44,0.35)"
+          >{guideKana}</text>
+        )}
       </svg>
 
       {/* 描画キャンバス — 背景は透明にして下のガイドを見せる */}
