@@ -1548,10 +1548,8 @@ const STROKE_DATA = {
 };
 
 // ============================================================
-// STROKE ORDER GUIDE  (書き順フェード表示)
+// STROKE ORDER GUIDE  (パズル式・書き順フェードイン)
 // ============================================================
-const STROKE_COLORS = ["#ef4444", "#22c55e", "#0ea5e9", "#ec4899"];
-
 function StrokeOrderGuide({ kana, visible, onDone }) {
   const [step, setStep] = useState(-1);
   const strokes = STROKE_DATA[kana] || [];
@@ -1577,26 +1575,36 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
   return (
     <div style={{ position:"absolute", inset:0, zIndex:10, pointerEvents:"none", borderRadius:14 }}>
       <svg viewBox="0 0 100 100" style={{ position:"absolute", inset:0, width:"100%", height:"100%", overflow:"visible" }}>
-        {/* 各ストロークをフェードイン */}
-        {strokes.slice(0, step + 1).map((s, i) => (
+        {/* ゴースト：全画を薄く表示（完成形のヒント） */}
+        {strokes.map((s, i) => (
           <path
-            key={`stroke-${i}-${kana}`}
+            key={`ghost-${i}-${kana}`}
             d={s.d}
-            stroke={STROKE_COLORS[i % STROKE_COLORS.length]}
-            strokeWidth="6"
+            stroke="rgba(180,200,220,0.35)"
+            strokeWidth="7"
             fill="none" strokeLinecap="round" strokeLinejoin="round"
-            style={{ animation: i === step ? "strokeFadeIn 0.5s ease-out forwards" : "none" }}
           />
         ))}
-        {/* 番号サークル */}
+        {/* 確定済み画：インク色でフェードイン */}
+        {strokes.slice(0, step + 1).map((s, i) => (
+          <path
+            key={`ink-${i}-${kana}`}
+            d={s.d}
+            stroke={i === step ? "#0ea5e9" : "#1e3a5f"}
+            strokeWidth="7"
+            fill="none" strokeLinecap="round" strokeLinejoin="round"
+            style={{ animation: i === step ? "strokeFadeIn 0.45s ease-out forwards" : "none" }}
+          />
+        ))}
+        {/* 番号サークル：確定済み画の開始点 */}
         {strokes.slice(0, step + 1).map((s, i) => (
           <g key={`num-${i}-${kana}`} style={{ animation: i === step ? "strokeNumPop 0.3s ease-out" : "none" }}>
-            <circle cx={s.sx} cy={s.sy} r="8"
-              fill={STROKE_COLORS[i % STROKE_COLORS.length]}
+            <circle cx={s.sx} cy={s.sy} r="7"
+              fill={i === step ? "#0ea5e9" : "#1e3a5f"}
               stroke="#fff" strokeWidth="1.5"
             />
-            <text x={s.sx} y={s.sy + 3.8} textAnchor="middle"
-              fill="white" fontSize="9" fontWeight="900"
+            <text x={s.sx} y={s.sy + 3.5} textAnchor="middle"
+              fill="white" fontSize="8" fontWeight="900"
               fontFamily="monospace">{i + 1}</text>
           </g>
         ))}
