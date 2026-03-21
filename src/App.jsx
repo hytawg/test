@@ -33,6 +33,25 @@ const HIRAGANA_ROWS = [
 ];
 const ALL_KANA = HIRAGANA_ROWS.flatMap((r) => r.kana.map((k, i) => ({ kana: k, roma: r.roma[i] })));
 
+// ── 音声フィードバック (Web Speech API) ─────────────────────
+const PRAISE    = ["すごーい！","やったね！","うまい！","かんぺき！","さいこう！","よくできました！"];
+const ENCOURAGE = ["もういちど！","がんばれ！","できるよ！"];
+function randItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function speak(text, { rate = 0.9, pitch = 1.3 } = {}) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang  = "ja-JP";
+  u.rate  = rate;
+  u.pitch = pitch;
+  window.speechSynthesis.speak(u);
+}
+
+// ── スタンプ帳 (localStorage) ────────────────────────────────
+const STAMP_KEY = "yuzuki_stamps_v1";
+function getStamps()     { try { return new Set(JSON.parse(localStorage.getItem(STAMP_KEY) || "[]")); } catch { return new Set(); } }
+function saveStamp(kana) { const s = getStamps(); s.add(kana); localStorage.setItem(STAMP_KEY, JSON.stringify([...s])); }
+
 // ── 敵定義 (各3文字セット) ──────────────────────────────────
 function kanaOf(chars) {
   return chars.map(k => ALL_KANA.find(a => a.kana === k)).filter(Boolean);
@@ -647,7 +666,44 @@ const GLOBAL_CSS = `
     0%,100% { text-shadow: 0 0 10px rgba(239,68,68,0.5), 0 0 20px rgba(220,38,38,0.3); }
     50%     { text-shadow: 0 0 18px rgba(239,68,68,0.8), 0 0 35px rgba(220,38,38,0.5), 0 0 60px rgba(185,28,28,0.3); }
   }
+  @keyframes confettiFall {
+    0%   { opacity: 1; transform: translateY(0)     rotate(0deg);   }
+    85%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(110vh) rotate(600deg); }
+  }
+  @keyframes stampPop {
+    0%   { opacity: 0; transform: scale(0)   rotate(-15deg); }
+    65%  { opacity: 1; transform: scale(1.2) rotate(4deg);   }
+    100% { opacity: 1; transform: scale(1)   rotate(0deg);   }
+  }
 `;
+
+// ── 紙吹雪コンポーネント ────────────────────────────────────
+const CONF_COLORS = ["#ef4444","#fbbf24","#22c55e","#0ea5e9","#a78bfa","#f472b6","#fb923c"];
+function Confetti() {
+  const pieces = useRef(
+    Array.from({length: 45}, (_, i) => ({
+      id: i, x: Math.random() * 100, delay: Math.random() * 0.8,
+      color: CONF_COLORS[i % CONF_COLORS.length],
+      w: 6 + Math.random() * 10, h: 8 + Math.random() * 14,
+      rot: Math.random() * 360, circle: i % 3 === 0,
+    }))
+  ).current;
+  return (
+    <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:400,overflow:"hidden"}}>
+      {pieces.map(p => (
+        <div key={p.id} style={{
+          position:"absolute", left:`${p.x}%`, top:"-30px",
+          width:p.w, height:p.circle ? p.w : p.h,
+          background:p.color,
+          borderRadius:p.circle ? "50%" : "2px",
+          animation:`confettiFall 2s ease-in ${p.delay}s forwards`,
+          transform:`rotate(${p.rot}deg)`,
+        }}/>
+      ))}
+    </div>
+  );
+}
 
 // ============================================================
 // HOME SCREEN  (画像: 暗赤シネマ / Ultraman style)
@@ -932,8 +988,12 @@ function BattleScreen({ onHome, enemy }) {
   const [phase,     setPhase]     = useState("idle"); // idle|checking|correct|miss|monsterAtk|win|lose
   const [score,     setScore]     = useState(0);
   const [missCount, setMissCount] = useState(0);
-  const [hasStroke, setHasStroke] = useState(false);
-  const [feedback,  setFeedback]  = useState(""); // overlay text
+  const [hasStroke,   setHasStroke]   = useState(false);
+  const [feedback,    setFeedback]    = useState(""); // overlay text
+  const [confettiKey, setConfettiKey] = useState(0);
+
+  // 文字が変わるたびに読み上げ
+  useEffect(() => { speak(kana.kana, { rate: 0.75, pitch: 1.1 }); }, [kana]);
 
   const heroDanger  = heroHp <= 2;
   const isCorrect   = phase === "correct";
@@ -977,16 +1037,20 @@ function BattleScreen({ onHome, enemy }) {
       setScore(s => s + 10);
       setFeedback("シュワッチ！");
       setPhase("correct");
+      speak(randItem(PRAISE));
+      setConfettiKey(k => k + 1);
+      saveStamp(kana.kana);
       setTimeout(() => {
         goNextKana("correct", score + 10, nextMHp, heroHp);
         getCanvas()?._clear?.();   // 攻撃後にキャンバスをリセット
-      }, 1100);
+      }, 1300);
     } else {
       // ミス
       const newMiss = missCount + 1;
       setMissCount(newMiss);
       if (newMiss >= MAX_MISS) {
         // モンスター反撃
+        speak(randItem(ENCOURAGE));
         setFeedback("やられた！");
         setPhase("monsterAtk");
         const nextHHp = heroHp - 1;
@@ -996,6 +1060,7 @@ function BattleScreen({ onHome, enemy }) {
           getCanvas()?._clear?.();
         }, 1000);
       } else {
+        speak(randItem(ENCOURAGE));
         setFeedback(`もう一度！ (${newMiss}/${MAX_MISS})`);
         setPhase("miss");
         setTimeout(() => {
@@ -1037,6 +1102,7 @@ function BattleScreen({ onHome, enemy }) {
       display:"flex", flexDirection:"column", alignItems:"center",
       overflow:"hidden",
     }}>
+      {confettiKey > 0 && <Confetti key={confettiKey}/>}
       <CityBokeh />
 
       {/* ── HEADER ─────────────────────────────────────── */}
@@ -1186,6 +1252,10 @@ function BattleScreen({ onHome, enemy }) {
           <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
             この文字をなぞれ！
           </span>
+          <button
+            onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"2px 4px",lineHeight:1}}
+          >🔊</button>
         </div>
 
         {/* キャンバス */}
@@ -1453,8 +1523,9 @@ function TokkunScreen({ onHome }) {
   const deck        = useRef([...ALL_KANA].sort(() => Math.random() - 0.5)).current;
   const [idx,       setIdx]       = useState(0);
   const [done,      setDone]      = useState(false);
-  const [hasStroke, setHasStroke] = useState(false);
-  const [phase,     setPhase]     = useState("idle"); // idle | ok | miss
+  const [hasStroke,   setHasStroke]   = useState(false);
+  const [phase,       setPhase]       = useState("idle"); // idle | ok | miss
+  const [confettiKey, setConfettiKey] = useState(0);
   const canvasRef   = useRef(null);
 
   const card     = deck[idx];
@@ -1481,9 +1552,13 @@ function TokkunScreen({ onHome }) {
     if (!canvas) return;
     const cov = evalCoverage(card.kana, canvas);
     if (cov >= COVERAGE_THRESHOLD) {
+      speak(randItem(PRAISE));
+      setConfettiKey(k => k + 1);
+      saveStamp(card.kana);
       setPhase("ok");
-      setTimeout(goNext, 900);
+      setTimeout(goNext, 1200);
     } else {
+      speak(randItem(ENCOURAGE));
       setPhase("miss");
       setTimeout(() => {
         clearCanvas();
@@ -1507,6 +1582,7 @@ function TokkunScreen({ onHome }) {
       display:"flex", flexDirection:"column", alignItems:"center",
       overflow:"hidden",
     }}>
+      {confettiKey > 0 && <Confetti key={confettiKey}/>}
       <CityBokeh />
 
       {/* ── HEADER ─────────────────────────────────── */}
@@ -1567,6 +1643,10 @@ function TokkunScreen({ onHome }) {
             <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.6rem", letterSpacing:"0.1em" }}>
               よみかた
             </span>
+            <button
+              onClick={() => speak(card.kana, {rate:0.75, pitch:1.1})}
+              style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"2px 4px",lineHeight:1}}
+            >🔊</button>
           </div>
 
           {/* キャンバス + 判定フィードバックオーバーレイ */}
@@ -1826,7 +1906,23 @@ function EnemySelectScreen({ onSelect, onHome }) {
 // ZUKAN SCREEN  (50音ずかん)
 // ============================================================
 function ZukanScreen({ onHome }) {
-  const [selected, setSelected] = useState(null); // { kana, roma } | null
+  const [selected, setSelected] = useState(null);
+  const [stamps,   setStamps]   = useState(() => getStamps());
+  const [tab,      setTab]      = useState("kana"); // "kana" | "stamp"
+
+  const handleKanaTap = (kana, roma) => {
+    setSelected(prev => prev?.kana === kana ? null : { kana, roma });
+    speak(kana, { rate: 0.75, pitch: 1.1 });
+  };
+
+  const TAB = (active) => ({
+    flex:1, padding:"9px 0", background:"transparent", border:"none",
+    borderBottom: active ? `2.5px solid ${C.primary}` : "2.5px solid transparent",
+    color: active ? C.primary : C.muted,
+    fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
+    fontWeight:700, fontSize:"0.8rem", letterSpacing:"0.06em",
+    cursor:"pointer", transition:"all 0.18s",
+  });
 
   return (
     <div style={{
@@ -1841,7 +1937,7 @@ function ZukanScreen({ onHome }) {
       <div style={{
         position:"relative", zIndex:10, width:"100%", maxWidth:520,
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 8px",
+        padding:"14px 20px 6px",
       }}>
         <button onClick={onHome} style={{
           background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
@@ -1849,76 +1945,165 @@ function ZukanScreen({ onHome }) {
           padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
         }}>← もどる</button>
         <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
-          📖 ひらがなずかん
+          {tab === "kana" ? "📖 ひらがなずかん" : "⭐ スタンプ帳"}
         </div>
         <div style={{ width:60 }} />
       </div>
 
-      {/* 50-on grid by row */}
+      {/* tabs */}
       <div style={{
         position:"relative", zIndex:10, width:"100%", maxWidth:520,
-        padding:"0 12px 24px", overflowY:"auto",
-        display:"flex", flexDirection:"column", gap:10,
+        display:"flex", padding:"0 20px",
+        borderBottom:"1px solid rgba(239,68,68,0.12)",
       }}>
-        {HIRAGANA_ROWS.map((row) => (
-          <div key={row.row}>
-            {/* row label */}
-            <div style={{
-              fontFamily:"monospace", fontSize:"0.55rem", color: C.muted,
-              letterSpacing:"0.15em", marginBottom:4, paddingLeft:4,
-            }}>{row.row}</div>
-            {/* cells */}
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-              {row.kana.map((kana, i) => {
-                const roma = row.roma[i];
-                const isSelected = selected?.kana === kana;
-                return (
-                  <button
-                    key={kana}
-                    onClick={() => setSelected(isSelected ? null : { kana, roma })}
-                    style={{
-                      width: "clamp(52px,17vw,72px)",
-                      height:"clamp(56px,18vw,76px)",
-                      background: isSelected
-                        ? "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(185,28,28,0.2))"
-                        : "linear-gradient(135deg, rgba(22,10,10,0.88) 0%, rgba(14,6,6,0.94) 100%)",
-                      border: isSelected
-                        ? `2px solid ${C.primary}`
-                        : "1.5px solid rgba(100,50,50,0.45)",
-                      borderRadius:10,
-                      cursor:"pointer",
-                      display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center", gap:3,
-                      boxShadow: isSelected
-                        ? "0 0 16px rgba(239,68,68,0.4)"
-                        : "none",
-                      transition:"all 0.15s",
-                    }}
-                  >
-                    <div style={{
-                      fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                      fontWeight:900,
-                      fontSize:"clamp(1.4rem,5vw,2rem)",
-                      color: isSelected ? "#fff" : "#cbd5e1",
-                      textShadow: isSelected ? "0 0 10px rgba(239,68,68,0.6)" : "none",
-                      lineHeight:1,
-                    }}>{kana}</div>
-                    <div style={{
-                      fontFamily:"monospace",
-                      fontSize:"clamp(0.5rem,1.8vw,0.65rem)",
-                      color: isSelected ? C.teal : C.muted,
-                      letterSpacing:"0.04em",
-                    }}>{roma}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+        <button style={TAB(tab === "kana")}  onClick={() => setTab("kana")}>📖 ずかん</button>
+        <button style={TAB(tab === "stamp")} onClick={() => { setStamps(getStamps()); setTab("stamp"); }}>
+          ⭐ スタンプ（{stamps.size}/{ALL_KANA.length}）
+        </button>
       </div>
 
-      {/* selected detail popup */}
-      {selected && (
+      {/* ── KANA TAB ─────────────────────────────── */}
+      {tab === "kana" && (
+        <div style={{
+          position:"relative", zIndex:10, width:"100%", maxWidth:520,
+          padding:"8px 12px 120px", overflowY:"auto",
+          display:"flex", flexDirection:"column", gap:10,
+        }}>
+          {HIRAGANA_ROWS.map((row) => (
+            <div key={row.row}>
+              <div style={{
+                fontFamily:"monospace", fontSize:"0.55rem", color: C.muted,
+                letterSpacing:"0.15em", marginBottom:4, paddingLeft:4,
+              }}>{row.row}</div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {row.kana.map((kana, i) => {
+                  const roma = row.roma[i];
+                  const isSel     = selected?.kana === kana;
+                  const hasStamp  = stamps.has(kana);
+                  return (
+                    <button
+                      key={kana}
+                      onClick={() => handleKanaTap(kana, roma)}
+                      style={{
+                        width:"clamp(52px,17vw,72px)", height:"clamp(56px,18vw,76px)",
+                        position:"relative",
+                        background: isSel
+                          ? "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(185,28,28,0.2))"
+                          : "linear-gradient(135deg, rgba(22,10,10,0.88), rgba(14,6,6,0.94))",
+                        border: isSel ? `2px solid ${C.primary}` : "1.5px solid rgba(100,50,50,0.45)",
+                        borderRadius:10, cursor:"pointer",
+                        display:"flex", flexDirection:"column",
+                        alignItems:"center", justifyContent:"center", gap:3,
+                        boxShadow: isSel ? "0 0 16px rgba(239,68,68,0.4)" : "none",
+                        transition:"all 0.15s",
+                      }}
+                    >
+                      {hasStamp && (
+                        <span style={{position:"absolute",top:2,right:3,fontSize:"0.55rem",lineHeight:1}}>⭐</span>
+                      )}
+                      <div style={{
+                        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                        fontWeight:900, fontSize:"clamp(1.4rem,5vw,2rem)",
+                        color: isSel ? "#fff" : "#cbd5e1",
+                        textShadow: isSel ? "0 0 10px rgba(239,68,68,0.6)" : "none",
+                        lineHeight:1,
+                      }}>{kana}</div>
+                      <div style={{
+                        fontFamily:"monospace", fontSize:"clamp(0.5rem,1.8vw,0.65rem)",
+                        color: isSel ? C.teal : C.muted, letterSpacing:"0.04em",
+                      }}>{roma}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── STAMP TAB ──────────────────────────────── */}
+      {tab === "stamp" && (
+        <div style={{
+          position:"relative", zIndex:10, width:"100%", maxWidth:520,
+          padding:"14px 16px 32px", overflowY:"auto", flex:1,
+        }}>
+          {/* progress */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+              <span style={{
+                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                fontWeight:900, fontSize:"0.95rem", color:C.gold,
+              }}>{stamps.size} もじ あつめた！</span>
+              <span style={{fontFamily:"monospace", fontSize:"0.65rem", color:C.muted}}>
+                / {ALL_KANA.length}
+              </span>
+            </div>
+            <div style={{height:6, background:"rgba(255,255,255,0.06)", borderRadius:3, overflow:"hidden"}}>
+              <div style={{
+                height:"100%", width:`${(stamps.size / ALL_KANA.length) * 100}%`,
+                background:`linear-gradient(90deg,${C.gold},${C.primary})`,
+                borderRadius:3, transition:"width 0.5s ease-out",
+              }}/>
+            </div>
+          </div>
+
+          {/* stamp grid */}
+          <div style={{display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center"}}>
+            {ALL_KANA.map(({kana, roma}) => {
+              const collected = stamps.has(kana);
+              return (
+                <div
+                  key={kana}
+                  onClick={() => collected && speak(kana, {rate:0.75, pitch:1.1})}
+                  style={{
+                    width:56, height:66,
+                    background: collected
+                      ? "linear-gradient(135deg, #fbbf24, #f59e0b)"
+                      : "rgba(30,15,15,0.7)",
+                    borderRadius:12,
+                    border: collected
+                      ? "2px solid rgba(251,191,36,0.8)"
+                      : "1.5px dashed rgba(100,60,60,0.35)",
+                    display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center", gap:2,
+                    boxShadow: collected ? "0 0 14px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.3)" : "none",
+                    cursor: collected ? "pointer" : "default",
+                    animation: collected ? "stampPop 0.4s ease-out" : "none",
+                    transition:"box-shadow 0.2s",
+                  }}
+                >
+                  <div style={{
+                    fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                    fontWeight:900, fontSize:"1.65rem", lineHeight:1,
+                    color: collected ? "#1c1200" : "rgba(100,80,80,0.2)",
+                  }}>
+                    {collected ? kana : "？"}
+                  </div>
+                  <div style={{
+                    fontFamily:"monospace", fontSize:"0.48rem",
+                    color: collected ? "#92400e" : "rgba(100,80,80,0.2)",
+                    letterSpacing:"0.02em",
+                  }}>
+                    {collected ? roma : "·····"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {stamps.size === ALL_KANA.length && (
+            <div style={{
+              textAlign:"center", marginTop:24,
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"1.1rem",
+              color:C.gold, textShadow:"0 0 16px rgba(251,191,36,0.7)",
+            }}>🏆 ぜんぶ あつめた！すごい！！</div>
+          )}
+        </div>
+      )}
+
+      {/* selected popup — kana tab only */}
+      {tab === "kana" && selected && (
         <div style={{
           position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
           zIndex:50,
@@ -1927,21 +2112,29 @@ function ZukanScreen({ onHome }) {
           borderRadius:20, padding:"16px 40px",
           boxShadow:"0 0 32px rgba(239,68,68,0.3)",
           display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-          minWidth:160,
+          minWidth:180,
         }}>
           <div style={{
             fontSize:"clamp(3rem,12vw,4.5rem)",
             fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
             fontWeight:900, color:"#fff",
-            textShadow:"0 0 16px rgba(239,68,68,0.5)",
-            lineHeight:1,
+            textShadow:"0 0 16px rgba(239,68,68,0.5)", lineHeight:1,
           }}>{selected.kana}</div>
           <div style={{
             fontFamily:"monospace", fontSize:"clamp(1rem,3.5vw,1.4rem)",
-            fontWeight:900, color: C.teal,
-            letterSpacing:"0.1em",
+            fontWeight:900, color: C.teal, letterSpacing:"0.1em",
             textShadow:`0 0 10px ${C.teal}`,
           }}>{selected.roma}</div>
+          <button
+            onClick={() => speak(selected.kana, {rate:0.75, pitch:1.1})}
+            style={{
+              marginTop:4, padding:"6px 22px",
+              background:"rgba(14,165,233,0.15)", border:"1px solid rgba(14,165,233,0.4)",
+              borderRadius:999, color:C.teal,
+              fontFamily:"monospace", fontSize:"0.75rem",
+              cursor:"pointer", letterSpacing:"0.08em",
+            }}
+          >🔊 よみあげる</button>
         </div>
       )}
     </div>
