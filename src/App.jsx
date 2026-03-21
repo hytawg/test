@@ -1199,17 +1199,95 @@ function ZukanScreen({ onHome }) {
 }
 
 // ============================================================
-// APP  (仮: タスク5で差し替え)
+// SCREEN TRANSITION WRAPPER
 // ============================================================
+const TRANSITION_CSS = `
+  @keyframes screenFadeIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+  @keyframes screenFadeOut {
+    from { opacity: 1; transform: translateY(0)     scale(1);    }
+    to   { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  }
+`;
+
+function ScreenTransition({ screenKey, children }) {
+  const [visible, setVisible] = useState(true);
+  const prevKey = useRef(screenKey);
+
+  useEffect(() => {
+    if (prevKey.current !== screenKey) {
+      prevKey.current = screenKey;
+      setVisible(false);
+      const t = setTimeout(() => setVisible(true), 50);
+      return () => clearTimeout(t);
+    }
+  }, [screenKey]);
+
+  return (
+    <div
+      key={screenKey}
+      style={{
+        animation: visible
+          ? "screenFadeIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards"
+          : "screenFadeOut 0.2s ease-in forwards",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ============================================================
+// APP  — メインの状態機械
+// ============================================================
+const SCREENS = ["home", "battle", "tokkun", "zukan"];
+
 export default function App() {
-  const [screen, setScreen] = useState("home");
+  const [screen,  setScreen]  = useState("home");
+  const [prevScr, setPrevScr] = useState(null);
+
+  // スクロールをトップにリセット
+  const go = useCallback((next) => {
+    setPrevScr(screen);
+    setScreen(next);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [screen]);
+
+  // ブラウザ Back ボタン対応
+  useEffect(() => {
+    const onPop = () => {
+      if (screen !== "home") go("home");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [screen, go]);
+
+  // 画面が変わるたびに history エントリを積む
+  useEffect(() => {
+    if (screen !== "home") {
+      window.history.pushState({ screen }, "", `#${screen}`);
+    } else {
+      window.history.replaceState({ screen: "home" }, "", "#");
+    }
+  }, [screen]);
+
   return (
     <>
-      <style>{GLOBAL_CSS}</style>
-      {screen === "home"   && <HomeScreen   onBattle={() => setScreen("battle")} onTokkun={() => setScreen("tokkun")} onZukan={() => setScreen("zukan")} />}
-      {screen === "battle" && <BattleScreen onHome={() => setScreen("home")} />}
-      {screen === "tokkun" && <TokkunScreen onHome={() => setScreen("home")} />}
-      {screen === "zukan"  && <ZukanScreen  onHome={() => setScreen("home")} />}
+      <style>{GLOBAL_CSS + TRANSITION_CSS}</style>
+      <ScreenTransition screenKey={screen}>
+        {screen === "home"   && (
+          <HomeScreen
+            onBattle={() => go("battle")}
+            onTokkun={() => go("tokkun")}
+            onZukan ={() => go("zukan")}
+          />
+        )}
+        {screen === "battle" && <BattleScreen onHome={() => go("home")} />}
+        {screen === "tokkun" && <TokkunScreen onHome={() => go("home")} />}
+        {screen === "zukan"  && <ZukanScreen  onHome={() => go("home")} />}
+      </ScreenTransition>
     </>
   );
 }
