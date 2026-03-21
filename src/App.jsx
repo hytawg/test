@@ -1019,7 +1019,7 @@ function evalCoverage(guideKana, tracingCanvas) {
   const gCtx   = guide.getContext("2d");
   gCtx.scale(dpr, dpr);
   gCtx.fillStyle    = "white";
-  gCtx.font         = `900 ${size * 0.77}px 'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif`;
+  gCtx.font         = `900 ${size * 0.77}px 'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif`;
   gCtx.textAlign    = "center";
   gCtx.textBaseline = "middle";
   // シャドウで判定ゾーンを周囲に広げ、ズレに寛容にする
@@ -1746,7 +1746,7 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWri
         position:"absolute", inset:0, zIndex:1,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:"min(62vw, 340px)",
-        fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+        fontFamily:"'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif",
         fontWeight:900,
         color: freeWrite ? "transparent" : "rgba(231,19,44,0.40)",
         lineHeight:1,
