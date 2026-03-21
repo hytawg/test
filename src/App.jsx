@@ -1537,75 +1537,113 @@ const STROKE_DATA = {
 };
 
 // ============================================================
-// STROKE ORDER GUIDE  (パズル式・書き順フェードイン)
+// STROKE ORDER POPUP  (happylilac 形式・静的表示)
 // ============================================================
 function StrokeOrderGuide({ kana, visible, onDone }) {
-  const [step, setStep] = useState(-1);
   const strokes = STROKE_DATA[kana] || [];
-
-  useEffect(() => {
-    if (!visible || strokes.length === 0) { onDone?.(); return; }
-    setStep(0);
-    let cur = 0;
-    const timer = setInterval(() => {
-      cur++;
-      if (cur >= strokes.length) {
-        clearInterval(timer);
-        setTimeout(() => onDone?.(), 1500);
-        return;
-      }
-      setStep(cur);
-    }, 900);
-    return () => clearInterval(timer);
-  }, [visible, kana]); // eslint-disable-line
-
   if (!visible || strokes.length === 0) return null;
 
   return (
-    <div style={{ position:"absolute", inset:0, zIndex:10, pointerEvents:"none", borderRadius:14 }}>
-      <svg viewBox="0 0 109 109" style={{ position:"absolute", inset:0, width:"100%", height:"100%", overflow:"visible" }}>
-        {/* ゴースト：全画を薄く表示（完成形のヒント） */}
-        {strokes.map((s, i) => (
-          <path
-            key={`ghost-${i}-${kana}`}
-            d={s.d}
-            stroke="rgba(180,200,220,0.35)"
-            strokeWidth="7"
-            fill="none" strokeLinecap="round" strokeLinejoin="round"
-          />
-        ))}
-        {/* 確定済み画：インク色でフェードイン */}
-        {strokes.slice(0, step + 1).map((s, i) => (
-          <path
-            key={`ink-${i}-${kana}`}
-            d={s.d}
-            stroke={i === step ? "#0ea5e9" : "#1e3a5f"}
-            strokeWidth="7"
-            fill="none" strokeLinecap="round" strokeLinejoin="round"
-            style={{ animation: i === step ? "strokeFadeIn 0.45s ease-out forwards" : "none" }}
-          />
-        ))}
-        {/* 番号サークル：確定済み画の開始点 */}
-        {strokes.slice(0, step + 1).map((s, i) => (
-          <g key={`num-${i}-${kana}`} style={{ animation: i === step ? "strokeNumPop 0.3s ease-out" : "none" }}>
-            <circle cx={s.sx} cy={s.sy} r="7"
-              fill={i === step ? "#0ea5e9" : "#1e3a5f"}
-              stroke="#fff" strokeWidth="1.5"
-            />
-            <text x={s.sx} y={s.sy + 3.5} textAnchor="middle"
-              fill="white" fontSize="8" fontWeight="900"
-              fontFamily="monospace">{i + 1}</text>
-          </g>
-        ))}
-      </svg>
-      {/* ラベル */}
-      <div style={{
-        position:"absolute", top:6, left:6,
-        background:"rgba(14,165,233,0.18)", border:"1px solid rgba(14,165,233,0.5)",
-        borderRadius:6, padding:"2px 8px",
-        fontFamily:"monospace", fontSize:"0.55rem", color:"#22d3ee", letterSpacing:"0.08em",
-      }}>
-        {step + 1} / {strokes.length} かくめ
+    /* 全画面オーバーレイ */
+    <div
+      onClick={onDone}
+      style={{
+        position:"fixed", inset:0, zIndex:2000,
+        background:"rgba(0,0,0,0.65)",
+        display:"flex", alignItems:"center", justifyContent:"center",
+        padding:16,
+      }}
+    >
+      {/* ポップアップカード */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background:"#ffffff",
+          borderRadius:16,
+          padding:"20px 20px 24px",
+          maxWidth:520,
+          width:"100%",
+          maxHeight:"85vh",
+          overflowY:"auto",
+          boxShadow:"0 24px 64px rgba(0,0,0,0.45)",
+        }}
+      >
+        {/* ヘッダー */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ fontSize:"1.1rem", fontWeight:700, color:"#1e293b", fontFamily:"sans-serif" }}>
+            「{kana}」の書き順　<span style={{ fontSize:"0.8rem", color:"#64748b", fontWeight:400 }}>{strokes.length}画</span>
+          </div>
+          <button
+            onClick={onDone}
+            style={{
+              border:"none", background:"#f1f5f9", borderRadius:8,
+              width:32, height:32, cursor:"pointer",
+              fontSize:"1rem", color:"#475569", lineHeight:1,
+            }}
+          >✕</button>
+        </div>
+
+        {/* 書き順グリッド：1セルにつき1画追加 */}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:10, justifyContent:"center" }}>
+          {strokes.map((_, stepIdx) => (
+            <div key={stepIdx} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+              {/* セル番号 */}
+              <div style={{
+                width:20, height:20, borderRadius:"50%",
+                background: stepIdx === strokes.length - 1 ? "#e53e3e" : "#e2e8f0",
+                color: stepIdx === strokes.length - 1 ? "#fff" : "#64748b",
+                fontSize:"0.65rem", fontWeight:700, fontFamily:"monospace",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>{stepIdx + 1}</div>
+              {/* SVGセル */}
+              <div style={{
+                width:76, height:76,
+                background:"#fafafa",
+                border: stepIdx === strokes.length - 1
+                  ? "2px solid #e53e3e"
+                  : "1.5px solid #e2e8f0",
+                borderRadius:8,
+                overflow:"hidden",
+              }}>
+                <svg viewBox="0 0 109 109" width="76" height="76">
+                  {/* 完成形ガイド（薄いグレー） */}
+                  {strokes.map((s, i) => i > stepIdx && (
+                    <path key={`g${i}`} d={s.d}
+                      stroke="#d1d5db" strokeWidth="3.5" fill="none"
+                      strokeLinecap="round" strokeLinejoin="round"
+                    />
+                  ))}
+                  {/* 確定済みの画（ダークグレー） */}
+                  {strokes.slice(0, stepIdx).map((s, i) => (
+                    <path key={`p${i}`} d={s.d}
+                      stroke="#374151" strokeWidth="4" fill="none"
+                      strokeLinecap="round" strokeLinejoin="round"
+                    />
+                  ))}
+                  {/* 今の画（赤） */}
+                  <path d={strokes[stepIdx].d}
+                    stroke="#e53e3e" strokeWidth="4.5" fill="none"
+                    strokeLinecap="round" strokeLinejoin="round"
+                  />
+                  {/* 書き始めマーク */}
+                  <circle
+                    cx={strokes[stepIdx].sx} cy={strokes[stepIdx].sy} r="5.5"
+                    fill="#e53e3e"
+                  />
+                  <text x={strokes[stepIdx].sx} y={strokes[stepIdx].sy + 4}
+                    textAnchor="middle" fill="#fff"
+                    fontSize="6.5" fontWeight="bold" fontFamily="monospace"
+                  >{stepIdx + 1}</text>
+                </svg>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* フッター */}
+        <div style={{ textAlign:"center", marginTop:16, color:"#94a3b8", fontSize:"0.7rem", fontFamily:"sans-serif" }}>
+          タップして閉じる
+        </div>
       </div>
     </div>
   );
