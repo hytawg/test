@@ -961,7 +961,14 @@ function BattleScreen({ onHome, enemy }) {
     const canvas = getCanvas();
     if (!canvas) { setPhase("idle"); return; }
 
-    const cov = evalCoverage(kana.kana, canvas);
+    let cov = 0;
+    try {
+      cov = evalCoverage(kana.kana, canvas);
+    } catch (err) {
+      console.warn("evalCoverage error:", err);
+      setPhase("idle");
+      return;
+    }
 
     if (cov >= COVERAGE_THRESHOLD) {
       // ヒット
@@ -970,7 +977,10 @@ function BattleScreen({ onHome, enemy }) {
       setScore(s => s + 10);
       setFeedback("シュワッチ！");
       setPhase("correct");
-      setTimeout(() => goNextKana("correct", score + 10, nextMHp, heroHp), 1100);
+      setTimeout(() => {
+        goNextKana("correct", score + 10, nextMHp, heroHp);
+        getCanvas()?._clear?.();   // 攻撃後にキャンバスをリセット
+      }, 1100);
     } else {
       // ミス
       const newMiss = missCount + 1;
@@ -981,7 +991,10 @@ function BattleScreen({ onHome, enemy }) {
         setPhase("monsterAtk");
         const nextHHp = heroHp - 1;
         setHeroHp(nextHHp);
-        setTimeout(() => goNextKana("monsterAtk", score, monsterHp, nextHHp), 1000);
+        setTimeout(() => {
+          goNextKana("monsterAtk", score, monsterHp, nextHHp);
+          getCanvas()?._clear?.();
+        }, 1000);
       } else {
         setFeedback(`もう一度！ (${newMiss}/${MAX_MISS})`);
         setPhase("miss");
@@ -1383,7 +1396,14 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
   };
 
   return (
-    <div style={{ position:"relative", width:"100%", aspectRatio:"1/1" }}>
+    <div style={{
+      position:"relative", width:"100%", aspectRatio:"1/1",
+      background:"#ddd8d0",          // ← 背景はコンテナ側に移動
+      borderRadius:14,
+      overflow:"hidden",             // ← 角丸でキャンバスをクリップ
+      border:"2.5px solid rgba(239,68,68,0.65)",
+      boxShadow:"0 0 10px rgba(239,68,68,0.18)",
+    }}>
       {/* ガイド文字 (なぞる目安 — #E7132C で明確に表示) */}
       <div style={{
         position:"absolute", inset:0, zIndex:1,
@@ -1407,23 +1427,13 @@ function TracingCanvas({ guideKana, onFirstStroke }) {
         backgroundPosition:"50% 50%",
       }} />
 
-      {/* 枠線 */}
-      <div style={{
-        position:"absolute", inset:0, zIndex:3,
-        border:"2.5px solid rgba(239,68,68,0.65)",
-        borderRadius:16,
-        boxShadow:"0 0 10px rgba(239,68,68,0.18)",
-        pointerEvents:"none",
-      }} />
-
-      {/* 描画キャンバス (グレー背景で高コントラスト) */}
+      {/* 描画キャンバス — 背景は透明にして下のガイドを見せる */}
       <canvas
         ref={canvasRef}
         style={{
           display:"block", position:"relative", zIndex:2,
           width:"100%", height:"100%",
-          borderRadius:14,
-          background:"#ddd8d0",  // 温かみのあるライトグレー
+          background:"transparent",
           touchAction:"none",
           cursor:"crosshair",
         }}
