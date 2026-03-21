@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>あん① ARCADE CRISIS — デザインデモ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --phosphor:   #39ff14;
+    --amber:      #ffb800;
+    --amber-dim:  #7a5800;
+    --red:        #ff2222;
+    --red-dim:    #5a0000;
+    --cyan:       #00e5ff;
+    --bg:         #040a04;
+    --bezel:      #1a1a1a;
+    --bezel-hi:   #2e2e2e;
+    --crt-border: #111;
+  }
+
+  body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100dvh;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    overflow-x: hidden;
+  }
+
+  /* ── OUTER FRAME (筐体) ─────────────────────────── */
+  .cabinet {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100dvh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    border-left:  2px solid #111;
+    border-right: 2px solid #111;
+  }
+
+  /* starfield */
+  .cabinet::before {
+    content: '';
+    position: absolute; inset: 0; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 15% 20%, rgba(57,255,20,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 55%, rgba(57,255,20,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 15%, rgba(57,255,20,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 85% 70%, rgba(57,255,20,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 25% 80%, rgba(57,255,20,0.35) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 40%, rgba(57,255,20,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 60%, rgba(57,255,20,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 95% 35%, rgba(57,255,20,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 85%, rgba(57,255,20,0.4) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 33% 10%, rgba(255,184,0,0.4) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 78% 50%, rgba(255,184,0,0.3) 0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 48% 90%, rgba(255,184,0,0.35) 0%, transparent 100%);
+  }
+
+  /* CRT global scanline overlay */
+  .cabinet::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.18) 2px,
+      rgba(0,0,0,0.18) 3px
+    );
+  }
+
+  /* ── TOP MARQUEE ──────────────────────────────── */
+  .marquee-bar {
+    position: relative; z-index: 10;
+    width: 100%;
+    background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+    border-bottom: 2px solid var(--amber-dim);
+    padding: 8px 16px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .marquee-title {
+    font-size: 0.45rem;
+    color: var(--amber);
+    text-shadow: 0 0 8px var(--amber), 0 0 16px rgba(255,184,0,0.4);
+    letter-spacing: 0.15em;
+    animation: amber-flicker 4s ease-in-out infinite;
+  }
+  .marquee-score {
+    font-size: 0.5rem;
+    color: var(--phosphor);
+    text-shadow: 0 0 6px var(--phosphor);
+    letter-spacing: 0.1em;
+  }
+  .marquee-lives {
+    display: flex; gap: 4px; align-items: center;
+  }
+  .life-dot {
+    width: 8px; height: 8px; border-radius: 1px;
+    background: var(--red);
+    box-shadow: 0 0 6px var(--red);
+    animation: life-blink 1.5s ease-in-out infinite;
+  }
+  .life-dot.empty { background: var(--red-dim); box-shadow: none; animation: none; }
+
+  /* ── HP BARS ──────────────────────────────────── */
+  .hp-section {
+    position: relative; z-index: 10;
+    width: 100%; padding: 8px 14px 4px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .hp-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hp-name {
+    font-size: 0.35rem;
+    color: var(--amber);
+    text-shadow: 0 0 6px var(--amber);
+    letter-spacing: 0.06em;
+    min-width: 68px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .hp-bar-wrap {
+    flex: 1;
+    height: 12px;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    display: flex;
+    gap: 1px;
+    padding: 1px;
+    image-rendering: pixelated;
+  }
+  .hp-seg {
+    flex: 1;
+    background: var(--phosphor);
+    box-shadow: 0 0 4px var(--phosphor);
+    animation: seg-pulse 2s ease-in-out infinite;
+    image-rendering: pixelated;
+  }
+  .hp-seg.yellow { background: #ffdd00; box-shadow: 0 0 4px #ffdd00; }
+  .hp-seg.red    { background: var(--red); box-shadow: 0 0 4px var(--red); animation: seg-danger 0.4s ease-in-out infinite; }
+  .hp-seg.empty  { background: #111; box-shadow: none; animation: none; }
+  .hp-num {
+    font-size: 0.35rem; color: #555; min-width: 22px; text-align: right;
+  }
+
+  /* ── CRT ARENA ────────────────────────────────── */
+  .arena-wrap {
+    position: relative; z-index: 10;
+    width: 100%; padding: 4px 14px 0;
+  }
+  .crt-frame {
+    position: relative;
+    background: #050e05;
+    border: 3px solid var(--bezel);
+    border-radius: 12px;
+    box-shadow:
+      inset 0 0 30px rgba(57,255,20,0.04),
+      inset 0 0 60px rgba(0,0,0,0.8),
+      0 0 0 1px #000,
+      0 0 20px rgba(57,255,20,0.08);
+    overflow: hidden;
+    height: min(38vw, 168px);
+  }
+  /* corner screws */
+  .crt-frame::before {
+    content: '+ + + +';
+    position: absolute; inset: 0; z-index: 30; pointer-events: none;
+    font-size: 0.5rem; color: #333;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 4px 6px; letter-spacing: 999px;/* force wrap trick */
+    line-height: 1;
+  }
+  .crt-inner {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(10px,5vw,32px);
+    overflow: hidden;
+  }
+  /* phosphor grid lines */
+  .crt-grid {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 15px, rgba(57,255,20,0.025) 15px, rgba(57,255,20,0.025) 16px),
+      repeating-linear-gradient(90deg, transparent, transparent 15px, rgba(57,255,20,0.025) 15px, rgba(57,255,20,0.025) 16px);
+  }
+  /* vignette */
+  .crt-vignette {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  }
+  /* hit flash */
+  .crt-flash {
+    position: absolute; inset: 0; z-index: 20; pointer-events: none;
+    background: rgba(57,255,20,0.25);
+    animation: crt-flash-anim 1.2s ease-out forwards;
+    border-radius: 10px;
+  }
+  /* beam */
+  .beam {
+    position: absolute;
+    left: clamp(48px,14vw,80px);
+    right: clamp(48px,14vw,80px);
+    top: 50%; transform: translateY(-50%);
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--phosphor), var(--cyan), var(--amber));
+    box-shadow: 0 0 8px var(--phosphor), 0 0 20px var(--cyan);
+    z-index: 15;
+    animation: beam-shoot 0.9s ease-out forwards;
+    transform-origin: left center;
+  }
+  /* feedback text */
+  .feedback-text {
+    position: absolute; inset: 0; z-index: 25; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .feedback-text span {
+    font-size: clamp(0.6rem, 3vw, 0.9rem);
+    color: var(--phosphor);
+    text-shadow: 0 0 12px var(--phosphor), 0 0 24px rgba(57,255,20,0.5);
+    letter-spacing: 0.12em;
+    animation: pixel-appear 0.35s steps(4) forwards;
+  }
+  /* character sprites */
+  .sprite {
+    position: relative; z-index: 10;
+    image-rendering: pixelated;
+    animation: sprite-float 2.8s ease-in-out infinite;
+  }
+  .sprite-monster { animation-delay: 0.5s; }
+  .sprite img { display: block; image-rendering: pixelated; }
+
+  /* ── STAGE LABEL ──────────────────────────────── */
+  .stage-label {
+    position: relative; z-index: 10;
+    width: 100%; padding: 4px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .stage-tag {
+    font-size: 0.3rem; color: var(--amber-dim);
+    letter-spacing: 0.12em;
+  }
+  .kana-prompt {
+    font-size: 0.45rem; color: var(--phosphor);
+    text-shadow: 0 0 8px var(--phosphor);
+    letter-spacing: 0.2em;
+    animation: phosphor-glow 2s ease-in-out infinite;
+  }
+
+  /* ── CANVAS AREA ──────────────────────────────── */
+  .canvas-section {
+    position: relative; z-index: 10;
+    width: 100%; padding: 4px 14px 0;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    flex: 1;
+  }
+  .prompt-row {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--amber-dim);
+    padding: 6px 16px;
+    background: rgba(255,184,0,0.04);
+  }
+  .prompt-roma {
+    font-size: clamp(0.6rem, 3vw, 0.85rem);
+    color: var(--amber);
+    text-shadow: 0 0 10px var(--amber);
+    letter-spacing: 0.18em;
+  }
+  .prompt-hint {
+    font-size: 0.28rem; color: var(--amber-dim); letter-spacing: 0.06em;
+  }
+  .prompt-sound {
+    background: none; border: 1px solid var(--amber-dim);
+    color: var(--amber); cursor: pointer; padding: 3px 6px;
+    font-size: 0.3rem; font-family: inherit;
+  }
+
+  /* pixel canvas frame */
+  .canvas-frame {
+    position: relative;
+    width: min(68vw, 280px);
+    aspect-ratio: 1;
+    border: 2px solid var(--amber-dim);
+    background: #050a05;
+    box-shadow:
+      inset 0 0 20px rgba(57,255,20,0.05),
+      0 0 0 1px #000;
+    /* pixel corner accents */
+    outline: 1px solid #000;
+  }
+  .canvas-frame::before, .canvas-frame::after {
+    content: '';
+    position: absolute;
+    width: 8px; height: 8px;
+    border-color: var(--amber-dim);
+    border-style: solid;
+  }
+  .canvas-frame::before {
+    top: -2px; left: -2px;
+    border-width: 2px 0 0 2px;
+  }
+  .canvas-frame::after {
+    bottom: -2px; right: -2px;
+    border-width: 0 2px 2px 0;
+  }
+  .canvas-guide-char {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Hiragino Kaku Gothic Pro', sans-serif;
+    font-size: min(36vw, 160px);
+    color: rgba(57,255,20,0.06);
+    font-weight: 900;
+    user-select: none;
+    pointer-events: none;
+    line-height: 1;
+  }
+  .canvas-draw-hint {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .canvas-draw-hint span {
+    font-size: 0.3rem; color: rgba(57,255,20,0.3);
+    letter-spacing: 0.12em; animation: hint-blink 1.2s step-start infinite;
+  }
+
+  /* miss dots */
+  .miss-dots {
+    display: flex; gap: 5px;
+  }
+  .miss-dot {
+    width: 8px; height: 8px; border-radius: 0; /* square pixel */
+    background: var(--amber-dim);
+    border: 1px solid var(--amber-dim);
+  }
+  .miss-dot.hit {
+    background: var(--red);
+    box-shadow: 0 0 6px var(--red);
+    border-color: var(--red);
+    animation: seg-danger 0.4s ease-in-out infinite;
+  }
+
+  /* ── BUTTON ROW ───────────────────────────────── */
+  .btn-row {
+    display: flex; gap: 8px;
+    width: 100%; padding: 8px 14px 10px;
+    position: relative; z-index: 10;
+  }
+  .btn-arcade {
+    flex: 1; height: 48px;
+    background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+    border-top: 2px solid #333;
+    border-left: 2px solid #333;
+    border-right: 2px solid #000;
+    border-bottom: 2px solid #000;
+    color: var(--amber-dim);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.3rem; letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.05s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-arcade:active {
+    border-top-color: #000;
+    border-left-color: #000;
+    border-right-color: #333;
+    border-bottom-color: #333;
+    transform: translate(1px, 1px);
+  }
+  .btn-attack {
+    flex: 2.5;
+    background: linear-gradient(180deg, #1a0000 0%, #0d0000 100%);
+    border-top: 2px solid var(--red-dim);
+    border-left: 2px solid var(--red-dim);
+    border-right: 2px solid #000;
+    border-bottom: 2px solid #000;
+    color: var(--red);
+    font-size: 0.4rem;
+    text-shadow: 0 0 8px var(--red);
+    box-shadow: inset 0 0 10px rgba(255,34,34,0.08);
+    animation: attack-idle 2s ease-in-out infinite;
+  }
+  .btn-attack::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 40%, rgba(255,34,34,0.06) 50%, transparent 60%);
+    animation: scan-sweep 2.5s linear infinite;
+  }
+
+  /* ── BOTTOM INFO ──────────────────────────────── */
+  .bottom-bar {
+    position: relative; z-index: 10;
+    width: 100%;
+    border-top: 1px solid var(--amber-dim);
+    padding: 4px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(255,184,0,0.02);
+  }
+  .credit-text {
+    font-size: 0.28rem; color: var(--amber-dim); letter-spacing: 0.1em;
+    animation: hint-blink 1.5s step-start infinite;
+  }
+  .level-badge {
+    font-size: 0.28rem; color: var(--phosphor);
+    text-shadow: 0 0 6px var(--phosphor);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── ANIMATIONS ───────────────────────────────── */
+  @keyframes amber-flicker {
+    0%,92%,96%,100% { opacity: 1; }
+    94% { opacity: 0.6; }
+  }
+  @keyframes phosphor-glow {
+    0%,100% { text-shadow: 0 0 8px var(--phosphor), 0 0 16px rgba(57,255,20,0.4); }
+    50%      { text-shadow: 0 0 14px var(--phosphor), 0 0 28px rgba(57,255,20,0.7), 0 0 40px rgba(57,255,20,0.2); }
+  }
+  @keyframes seg-pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.82; }
+  }
+  @keyframes seg-danger {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+  @keyframes life-blink {
+    0%,100% { opacity: 1; box-shadow: 0 0 6px var(--red), 0 0 12px rgba(255,34,34,0.4); }
+    50%      { opacity: 0.7; box-shadow: 0 0 3px var(--red); }
+  }
+  @keyframes sprite-float {
+    0%,100% { transform: translateY(0px); }
+    50%      { transform: translateY(-7px); }
+  }
+  @keyframes crt-flash-anim {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @keyframes beam-shoot {
+    0%   { transform: translateY(-50%) scaleX(0); opacity: 0; }
+    15%  { transform: translateY(-50%) scaleX(1); opacity: 1; }
+    85%  { transform: translateY(-50%) scaleX(1); opacity: 1; }
+    100% { transform: translateY(-50%) scaleX(0); opacity: 0; }
+  }
+  @keyframes pixel-appear {
+    0%   { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes hint-blink {
+    0%,49% { opacity: 1; }
+    50%,100% { opacity: 0; }
+  }
+  @keyframes scan-sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  @keyframes attack-idle {
+    0%,100% {
+      box-shadow: inset 0 0 10px rgba(255,34,34,0.08), 0 0 8px rgba(255,34,34,0.25);
+    }
+    50% {
+      box-shadow: inset 0 0 16px rgba(255,34,34,0.15), 0 0 14px rgba(255,34,34,0.45);
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="cabinet">
+
+  <!-- MARQUEE BAR -->
+  <div class="marquee-bar">
+    <button onclick="history.back()" style="background:none;border:1px solid #333;color:#555;font-family:inherit;font-size:0.28rem;padding:4px 8px;cursor:pointer;letter-spacing:0.06em;">← BACK</button>
+    <span class="marquee-title">★ HIRAGANA BATTLE ★</span>
+    <span class="marquee-score">SCORE <span style="color:var(--amber)">0080</span></span>
+  </div>
+
+  <!-- HP BARS -->
+  <div class="hp-section">
+    <!-- HERO HP -->
+    <div class="hp-row">
+      <span class="hp-name">⚡ YUZUKI</span>
+      <div class="hp-bar-wrap">
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg yellow"></div>
+        <div class="hp-seg yellow"></div>
+        <div class="hp-seg red"></div>
+        <div class="hp-seg red"></div>
+        <div class="hp-seg empty"></div>
+        <div class="hp-seg empty"></div>
+        <div class="hp-seg empty"></div>
+      </div>
+      <span class="hp-num">7/10</span>
+    </div>
+    <!-- MONSTER HP -->
+    <div class="hp-row">
+      <span class="hp-name" style="color:var(--red);text-shadow:0 0 6px var(--red);">🦖 BALTAN</span>
+      <div class="hp-bar-wrap">
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg"></div>
+        <div class="hp-seg empty"></div>
+        <div class="hp-seg empty"></div>
+        <div class="hp-seg empty"></div>
+        <div class="hp-seg empty"></div>
+      </div>
+      <span class="hp-num">6/10</span>
+    </div>
+  </div>
+
+  <!-- CRT ARENA -->
+  <div class="arena-wrap">
+    <div class="crt-frame" id="arena">
+      <div class="crt-grid"></div>
+      <div class="crt-vignette"></div>
+
+      <!-- flash + beam (toggled by JS) -->
+      <div class="crt-flash" id="flash" style="display:none;"></div>
+      <div class="beam" id="beam" style="display:none;"></div>
+
+      <!-- feedback -->
+      <div class="feedback-text" id="feedback" style="display:none;">
+        <span id="feedback-text"></span>
+      </div>
+
+      <div class="crt-inner">
+        <!-- HERO -->
+        <div class="sprite" id="hero">
+          <img src="senshi_migi.png" id="hero-img"
+            style="height:min(28vw,110px);width:auto;image-rendering:auto;"
+            alt="hero">
+        </div>
+
+        <!-- MONSTER -->
+        <div class="sprite sprite-monster" id="monster">
+          <img src="enemy2.png"
+            style="height:min(28vw,110px);width:auto;image-rendering:auto;transform:scaleX(-1);"
+            alt="monster">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE INFO -->
+  <div class="stage-label">
+    <span class="stage-tag">STAGE 2-3 ▸ BALTAN</span>
+    <span class="kana-prompt" id="roma-label">TA</span>
+  </div>
+
+  <!-- CANVAS AREA -->
+  <div class="canvas-section">
+
+    <div class="prompt-row">
+      <span class="prompt-roma" id="prompt-roma">TA</span>
+      <span class="prompt-hint">の　もじを　かけ！</span>
+      <button class="prompt-sound">🔊</button>
+    </div>
+
+    <div class="canvas-frame" id="canvas-frame">
+      <div class="canvas-guide-char" id="guide-char">た</div>
+      <div class="canvas-draw-hint"><span>ここ に かく</span></div>
+    </div>
+
+    <!-- miss indicators -->
+    <div class="miss-dots">
+      <div class="miss-dot hit"></div>
+      <div class="miss-dot"></div>
+      <div class="miss-dot"></div>
+    </div>
+
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="btn-row">
+    <button class="btn-arcade" onclick="doClear()">け す</button>
+    <button class="btn-arcade btn-attack" onclick="doAttack()">
+      ▶ こうげき！
+    </button>
+    <button class="btn-arcade" onclick="">す き っ ぷ</button>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <span class="credit-text">CREDIT 03</span>
+    <span class="level-badge">LV.04  XP:320</span>
+  </div>
+
+</div>
+
+<script>
+  let attacking = false;
+
+  function doAttack() {
+    if (attacking) return;
+    attacking = true;
+
+    // hero → attack pose
+    document.getElementById('hero-img').src = 'senshi_kougeki.png';
+
+    // show beam + flash
+    const beam = document.getElementById('beam');
+    const flash = document.getElementById('flash');
+    const fb = document.getElementById('feedback');
+    const fbText = document.getElementById('feedback-text');
+
+    beam.style.display = 'block';
+    beam.style.animation = 'none';
+    void beam.offsetWidth;
+    beam.style.animation = 'beam-shoot 0.9s ease-out forwards';
+
+    flash.style.display = 'block';
+    flash.style.animation = 'none';
+    void flash.offsetWidth;
+    flash.style.animation = 'crt-flash-anim 1.2s ease-out forwards';
+
+    fbText.textContent = 'ヒット!!';
+    fb.style.display = 'flex';
+
+    // shake arena
+    const arena = document.getElementById('arena');
+    arena.style.animation = 'none';
+    void arena.offsetWidth;
+    arena.style.animation = 'screen-shake-pixel 0.4s steps(4) forwards';
+
+    setTimeout(() => {
+      beam.style.display = 'none';
+      flash.style.display = 'none';
+      fb.style.display = 'none';
+      document.getElementById('hero-img').src = 'senshi_migi.png';
+      arena.style.animation = 'none';
+      attacking = false;
+    }, 1300);
+  }
+
+  function doClear() {
+    document.getElementById('guide-char').style.opacity = '0.06';
+  }
+
+  // add pixel shake keyframe dynamically
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes screen-shake-pixel {
+      0%   { transform: translate(0,0); }
+      25%  { transform: translate(-4px, 2px); }
+      50%  { transform: translate(4px, -2px); }
+      75%  { transform: translate(-2px, 1px); }
+      100% { transform: translate(0,0); }
+    }
+  `;
+  document.head.appendChild(style);
+</script>
+</body>
+</html>
