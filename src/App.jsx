@@ -1,19 +1,19 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
 // ============================================================
-// DESIGN TOKENS (画像トーン: 暗赤シネマ)
+// DESIGN TOKENS (アーケード/CRT パレット)
 // ============================================================
 const C = {
-  bg:       "#090909",
-  surface:  "rgba(18,8,8,0.92)",
-  primary:  "#ef4444",     // 赤
-  primaryD: "#dc2626",
-  primaryG: "rgba(239,68,68,0.25)",
-  teal:     "#0ea5e9",     // 青緑 (アクセント)
-  gold:     "#fbbf24",
-  text:     "#f1f5f9",
-  muted:    "#64748b",
-  border:   "rgba(239,68,68,0.45)",
+  bg:       "#040a04",
+  surface:  "rgba(4,16,4,0.94)",
+  primary:  "#ff2222",     // あか
+  primaryD: "#cc0000",
+  primaryG: "rgba(255,34,34,0.20)",
+  teal:     "#00e5ff",     // しあん
+  gold:     "#ffb800",     // あんばー
+  text:     "#39ff14",     // ふぉすふぁ グリーン
+  muted:    "#1a6b1a",
+  border:   "rgba(57,255,20,0.35)",
 };
 
 // ============================================================
@@ -447,16 +447,41 @@ function KaijuSVG({ size = 120, style = {} }) {
 }
 
 // ============================================================
-// CITY BOKEH BACKGROUND
+// STARFIELD BACKGROUND
 // ============================================================
 function CityBokeh() {
+  const stars = [
+    { top:"5%",  left:"12%",  size:2, delay:"0s",    dur:"2.8s" },
+    { top:"12%", left:"78%",  size:1, delay:"0.4s",  dur:"3.2s" },
+    { top:"8%",  left:"45%",  size:2, delay:"1.1s",  dur:"2.5s" },
+    { top:"20%", left:"90%",  size:1, delay:"0.7s",  dur:"3.8s" },
+    { top:"18%", left:"30%",  size:1, delay:"0.2s",  dur:"2.9s" },
+    { top:"32%", left:"5%",   size:2, delay:"1.5s",  dur:"3.1s" },
+    { top:"35%", left:"60%",  size:1, delay:"0.9s",  dur:"2.6s" },
+    { top:"28%", left:"82%",  size:2, delay:"0.3s",  dur:"3.5s" },
+    { top:"45%", left:"22%",  size:1, delay:"1.8s",  dur:"2.7s" },
+    { top:"50%", left:"70%",  size:2, delay:"0.6s",  dur:"3.0s" },
+    { top:"55%", left:"38%",  size:1, delay:"1.2s",  dur:"2.4s" },
+    { top:"60%", left:"88%",  size:2, delay:"0.1s",  dur:"3.6s" },
+    { top:"65%", left:"15%",  size:1, delay:"2.0s",  dur:"2.8s" },
+    { top:"70%", left:"52%",  size:2, delay:"0.8s",  dur:"3.3s" },
+    { top:"78%", left:"75%",  size:1, delay:"1.4s",  dur:"2.9s" },
+    { top:"82%", left:"8%",   size:2, delay:"0.5s",  dur:"3.7s" },
+    { top:"88%", left:"35%",  size:1, delay:"1.7s",  dur:"2.5s" },
+    { top:"92%", left:"65%",  size:2, delay:"0.0s",  dur:"3.4s" },
+    { top:"3%",  left:"55%",  size:1, delay:"2.3s",  dur:"2.6s" },
+    { top:"40%", left:"95%",  size:2, delay:"1.0s",  dur:"3.0s" },
+  ];
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-      <div style={{ position:"absolute", width:380, height:380, background:"#f97316", filter:"blur(110px)", opacity:0.13, top:"10%", left:"-8%" }} />
-      <div style={{ position:"absolute", width:300, height:300, background:"#ea580c", filter:"blur(90px)",  opacity:0.12, top:"5%",  right:"-5%" }} />
-      <div style={{ position:"absolute", width:260, height:260, background:"#b45309", filter:"blur(100px)", opacity:0.10, bottom:"15%", left:"15%" }} />
-      <div style={{ position:"absolute", width:200, height:200, background:"#0f766e", filter:"blur(80px)",  opacity:0.08, bottom:"20%", right:"10%" }} />
-      <div style={{ position:"absolute", width:150, height:150, background:"#dc2626", filter:"blur(70px)",  opacity:0.07, top:"50%",  left:"40%" }} />
+      {stars.map((s, i) => (
+        <div key={i} style={{
+          position:"absolute", top:s.top, left:s.left,
+          width:s.size, height:s.size, borderRadius:"50%",
+          background:"#39ff14",
+          animation:`twinkle ${s.dur} ${s.delay} ease-in-out infinite`,
+        }} />
+      ))}
     </div>
   );
 }
@@ -581,8 +606,60 @@ function ShuwatchText({ show }) {
 // GLOBAL CSS
 // ============================================================
 const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: ${C.bg}; }
+  body {
+    background: #000;
+    font-family: 'Press Start 2P', monospace;
+  }
+  .arcade-cabinet {
+    position: relative;
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    background: ${C.bg};
+    border-left:  2px solid #111;
+    border-right: 2px solid #111;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .arcade-cabinet::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.18) 2px,
+      rgba(0,0,0,0.18) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    animation: scanline 0.12s linear infinite;
+  }
+
+  @keyframes amber-flicker {
+    0%,19%,21%,23%,25%,54%,56%,100% { opacity:1; }
+    20%,22%,24%,55% { opacity:0.6; }
+  }
+  @keyframes phosphor-glow {
+    0%,100% { text-shadow: 0 0 4px #39ff14, 0 0 10px #39ff14; }
+    50%     { text-shadow: 0 0 8px #39ff14, 0 0 24px #39ff14, 0 0 40px #39ff14; }
+  }
+  @keyframes seg-pulse {
+    0%,100% { box-shadow: 0 0 6px #ffb800, inset 0 0 4px #ffb800; }
+    50%     { box-shadow: 0 0 14px #ffb800, inset 0 0 10px #ffb800; }
+  }
+  @keyframes hint-blink {
+    0%,49% { opacity:1; }
+    50%,100% { opacity:0; }
+  }
+  @keyframes crt-on {
+    0%   { transform: scaleY(0.01) scaleX(1); opacity:0.8; }
+    30%  { transform: scaleY(1)    scaleX(1); opacity:1; }
+    100% { transform: scaleY(1)    scaleX(1); opacity:1; }
+  }
 
   @keyframes twinkle {
     0%,100% { opacity:0.15; transform:scale(0.7); }
@@ -3160,8 +3237,9 @@ export default function App() {
   }, [screen]);
 
   return (
-    <div onContextMenu={(e) => e.preventDefault()}>
+    <div onContextMenu={(e) => e.preventDefault()} style={{ background:"#000", minHeight:"100dvh" }}>
       <style>{GLOBAL_CSS + TRANSITION_CSS}</style>
+      <div className="arcade-cabinet">
       <ScreenTransition screenKey={screen}>
         {screen === "home"   && (
           <HomeScreen
@@ -3188,6 +3266,7 @@ export default function App() {
         {screen === "tokkun"   && <TokkunScreen   onHome={() => go("home")} />}
         {screen === "zukan"    && <ZukanScreen    onHome={() => go("home")} />}
       </ScreenTransition>
+      </div>
     </div>
   );
 }
