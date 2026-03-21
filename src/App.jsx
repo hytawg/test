@@ -1022,6 +1022,11 @@ function evalCoverage(guideKana, tracingCanvas) {
   gCtx.font         = `900 ${size * 0.77}px 'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif`;
   gCtx.textAlign    = "center";
   gCtx.textBaseline = "middle";
+  // シャドウで判定ゾーンを周囲に広げ、ズレに寛容にする
+  gCtx.shadowBlur   = size * 0.06;
+  gCtx.shadowColor  = "white";
+  gCtx.fillText(guideKana, size / 2, size / 2);
+  gCtx.shadowBlur   = 0;
   gCtx.fillText(guideKana, size / 2, size / 2);
 
   const gPx = gCtx.getImageData(0, 0, guide.width, guide.height).data;
