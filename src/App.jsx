@@ -1601,13 +1601,13 @@ function BattleScreen({ onHome, enemy }) {
           {/* 勝利：戦士ズームイン→飛び立ちアニメ */}
           {isWin && (
             <img
-              src="/senshi_clear.png"
+              src={`${import.meta.env.BASE_URL}senshi_clear.png`}
               alt="しょうり"
               style={{
                 width:"min(72vw, 340px)",
-                objectFit:"contain",
+                height:"auto",
                 animation:"senshiZoomIn 3.2s cubic-bezier(0.22,1,0.36,1) forwards",
-                filter:"drop-shadow(0 0 32px rgba(100,200,255,0.7)) drop-shadow(0 0 16px rgba(255,255,255,0.5))",
+                filter:"drop-shadow(0 0 32px rgba(100,200,255,0.7))",
                 pointerEvents:"none",
               }}
             />
