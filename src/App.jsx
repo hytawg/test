@@ -1963,7 +1963,7 @@ function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
           strokeDasharray="4 3"
         />
 
-        {/* ガイド文字：常に明朝体フォントで描画（evalCoverageと同じ中央配置） */}
+        {/* ガイド文字：明朝体フォントのみで描画（書き順パスは重ねない） */}
         {!freeWrite && (
           <text
             x="50" y="50"
@@ -1972,22 +1972,9 @@ function TracingCanvas({ guideKana, onFirstStroke, freeWrite = false }) {
             fontSize="77"
             fontWeight="900"
             fontFamily="'Hiragino Mincho ProN','Yu Mincho','YuMincho','Noto Serif JP',serif"
-            fill={`rgba(231,19,44,${(STROKE_DATA[guideKana]||[]).length > 0 ? 0.15 : 0.38})`}
+            fill="rgba(231,19,44,0.38)"
           >{guideKana}</text>
         )}
-        {/* STROKE_DATA があれば筆順パスを上に重ねて表示 */}
-        {!freeWrite && (STROKE_DATA[guideKana] || []).map((s, i) => (
-          <path
-            key={i}
-            d={s.d}
-            stroke="rgba(231,19,44,0.42)"
-            strokeWidth="4.5"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            transform="scale(0.9174)"
-          />
-        ))}
       </svg>
 
       {/* 描画キャンバス — 背景は透明にして下のガイドを見せる */}
