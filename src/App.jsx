@@ -345,7 +345,7 @@ const ENEMY_DEFS = [
   { id:2, name:"レッドキング", kana:["か","き","く"], color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy3.png" size={size} />  },
   { id:3, name:"ゴモラ",       kana:["さ","し","す"], color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy4.png" size={size} />  },
   { id:4, name:"ダダ",         kana:["た","ち","つ"], color:"#64748b", desc:"みつのかおのかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy5.png" size={size} />  },
-  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: SvgBemstar  },
+  { id:5, name:"ベムスター",   kana:["な","に","ぬ"], color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg src="/enemy6.png" size={size} />  },
 ];
 
 // ============================================================
