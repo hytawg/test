@@ -804,7 +804,7 @@ function Confetti() {
 // ============================================================
 // HOME SCREEN  (画像: 暗赤シネマ / Ultraman style)
 // ============================================================
-function HomeScreen({ onBattle, onTokkun, onZukan }) {
+function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
   const [xp,    setXp]    = useState(getXP);
   const [level, setLevel] = useState(() => calcLevel(getXP()));
   useEffect(() => { const v = getXP(); setXp(v); setLevel(calcLevel(v)); }, []);
@@ -1034,42 +1034,37 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
         </div>
 
         {/* second row: とっくん + ずかん */}
-        <div style={{ display:"flex", gap:10, width:"100%" }}>
-          <button
-            onClick={onTokkun}
-            style={{
-              flex:1, height:46,
-              background:"linear-gradient(180deg, rgba(28,16,16,0.92) 0%, rgba(14,8,8,0.96) 100%)",
-              border:"1px solid rgba(120,80,80,0.4)",
-              borderRadius:999,
-              color: C.muted,
-              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
-              fontWeight:700,
-              fontSize:"clamp(0.8rem, 3vw, 1rem)",
-              letterSpacing:"0.1em",
-              cursor:"pointer",
-            }}
-          >
-            ⚡ とっくん
-          </button>
-          <button
-            onClick={onZukan}
-            style={{
-              flex:1, height:46,
-              background:"linear-gradient(180deg, rgba(28,16,16,0.92) 0%, rgba(14,8,8,0.96) 100%)",
-              border:"1px solid rgba(120,80,80,0.4)",
-              borderRadius:999,
-              color: C.muted,
-              fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
-              fontWeight:700,
-              fontSize:"clamp(0.8rem, 3vw, 1rem)",
-              letterSpacing:"0.1em",
-              cursor:"pointer",
-            }}
-          >
-            📖 ずかん
-          </button>
-        </div>
+        {(() => {
+          const subBtnStyle = {
+            flex:1, height:46,
+            background:"linear-gradient(180deg, rgba(28,16,16,0.92) 0%, rgba(14,8,8,0.96) 100%)",
+            border:"1px solid rgba(120,80,80,0.4)",
+            borderRadius:999, color: C.muted,
+            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',monospace,sans-serif",
+            fontWeight:700, fontSize:"clamp(0.8rem, 3vw, 1rem)",
+            letterSpacing:"0.1em", cursor:"pointer",
+          };
+          return (<>
+            <div style={{ display:"flex", gap:10, width:"100%" }}>
+              <button onClick={onTokkun} style={subBtnStyle}>⚡ とっくん</button>
+              <button onClick={onZukan}  style={subBtnStyle}>📖 ずかん</button>
+            </div>
+            <button
+              onClick={onKakitori}
+              style={{
+                width:"100%", height:48,
+                background:"linear-gradient(180deg, rgba(8,24,32,0.95) 0%, rgba(4,14,20,0.98) 100%)",
+                border:`1.5px solid rgba(14,165,233,0.5)`,
+                borderRadius:999, color: C.teal,
+                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                fontWeight:900, fontSize:"clamp(0.85rem,3.2vw,1.05rem)",
+                letterSpacing:"0.1em", cursor:"pointer",
+                boxShadow:"0 0 12px rgba(14,165,233,0.2)",
+                transition:"all 0.2s",
+              }}
+            >✏ かきとりモード</button>
+          </>);
+        })()}
       </div>
 
       {/* bottom spacing */}
@@ -1689,7 +1684,7 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
 // ============================================================
 // TRACING CANVAS  (スタイラス・ペン入力)
 // ============================================================
-function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true }) {
+function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWrite = false }) {
   const canvasRef    = useRef(null);
   const isDrawing    = useRef(false);
   const lastPt       = useRef(null);
@@ -1820,9 +1815,10 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true }) {
         fontSize:"min(62vw, 340px)",
         fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
         fontWeight:900,
-        color:"rgba(231,19,44,0.40)",
+        color: freeWrite ? "transparent" : "rgba(231,19,44,0.40)",
         lineHeight:1,
         userSelect:"none", pointerEvents:"none",
+        transition:"color 0.25s",
       }}>{guideKana}</div>
 
       {/* 補助グリッド線 (縦横中心) */}
@@ -2106,6 +2102,342 @@ function TokkunScreen({ onHome }) {
               border:"1px solid rgba(120,60,60,0.5)",
               color: C.muted, fontFamily:"monospace",
               fontSize:"0.9rem", cursor:"pointer",
+            }}>ホームへ</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// KAKITORI SCREEN  (下書きなし自由書き判定)
+// ============================================================
+const KAKITORI_XP = 8; // 1文字成功で獲得するXP
+
+function KakitoriScreen({ onHome }) {
+  // スタンプ済み文字を優先、3文字未満なら全文字
+  const stamps  = useRef(getStamps()).current;
+  const raw     = useRef(
+    stamps.size >= 3
+      ? ALL_KANA.filter(k => stamps.has(k.kana))
+      : [...ALL_KANA]
+  ).current;
+  const deck    = useRef([...raw].sort(() => Math.random() - 0.5)).current;
+
+  const [idx,         setIdx]         = useState(0);
+  const [done,        setDone]        = useState(false);
+  const [hasStroke,   setHasStroke]   = useState(false);
+  const [phase,       setPhase]       = useState("idle"); // idle|ok|miss
+  const [peeking,     setPeeking]     = useState(false);
+  const [peekLock,    setPeekLock]    = useState(false); // クールダウン
+  const [confettiKey, setConfettiKey] = useState(0);
+  const [xpEarned,    setXpEarned]    = useState(0); // このセッションで稼いだXP
+  const [correctCount,setCorrectCount]= useState(0);
+  const canvasRef = useRef(null);
+
+  const card     = deck[idx];
+  const total    = deck.length;
+  const progress = Math.round((idx / total) * 100);
+
+  const getCanvas = () => canvasRef.current?.querySelector("canvas");
+  const clearCanvas = () => { getCanvas()?._clear?.(); setHasStroke(false); };
+
+  const goNext = useCallback(() => {
+    setPhase("idle"); setHasStroke(false);
+    if (idx + 1 >= total) { setDone(true); return; }
+    setIdx(i => i + 1);
+  }, [idx, total]);
+
+  const handleJudge = () => {
+    if (!hasStroke || phase !== "idle") return;
+    const canvas = getCanvas();
+    if (!canvas) return;
+    let cov = 0;
+    try { cov = evalCoverage(card.kana, canvas); } catch { setPhase("idle"); return; }
+
+    if (cov >= COVERAGE_THRESHOLD) {
+      speak(randItem(PRAISE));
+      setConfettiKey(k => k + 1);
+      saveStamp(card.kana);
+      addXP(KAKITORI_XP);
+      setXpEarned(n => n + KAKITORI_XP);
+      setCorrectCount(n => n + 1);
+      setPhase("ok");
+      setTimeout(goNext, 1200);
+    } else {
+      speak(randItem(ENCOURAGE));
+      setPhase("miss");
+      setTimeout(() => { clearCanvas(); setPhase("idle"); }, 900);
+    }
+  };
+
+  // チラ見: 文字を1.5秒だけ表示
+  const handlePeek = () => {
+    if (peekLock || peeking) return;
+    speak(card.kana, { rate: 0.75, pitch: 1.1 });
+    setPeeking(true);
+    setTimeout(() => {
+      setPeeking(false);
+      setPeekLock(true);
+      setTimeout(() => setPeekLock(false), 3000); // 3秒クールダウン
+    }, 1500);
+  };
+
+  const restart = () => {
+    deck.sort(() => Math.random() - 0.5);
+    setIdx(0); setDone(false); setHasStroke(false);
+    setPhase("idle"); setXpEarned(0); setCorrectCount(0);
+  };
+
+  return (
+    <div style={{
+      position:"relative", minHeight:"100dvh", width:"100%",
+      background: C.bg,
+      display:"flex", flexDirection:"column", alignItems:"center",
+      overflow:"hidden",
+    }}>
+      {confettiKey > 0 && <Confetti key={confettiKey}/>}
+      <CityBokeh />
+
+      {/* ── チラ見オーバーレイ ───────────────────────────── */}
+      {peeking && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:250, pointerEvents:"none",
+          display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center", gap:12,
+          background:"rgba(0,0,0,0.78)", backdropFilter:"blur(4px)",
+        }}>
+          <div style={{
+            fontSize:"min(48vw, 220px)",
+            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+            fontWeight:900, color:"rgba(255,255,255,0.95)",
+            textShadow:`0 0 40px ${C.teal}, 0 0 80px rgba(14,165,233,0.4)`,
+            lineHeight:1,
+            animation:"shuwatchAppear 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+          }}>{card.kana}</div>
+          <div style={{
+            fontFamily:"monospace", fontWeight:900,
+            fontSize:"clamp(1.2rem,4vw,1.6rem)",
+            color: C.teal, letterSpacing:"0.12em",
+            textShadow:`0 0 10px ${C.teal}`,
+          }}>{card.roma}</div>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.65rem", letterSpacing:"0.1em", marginTop:4 }}>
+            おぼえてね！
+          </div>
+        </div>
+      )}
+
+      {/* ── HEADER ─────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"14px 20px 8px",
+      }}>
+        <button onClick={onHome} style={{
+          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
+          borderRadius:8, color:C.primary, cursor:"pointer",
+          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
+        }}>← もどる</button>
+        <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
+          ✏ かきとりモード
+        </div>
+        <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
+          {idx + 1} / {total}
+        </div>
+      </div>
+
+      {/* ── プログレスバー ──────────────────────────────── */}
+      <div style={{ position:"relative", zIndex:10, width:"100%", maxWidth:520, padding:"0 20px 8px" }}>
+        <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden" }}>
+          <div style={{
+            height:"100%", width:`${progress}%`,
+            background:`linear-gradient(90deg, ${C.teal}, ${C.gold})`,
+            borderRadius:2, transition:"width 0.3s ease-out",
+          }} />
+        </div>
+      </div>
+
+      {/* ── メインエリア ────────────────────────────────── */}
+      {!done && (
+        <div style={{
+          position:"relative", zIndex:10, width:"100%", maxWidth:520,
+          padding:"0 20px",
+          display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+          flex:1,
+        }}>
+          {/* プロンプト */}
+          <div style={{
+            display:"flex", alignItems:"center", gap:10,
+            background:"rgba(14,165,233,0.1)",
+            border:"1px solid rgba(14,165,233,0.3)",
+            borderRadius:24, padding:"8px 22px",
+          }}>
+            <span style={{
+              fontFamily:"monospace", fontWeight:900,
+              fontSize:"clamp(1rem,3.5vw,1.3rem)",
+              color: C.teal, letterSpacing:"0.14em",
+              textShadow:`0 0 10px ${C.teal}`,
+            }}>{card.roma}</span>
+            <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.6rem", letterSpacing:"0.1em" }}>
+              のもじをかいてみよう！
+            </span>
+          </div>
+
+          {/* キャンバス + 判定オーバーレイ */}
+          <div ref={canvasRef} style={{ width:"min(80vw, 440px)", position:"relative" }}>
+            <TracingCanvas
+              guideKana={card.kana}
+              onFirstStroke={() => setHasStroke(true)}
+              showStrokeBtn={false}
+              freeWrite={true}
+            />
+            {phase !== "idle" && (
+              <div style={{
+                position:"absolute", inset:0, zIndex:20, borderRadius:16,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                background: phase === "ok"
+                  ? "rgba(34,197,94,0.18)"
+                  : "rgba(239,68,68,0.18)",
+                border:`2.5px solid ${phase === "ok" ? "#22c55e" : "#ef4444"}`,
+                animation:"correctFlash 0.9s ease-out forwards",
+                pointerEvents:"none",
+              }}>
+                {/* 正解時は文字を表示 */}
+                {phase === "ok" && (
+                  <div style={{
+                    fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                    fontWeight:900, lineHeight:1,
+                    fontSize:"clamp(3rem,18vw,6rem)",
+                    color:"rgba(34,197,94,0.9)",
+                    textShadow:"0 0 24px rgba(34,197,94,0.8)",
+                    animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+                  }}>{card.kana}</div>
+                )}
+                {phase === "miss" && (
+                  <div style={{
+                    fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                    fontWeight:900, fontSize:"clamp(1.6rem,8vw,2.5rem)",
+                    color:"#f87171",
+                    textShadow:"0 0 20px rgba(239,68,68,0.9)",
+                    animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+                  }}>もう一度！</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* チラ見 + 操作ボタン */}
+          <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
+            {/* チラ見ボタン */}
+            <button
+              onClick={handlePeek}
+              disabled={peekLock || peeking || phase !== "idle"}
+              style={{
+                flex:1, height:52,
+                background: peekLock
+                  ? "rgba(14,30,30,0.6)"
+                  : "rgba(14,165,233,0.12)",
+                border:`1.5px solid ${peekLock ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.5)"}`,
+                borderRadius:12,
+                color: peekLock ? C.muted : C.teal,
+                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
+                fontWeight:700, fontSize:"0.85rem", letterSpacing:"0.06em",
+                cursor: (peekLock || peeking || phase !== "idle") ? "default" : "pointer",
+                opacity: phase !== "idle" ? 0.4 : 1,
+                transition:"all 0.2s",
+              }}
+            >{peekLock ? "⏳" : "👁 チラ見"}</button>
+
+            {/* 消すボタン */}
+            <button
+              onClick={clearCanvas}
+              disabled={!hasStroke || phase !== "idle"}
+              style={{
+                flex:1, height:52,
+                background:"rgba(22,10,10,0.85)",
+                border:"1.5px solid rgba(120,60,60,0.4)", borderRadius:12,
+                color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
+                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
+                cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+                opacity: hasStroke && phase === "idle" ? 1 : 0.4,
+                transition:"all 0.2s",
+              }}>消す</button>
+
+            {/* はんていボタン */}
+            <button
+              onClick={handleJudge}
+              disabled={!hasStroke || phase !== "idle"}
+              style={{
+                flex:2, height:52,
+                background: hasStroke && phase === "idle"
+                  ? `linear-gradient(180deg, ${C.teal} 0%, #0284c7 100%)`
+                  : "rgba(14,30,40,0.6)",
+                border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
+                color:"#fff",
+                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                fontWeight:900, fontSize:"clamp(0.9rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
+                cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+                opacity: hasStroke && phase === "idle" ? 1 : 0.45,
+                boxShadow: hasStroke && phase === "idle" ? `0 3px 14px rgba(14,165,233,0.5)` : "none",
+                transition:"all 0.2s",
+              }}>はんてい！</button>
+          </div>
+
+          {/* XPヒント */}
+          <div style={{
+            fontFamily:"monospace", fontSize:"0.6rem",
+            color:"rgba(14,165,233,0.5)", letterSpacing:"0.08em",
+          }}>
+            せいかいで +{KAKITORI_XP} XP
+          </div>
+        </div>
+      )}
+
+      {/* ── DONE OVERLAY ────────────────────────────────── */}
+      {done && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:100,
+          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(6px)",
+          display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center", gap:16,
+        }}>
+          <div style={{ fontSize:"4rem" }}>✏</div>
+          <div style={{
+            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+            fontWeight:900, fontSize:"clamp(1.4rem,6vw,2rem)",
+            color: C.gold, letterSpacing:"0.1em",
+            textShadow:"0 0 20px rgba(251,191,36,0.7)",
+          }}>かきとり かんりょう！</div>
+          <div style={{ display:"flex", gap:16, marginTop:4 }}>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color: C.muted, marginBottom:2 }}>せいかい</div>
+              <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1.2rem", color:"#86efac" }}>
+                {correctCount} / {total}
+              </div>
+            </div>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color: C.muted, marginBottom:2 }}>かくとく XP</div>
+              <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1.2rem", color: C.gold }}>
+                +{xpEarned}
+              </div>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:12, marginTop:8 }}>
+            <button onClick={restart} style={{
+              padding:"12px 28px", borderRadius:999,
+              background:`linear-gradient(180deg, ${C.teal}, #0284c7)`,
+              border:"none", color:"#fff",
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"0.95rem", letterSpacing:"0.1em",
+              cursor:"pointer", boxShadow:`0 4px 16px rgba(14,165,233,0.5)`,
+            }}>もういちど</button>
+            <button onClick={onHome} style={{
+              padding:"12px 28px", borderRadius:999,
+              background:"rgba(30,15,15,0.9)",
+              border:"1px solid rgba(120,60,60,0.5)",
+              color: C.muted, fontFamily:"monospace", fontSize:"0.9rem", cursor:"pointer",
             }}>ホームへ</button>
           </div>
         </div>
@@ -2562,9 +2894,10 @@ export default function App() {
       <ScreenTransition screenKey={screen}>
         {screen === "home"   && (
           <HomeScreen
-            onBattle={() => go("enemySelect")}
-            onTokkun={() => go("tokkun")}
-            onZukan ={() => go("zukan")}
+            onBattle   ={() => go("enemySelect")}
+            onTokkun   ={() => go("tokkun")}
+            onZukan    ={() => go("zukan")}
+            onKakitori ={() => go("kakitori")}
           />
         )}
         {screen === "enemySelect" && (
@@ -2574,8 +2907,9 @@ export default function App() {
           />
         )}
         {screen === "battle" && <BattleScreen onHome={() => go("home")} enemy={enemy} />}
-        {screen === "tokkun" && <TokkunScreen onHome={() => go("home")} />}
-        {screen === "zukan"  && <ZukanScreen  onHome={() => go("home")} />}
+        {screen === "tokkun"   && <TokkunScreen   onHome={() => go("home")} />}
+        {screen === "kakitori" && <KakitoriScreen onHome={() => go("home")} />}
+        {screen === "zukan"    && <ZukanScreen    onHome={() => go("home")} />}
       </ScreenTransition>
     </>
   );
