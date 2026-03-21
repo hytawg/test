@@ -353,6 +353,12 @@ const ENEMY_DEFS = [
   { id:3, name:"ごるどん",     row:"サぎょう",     kana:["さ","し","す","せ","そ"],       color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} /> },
   { id:4, name:"まんてぃす",   row:"タぎょう",     kana:["た","ち","つ","て","と"],       color:"#64748b", desc:"みつのかおのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} /> },
   { id:5, name:"おぶりびおん", row:"ナぎょう",     kana:["な","に","ぬ","ね","の"],       color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} /> },
+  { id:6, name:"いばらぎらん", row:"ハぎょう",     kana:["は","ひ","ふ","へ","ほ"],       color:"#16a34a", desc:"からだじゅうとげのあるかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy7.png" size={size} /> },
+  { id:7, name:"ぜろぎおす",   row:"マぎょう",     kana:["ま","み","む","め","も"],       color:"#4f46e5", desc:"くうかんをゆがめるかいじゅう",       Svg: ({ size }) => <EnemyImg file="enemy8.png" size={size} /> },
+  { id:8, name:"まぐねしる",   row:"ザぎょう",     kana:["ざ","じ","ず","ぜ","ぞ"],       color:"#0891b2", desc:"じばをあやつるかいじゅう",           Svg: ({ size }) => <EnemyImg file="enemy9.png" size={size} /> },
+  { id:9, name:"あんくがん",   row:"ヤぎょう",     kana:["や","ゆ","よ"],                 color:"#b45309", desc:"こだいからよみがえったかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
+  { id:10, name:"ぐらびどん",  row:"ラぎょう",     kana:["ら","り","る","れ","ろ"],       color:"#7c3aed", desc:"ちょうじゅうりょくのかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
+  { id:11, name:"ぐらびどん",  row:"ワぎょう",     kana:["わ","を","ん"],                 color:"#6d28d9", desc:"ちょうじゅうりょくのさいきょうかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy10.png" size={size} /> },
 ];
 
 // ============================================================
