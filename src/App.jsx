@@ -20,17 +20,17 @@ const C = {
 // HIRAGANA DATA  (50音 × かいじゅう)
 // ============================================================
 const HIRAGANA_ROWS = [
-  { row: "ア行", kana: ["あ","い","う","え","お"], roma: ["a","i","u","e","o"] },
-  { row: "カ行", kana: ["か","き","く","け","こ"], roma: ["ka","ki","ku","ke","ko"] },
-  { row: "サ行", kana: ["さ","し","す","せ","そ"], roma: ["sa","shi","su","se","so"] },
-  { row: "タ行", kana: ["た","ち","つ","て","と"], roma: ["ta","chi","tsu","te","to"] },
-  { row: "ナ行", kana: ["な","に","ぬ","ね","の"], roma: ["na","ni","nu","ne","no"] },
-  { row: "ハ行", kana: ["は","ひ","ふ","へ","ほ"], roma: ["ha","hi","fu","he","ho"] },
-  { row: "マ行", kana: ["ま","み","む","め","も"], roma: ["ma","mi","mu","me","mo"] },
-  { row: "ザ行", kana: ["ざ","じ","ず","ぜ","ぞ"], roma: ["za","ji","zu","ze","zo"] },
-  { row: "ヤ行", kana: ["や","ゆ","よ"],           roma: ["ya","yu","yo"] },
-  { row: "ラ行", kana: ["ら","り","る","れ","ろ"], roma: ["ra","ri","ru","re","ro"] },
-  { row: "ワ行", kana: ["わ","を","ん"],           roma: ["wa","wo","n"] },
+  { row: "アぎょう", kana: ["あ","い","う","え","お"], roma: ["a","i","u","e","o"] },
+  { row: "カぎょう", kana: ["か","き","く","け","こ"], roma: ["ka","ki","ku","ke","ko"] },
+  { row: "サぎょう", kana: ["さ","し","す","せ","そ"], roma: ["sa","shi","su","se","so"] },
+  { row: "タぎょう", kana: ["た","ち","つ","て","と"], roma: ["ta","chi","tsu","te","to"] },
+  { row: "ナぎょう", kana: ["な","に","ぬ","ね","の"], roma: ["na","ni","nu","ne","no"] },
+  { row: "ハぎょう", kana: ["は","ひ","ふ","へ","ほ"], roma: ["ha","hi","fu","he","ho"] },
+  { row: "マぎょう", kana: ["ま","み","む","め","も"], roma: ["ma","mi","mu","me","mo"] },
+  { row: "ザぎょう", kana: ["ざ","じ","ず","ぜ","ぞ"], roma: ["za","ji","zu","ze","zo"] },
+  { row: "ヤぎょう", kana: ["や","ゆ","よ"],           roma: ["ya","yu","yo"] },
+  { row: "ラぎょう", kana: ["ら","り","る","れ","ろ"], roma: ["ra","ri","ru","re","ro"] },
+  { row: "ワぎょう", kana: ["わ","を","ん"],           roma: ["wa","wo","n"] },
 ];
 const ALL_KANA = [
   ...HIRAGANA_ROWS.flatMap((r) => r.kana.map((k, i) => ({ kana: k, roma: r.roma[i] }))),
@@ -51,7 +51,7 @@ function speak(text, { rate = 0.9, pitch = 1.3 } = {}) {
   window.speechSynthesis.speak(u);
 }
 
-// ── スタンプ帳 (localStorage) ────────────────────────────────
+// ── スタンプちょう (localStorage) ────────────────────────────────
 const STAMP_KEY = "yuzuki_stamps_v1";
 function getStamps()     { try { return new Set(JSON.parse(localStorage.getItem(STAMP_KEY) || "[]")); } catch { return new Set(); } }
 function saveStamp(kana) { const s = getStamps(); s.add(kana); localStorage.setItem(STAMP_KEY, JSON.stringify([...s])); }
@@ -348,11 +348,11 @@ const ENEMY_DEFS = [
   // ステージ1: あわがゆずきの6文字 (とくべつステージ)
   { id:0, name:"いせりある",   row:"とくべつ", kana:["あ","わ","が","ゆ","ず","き"], color:"#8b5cf6", desc:"でんきのかいじゅう",     Svg: ({ size }) => <EnemyImg file="enemy1.png" size={size} /> },
   // ステージ2以降: 各行5文字
-  { id:1, name:"ごらいあす",   row:"ア行",     kana:["あ","い","う","え","お"],       color:"#0ea5e9", desc:"うちゅうのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy2.png" size={size} /> },
-  { id:2, name:"がいあ",       row:"カ行",     kana:["か","き","く","け","こ"],       color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy3.png" size={size} /> },
-  { id:3, name:"ごるどん",     row:"サ行",     kana:["さ","し","す","せ","そ"],       color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} /> },
-  { id:4, name:"まんてぃす",   row:"タ行",     kana:["た","ち","つ","て","と"],       color:"#64748b", desc:"みつのかおのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} /> },
-  { id:5, name:"おぶりびおん", row:"ナ行",     kana:["な","に","ぬ","ね","の"],       color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} /> },
+  { id:1, name:"ごらいあす",   row:"アぎょう",     kana:["あ","い","う","え","お"],       color:"#0ea5e9", desc:"うちゅうのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy2.png" size={size} /> },
+  { id:2, name:"がいあ",       row:"カぎょう",     kana:["か","き","く","け","こ"],       color:"#f97316", desc:"ちからじまんのかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy3.png" size={size} /> },
+  { id:3, name:"ごるどん",     row:"サぎょう",     kana:["さ","し","す","せ","そ"],       color:"#a16207", desc:"しっぽがつよいかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy4.png" size={size} /> },
+  { id:4, name:"まんてぃす",   row:"タぎょう",     kana:["た","ち","つ","て","と"],       color:"#64748b", desc:"みつのかおのかいじゅう",   Svg: ({ size }) => <EnemyImg file="enemy5.png" size={size} /> },
+  { id:5, name:"おぶりびおん", row:"ナぎょう",     kana:["な","に","ぬ","ね","の"],       color:"#f59e0b", desc:"おなかでたべるかいじゅう", Svg: ({ size }) => <EnemyImg file="enemy6.png" size={size} /> },
 ];
 
 // ============================================================
@@ -910,7 +910,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
               color: C.gold, letterSpacing:"0.06em",
             }}>Lv.{level}</span>
             <span style={{ fontFamily:"monospace", fontSize:"0.58rem", color: C.muted, letterSpacing:"0.05em" }}>
-              {level < LEVEL_MAX ? `次のレベルまで ${LEVEL_XP[level] - xp} XP` : "MAX LEVEL！"}
+              {level < LEVEL_MAX ? `つぎのれべるまで ${LEVEL_XP[level] - xp} XP` : "MAX LEVEL！"}
             </span>
           </div>
           <span style={{ fontFamily:"monospace", fontSize:"0.58rem", color:"rgba(251,191,36,0.6)" }}>
@@ -936,7 +936,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
         padding:"0 24px",
         display:"flex", flexDirection:"column", alignItems:"center", gap:12,
       }}>
-        {/* なぞりもーど — big red pill */}
+        {/* なぞりばとる — big red pill */}
         <div style={{ position:"relative", width:"100%" }}>
           <div style={{
             position:"absolute", inset:-5,
@@ -956,7 +956,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
               boxShadow:"0 0 20px rgba(239,68,68,0.4)",
               animation:"btnPulse 2s ease-in-out infinite",
             }}
-          >🖊 なぞりもーど</button>
+          >🖊 なぞりばとる</button>
         </div>
 
         {/* かきとりバトル — big purple pill */}
@@ -1338,7 +1338,7 @@ function BattleScreen({ onHome, enemy }) {
             textShadow:`0 0 10px ${C.teal}`,
           }}>{kana.roma}</span>
           <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
-            この文字をなぞれ！
+            このもじをなぞれ！
           </span>
           <button
             onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
@@ -1380,7 +1380,7 @@ function BattleScreen({ onHome, enemy }) {
               cursor: hasStroke && phase === "idle" ? "pointer" : "default",
               opacity: hasStroke && phase === "idle" ? 1 : 0.4,
               transition:"all 0.2s",
-            }}>消す</button>
+            }}>けす</button>
 
           <button onClick={handleAttack} disabled={!hasStroke || phase !== "idle"}
             style={{
@@ -1580,7 +1580,7 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
         {/* ヘッダー */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <div style={{ fontSize:"1.1rem", fontWeight:700, color:"#1e293b", fontFamily:"sans-serif" }}>
-            「{kana}」の書き順　<span style={{ fontSize:"0.8rem", color:"#64748b", fontWeight:400 }}>{strokes.length}画</span>
+            「{kana}」のかきじゅん　<span style={{ fontSize:"0.8rem", color:"#64748b", fontWeight:400 }}>{strokes.length}かく</span>
           </div>
           <button
             onClick={onDone}
@@ -1651,7 +1651,7 @@ function StrokeOrderGuide({ kana, visible, onDone }) {
 
         {/* フッター */}
         <div style={{ textAlign:"center", marginTop:16, color:"#94a3b8", fontSize:"0.7rem", fontFamily:"sans-serif" }}>
-          タップして閉じる
+          たっぷしてとじる
         </div>
       </div>
     </div>
@@ -1782,7 +1782,7 @@ function TracingCanvas({ guideKana, onFirstStroke, showStrokeBtn = true, freeWri
             letterSpacing:"0.08em", cursor:"pointer",
             pointerEvents:"auto",
           }}
-        >✍ 書き順</button>
+        >✍ かきじゅん</button>
       )}
 
       {/* 田字格グリッド + ガイド文字 (KanjiVG SVG) */}
@@ -2017,7 +2017,7 @@ function TokkunScreen({ onHome }) {
             color:"rgba(100,116,139,0.7)", letterSpacing:"0.1em",
             textAlign:"center",
           }}>
-            オレンジの文字をスタイラスでなぞろう
+            オレンジのもじをスタイラスでなぞろう
           </div>
 
           {/* 操作ボタン */}
@@ -2037,7 +2037,7 @@ function TokkunScreen({ onHome }) {
                 opacity: hasStroke && phase === "idle" ? 1 : 0.4,
                 transition:"all 0.2s",
               }}
-            >消す</button>
+            >けす</button>
             <button
               onClick={handleJudge}
               disabled={!hasStroke || phase !== "idle"}
@@ -2077,7 +2077,7 @@ function TokkunScreen({ onHome }) {
             textShadow:"0 0 20px rgba(251,191,36,0.7)",
           }}>とっくん かんりょう！</div>
           <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.75rem" }}>
-            {total}文字 なぞった！
+            {total}もじ なぞった！
           </div>
           <div style={{ display:"flex", gap:12, marginTop:8 }}>
             <button onClick={restart} style={{
@@ -2406,7 +2406,7 @@ function KakitoriScreen({ onHome, enemy }) {
             textShadow:`0 0 10px ${PP}`,
           }}>{kana.roma}</span>
           <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
-            この文字をかけ！
+            このもじをかけ！
           </span>
           <button
             onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
@@ -2450,7 +2450,7 @@ function KakitoriScreen({ onHome, enemy }) {
               cursor: hasStroke && phase === "idle" ? "pointer" : "default",
               opacity: hasStroke && phase === "idle" ? 1 : 0.4,
               transition:"all 0.2s",
-            }}>消す</button>
+            }}>けす</button>
 
           <button onClick={handleJudge} disabled={!hasStroke || phase !== "idle"}
             style={{
@@ -2880,7 +2880,7 @@ function ZukanScreen({ onHome }) {
           padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
         }}>← もどる</button>
         <div style={{ fontFamily:"monospace", fontSize:"0.8rem", letterSpacing:"0.12em", color: C.teal }}>
-          {tab === "kana" ? "📖 ひらがなずかん" : "⭐ スタンプ帳"}
+          {tab === "kana" ? "📖 ひらがなずかん" : "⭐ スタンプちょう"}
         </div>
         <div style={{ width:60 }} />
       </div>
