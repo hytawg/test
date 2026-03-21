@@ -520,89 +520,135 @@ function HomeScreen({ onBattle, onTokkun, onZukan }) {
 // ============================================================
 // BATTLE SCREEN
 // ============================================================
-const HERO_MAX_HP  = 5;
+const HERO_MAX_HP    = 5;
 const MONSTER_MAX_HP = 6;
+const COVERAGE_THRESHOLD = 0.38; // 38% 以上なぞれたら攻撃成功
+const MAX_MISS = 3;               // 3 回失敗でモンスターが反撃
 
-function makeQuestion(pool) {
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  const correct  = shuffled[0];
-  // wrong choices: 3 from whole ALL_KANA set (exclude correct)
-  const wrongs = ALL_KANA.filter(k => k.roma !== correct.roma)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
-  return {
-    kana:    correct.kana,
-    answer:  correct.roma,
-    options: [correct, ...wrongs].sort(() => Math.random() - 0.5).map(k => k.roma),
-  };
+// ガイド文字のピクセルをオフスクリーンCanvasに描画して
+// なぞりCanvasとのカバレッジを計算する
+function evalCoverage(guideKana, tracingCanvas) {
+  const dpr  = window.devicePixelRatio || 1;
+  const size = tracingCanvas.offsetWidth;
+
+  const guide  = document.createElement("canvas");
+  guide.width  = tracingCanvas.width;
+  guide.height = tracingCanvas.height;
+  const gCtx   = guide.getContext("2d");
+  gCtx.scale(dpr, dpr);
+  gCtx.fillStyle    = "white";
+  gCtx.font         = `900 ${size * 0.70}px 'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif`;
+  gCtx.textAlign    = "center";
+  gCtx.textBaseline = "middle";
+  gCtx.fillText(guideKana, size / 2, size / 2);
+
+  const gPx = gCtx.getImageData(0, 0, guide.width, guide.height).data;
+  const dPx = tracingCanvas.getContext("2d")
+    .getImageData(0, 0, tracingCanvas.width, tracingCanvas.height).data;
+
+  let total = 0, covered = 0;
+  for (let i = 3; i < gPx.length; i += 4) {
+    if (gPx[i] > 100) { total++; if (dPx[i] > 60) covered++; }
+  }
+  return total > 0 ? covered / total : 0;
 }
 
-function BattleScreen({ onHome }) {
-  const monsterEmoji = useRef(MONSTERS[Math.floor(Math.random() * MONSTERS.length)]).current;
-  const pool         = useRef(ALL_KANA).current;
+function randKana() {
+  return ALL_KANA[Math.floor(Math.random() * ALL_KANA.length)];
+}
+
+function BattleScreen({ onHome, heroImg, monsterImg }) {
+  const canvasWrapRef = useRef(null);
 
   const [heroHp,    setHeroHp]    = useState(HERO_MAX_HP);
   const [monsterHp, setMonsterHp] = useState(MONSTER_MAX_HP);
-  const [question,  setQuestion]  = useState(() => makeQuestion(pool));
-  const [phase,     setPhase]     = useState("idle"); // idle | correct | wrong | win | lose
+  const [kana,      setKana]      = useState(randKana);
+  const [phase,     setPhase]     = useState("idle"); // idle|checking|correct|miss|monsterAtk|win|lose
   const [score,     setScore]     = useState(0);
-  const [flash,     setFlash]     = useState(null);  // "correct" | "wrong" | null
+  const [missCount, setMissCount] = useState(0);
+  const [hasStroke, setHasStroke] = useState(false);
+  const [feedback,  setFeedback]  = useState(""); // overlay text
 
-  const nextQuestion = useCallback(() => {
-    setQuestion(makeQuestion(pool));
+  const heroDanger  = heroHp <= 2;
+  const isCorrect   = phase === "correct";
+  const isMonsterAtk = phase === "monsterAtk";
+  const isWin       = phase === "win";
+  const isLose      = phase === "lose";
+
+  const getCanvas = () => canvasWrapRef.current?.querySelector("canvas");
+
+  const goNextKana = useCallback((currentPhase, currentScore, curMHp, curHHp) => {
+    setFeedback("");
+    setHasStroke(false);
+    setMissCount(0);
+    if (curMHp <= 0) { setPhase("win");  return; }
+    if (curHHp <= 0) { setPhase("lose"); return; }
     setPhase("idle");
-    setFlash(null);
-  }, [pool]);
+    setKana(randKana());
+  }, []);
 
-  const handleAnswer = useCallback((chosen) => {
-    if (phase !== "idle") return;
+  // ── こうげき！ボタン ──────────────────────────────
+  const handleAttack = useCallback(() => {
+    if (phase !== "idle" || !hasStroke) return;
+    setPhase("checking");
 
-    if (chosen === question.answer) {
-      // ─ correct ─
-      setFlash("correct");
-      setPhase("correct");
+    const canvas = getCanvas();
+    if (!canvas) { setPhase("idle"); return; }
+
+    const cov = evalCoverage(kana.kana, canvas);
+
+    if (cov >= COVERAGE_THRESHOLD) {
+      // ヒット
       const nextMHp = monsterHp - 1;
       setMonsterHp(nextMHp);
       setScore(s => s + 10);
-      if (nextMHp <= 0) {
-        setTimeout(() => setPhase("win"), 700);
-      } else {
-        setTimeout(nextQuestion, 900);
-      }
+      setFeedback("シュワッチ！");
+      setPhase("correct");
+      setTimeout(() => goNextKana("correct", score + 10, nextMHp, heroHp), 1100);
     } else {
-      // ─ wrong ─
-      setFlash("wrong");
-      setPhase("wrong");
-      const nextHHp = heroHp - 1;
-      setHeroHp(nextHHp);
-      if (nextHHp <= 0) {
-        setTimeout(() => setPhase("lose"), 700);
+      // ミス
+      const newMiss = missCount + 1;
+      setMissCount(newMiss);
+      if (newMiss >= MAX_MISS) {
+        // モンスター反撃
+        setFeedback("やられた！");
+        setPhase("monsterAtk");
+        const nextHHp = heroHp - 1;
+        setHeroHp(nextHHp);
+        setTimeout(() => goNextKana("monsterAtk", score, monsterHp, nextHHp), 1000);
       } else {
-        setTimeout(nextQuestion, 900);
+        setFeedback(`もう一度！ (${newMiss}/${MAX_MISS})`);
+        setPhase("miss");
+        setTimeout(() => {
+          setPhase("idle");
+          setFeedback("");
+          getCanvas()?._clear?.();
+          setHasStroke(false);
+        }, 900);
       }
     }
-  }, [phase, question, monsterHp, heroHp, nextQuestion]);
+  }, [phase, hasStroke, kana, monsterHp, heroHp, missCount, score, goNextKana]);
 
-  const restart = () => {
-    setHeroHp(HERO_MAX_HP);
-    setMonsterHp(MONSTER_MAX_HP);
-    setScore(0);
-    setQuestion(makeQuestion(pool));
-    setPhase("idle");
-    setFlash(null);
+  // ── ギブアップ ──────────────────────────────────
+  const handleGiveUp = () => {
+    if (phase !== "idle") return;
+    const nextHHp = heroHp - 1;
+    setHeroHp(nextHHp);
+    goNextKana("giveup", score, monsterHp, nextHHp);
   };
 
-  const heroDanger   = heroHp <= 2;
-  const monsterDead  = phase === "win";
-  const heroDead     = phase === "lose";
+  // ── 消す ────────────────────────────────────────
+  const handleClear = () => {
+    if (phase !== "idle") return;
+    getCanvas()?._clear?.();
+    setHasStroke(false);
+  };
 
-  // option button color
-  const optionStyle = (opt) => {
-    if (phase === "idle") return {};
-    if (opt === question.answer && (phase === "correct" || phase === "wrong")) {
-      return { background:"rgba(34,197,94,0.3)", borderColor:"#22c55e", color:"#86efac" };
-    }
-    return {};
+  const restart = () => {
+    setHeroHp(HERO_MAX_HP); setMonsterHp(MONSTER_MAX_HP);
+    setScore(0); setPhase("idle");
+    setMissCount(0); setHasStroke(false); setFeedback("");
+    setKana(randKana());
   };
 
   return (
@@ -616,186 +662,236 @@ function BattleScreen({ onHome }) {
 
       {/* ── HEADER ─────────────────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:480,
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 6px",
+        padding:"12px 20px 4px",
       }}>
-        <button
-          onClick={onHome}
-          style={{
-            background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
-            borderRadius:8, color:C.primary, cursor:"pointer",
-            padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
-          }}
-        >
-          ← もどる
-        </button>
-        <div style={{
-          fontFamily:"monospace", fontSize:"0.75rem", color: C.muted, letterSpacing:"0.1em",
-        }}>
+        <button onClick={onHome} style={{
+          background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.3)",
+          borderRadius:8, color:C.primary, cursor:"pointer",
+          padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
+        }}>← もどる</button>
+        <div style={{ fontFamily:"monospace", fontSize:"0.75rem", color: C.muted }}>
           スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
         </div>
         <ColorTimer danger={heroDanger} />
       </div>
 
+      {/* ── HP BARS ────────────────────────────────────── */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"0 20px", display:"flex", gap:12,
+      }}>
+        <div style={{ flex:1 }}>
+          <HPBar hp={heroHp}    maxHp={HERO_MAX_HP}    label="⚡ ゆずき" />
+        </div>
+        <div style={{ flex:1 }}>
+          <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label="👾 かいじゅう" />
+        </div>
+      </div>
+
       {/* ── ARENA ──────────────────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:480,
-        padding:"0 20px", marginTop:4,
-        display:"flex", flexDirection:"column", gap:8,
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"6px 20px 0",
       }}>
-        {/* HP bars */}
-        <div style={{ display:"flex", gap:12 }}>
-          <div style={{ flex:1 }}>
-            <HPBar hp={heroHp}    maxHp={HERO_MAX_HP}    label="🦸 ゆずき" />
-          </div>
-          <div style={{ flex:1 }}>
-            <HPBar hp={monsterHp} maxHp={MONSTER_MAX_HP} label={`${monsterEmoji} かいじゅう`} />
-          </div>
-        </div>
-
-        {/* battlefield */}
         <div style={{
-          position:"relative", height:"min(42vw, 200px)",
-          background:"linear-gradient(180deg, rgba(20,8,8,0.7) 0%, rgba(10,4,4,0.9) 100%)",
-          border:"1px solid rgba(239,68,68,0.2)",
+          position:"relative", height:"min(36vw, 170px)",
+          background:"linear-gradient(180deg, rgba(20,8,8,0.75) 0%, rgba(8,4,4,0.92) 100%)",
+          border:"1px solid rgba(239,68,68,0.18)",
           borderRadius:12,
           display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"0 clamp(16px,6vw,40px)",
+          padding:"0 clamp(12px,5vw,36px)",
           overflow:"hidden",
-          animation: flash === "wrong" ? "screenShake 0.4s ease-out" : "none",
+          animation: isMonsterAtk ? "screenShake 0.45s ease-out" : "none",
         }}>
-          {/* scan lines */}
+          {/* scanlines */}
           <div style={{
             position:"absolute", inset:0, pointerEvents:"none",
-            background:"repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px)",
+            background:"repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px)",
           }} />
 
-          {/* correct flash overlay */}
-          {flash === "correct" && (
+          {/* 正解フラッシュ */}
+          {isCorrect && (
             <div style={{
-              position:"absolute", inset:0, borderRadius:12,
-              background:"rgba(34,197,94,0.15)",
-              animation:"correctFlash 0.8s ease-out forwards",
-              pointerEvents:"none", zIndex:5,
+              position:"absolute", inset:0, borderRadius:12, zIndex:5, pointerEvents:"none",
+              background:"rgba(34,197,94,0.12)",
+              animation:"correctFlash 1s ease-out forwards",
             }} />
           )}
 
-          {/* hero */}
+          {/* feedback テキスト */}
+          {feedback && (
+            <div style={{
+              position:"absolute", inset:0, zIndex:6, pointerEvents:"none",
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              <div style={{
+                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+                fontWeight:900,
+                fontSize:"clamp(1.2rem,5vw,1.8rem)",
+                color: isCorrect ? C.gold : "#f87171",
+                textShadow: isCorrect
+                  ? "0 0 16px rgba(251,191,36,0.9)"
+                  : "0 0 16px rgba(239,68,68,0.9)",
+                letterSpacing:"0.06em",
+                animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+              }}>{feedback}</div>
+            </div>
+          )}
+
+          {/* ヒーロー */}
           <div style={{
-            fontSize:"clamp(3rem,12vw,5rem)",
-            filter: heroDead
+            fontSize:"clamp(2.8rem,11vw,4.5rem)",
+            filter: isLose
               ? "grayscale(1) opacity(0.3)"
               : heroDanger
               ? "drop-shadow(0 0 14px rgba(255,50,50,0.9))"
               : "drop-shadow(0 0 10px rgba(100,180,255,0.6))",
-            animation: heroDead ? "none"
-              : flash === "wrong" ? "wrongShake 0.4s ease-out"
+            animation: isLose ? "none"
+              : isMonsterAtk ? "wrongShake 0.45s ease-out"
               : "heroFloat 3s ease-in-out infinite",
             userSelect:"none",
           }}>
-            🦸
+            {heroImg ? (
+              <img src={heroImg} alt="ゆずき"
+                style={{ height:"clamp(80px,28vw,130px)", objectFit:"contain",
+                  filter:"drop-shadow(0 0 10px rgba(100,180,255,0.6))" }} />
+            ) : "🦸"}
           </div>
 
-          {/* beam — only during correct phase */}
-          {flash === "correct" && (
+          {/* ビーム */}
+          {isCorrect && (
             <div style={{
               position:"absolute",
-              left:"clamp(60px,18vw,100px)",
-              right:"clamp(60px,18vw,100px)",
+              left:"clamp(55px,16vw,95px)",
+              right:"clamp(55px,16vw,95px)",
               top:"50%", transform:"translateY(-50%)",
               height:6, borderRadius:3,
               background:"linear-gradient(90deg, #38bdf8, #a78bfa, #f472b6)",
               boxShadow:"0 0 16px #38bdf8, 0 0 30px #a78bfa",
-              animation:"beamShoot 0.7s ease-out forwards",
+              animation:"beamShoot 0.8s ease-out forwards",
               transformOrigin:"left center",
               zIndex:4,
             }} />
           )}
 
-          {/* monster */}
+          {/* モンスター */}
           <div style={{
-            fontSize:"clamp(3rem,13vw,5.5rem)",
-            filter: monsterDead
+            filter: isWin
               ? "grayscale(1) opacity(0)"
               : "drop-shadow(0 0 12px rgba(239,68,68,0.6))",
-            animation: monsterDead ? "monsterDead 0.7s ease-out forwards"
-              : flash === "correct" ? "monsterHit 0.6s ease-out"
+            animation: isWin ? "monsterDead 0.7s ease-out forwards"
+              : isCorrect ? "monsterHit 0.6s ease-out"
               : "heroFloat 2.5s ease-in-out 0.4s infinite",
             userSelect:"none",
           }}>
-            {monsterEmoji}
+            {monsterImg ? (
+              <img src={monsterImg} alt="かいじゅう"
+                style={{ height:"clamp(80px,28vw,130px)", objectFit:"contain",
+                  filter:"drop-shadow(0 0 12px rgba(239,68,68,0.6))" }} />
+            ) : <span style={{ fontSize:"clamp(2.8rem,12vw,4.8rem)" }}>👾</span>}
           </div>
         </div>
       </div>
 
-      {/* ── QUESTION CARD ──────────────────────────────── */}
+      {/* ── なぞりエリア ────────────────────────────────── */}
       <div style={{
-        position:"relative", zIndex:10, width:"100%", maxWidth:480,
-        padding:"0 20px", marginTop:12,
-        display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"8px 20px 0",
+        display:"flex", flexDirection:"column", alignItems:"center", gap:8,
+        flex:1,
       }}>
-        {/* kana display */}
+        {/* 読み方ラベル */}
         <div style={{
-          background:"linear-gradient(135deg, rgba(20,8,8,0.9) 0%, rgba(12,4,4,0.95) 100%)",
-          border:`2px solid ${C.border}`,
-          borderRadius:16,
-          padding:"12px 40px",
-          boxShadow:`0 0 24px rgba(239,68,68,0.15), inset 0 0 16px rgba(239,68,68,0.05)`,
-          textAlign:"center",
+          display:"flex", alignItems:"center", gap:8,
+          background:"rgba(14,165,233,0.1)",
+          border:"1px solid rgba(14,165,233,0.3)",
+          borderRadius:24, padding:"5px 18px",
         }}>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.15em", marginBottom:4 }}>
-            よみかた は？
-          </div>
-          <div style={{
-            fontSize:"clamp(3.5rem,16vw,6rem)",
-            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-            fontWeight:900,
-            color: "#fff",
-            textShadow:"0 0 20px rgba(239,68,68,0.5), 3px 3px 0 rgba(185,28,28,0.4)",
-            lineHeight:1,
-            userSelect:"none",
-          }}>
-            {question.kana}
-          </div>
+          <span style={{
+            fontFamily:"monospace", fontWeight:900,
+            fontSize:"clamp(0.85rem,3vw,1.1rem)",
+            color: C.teal, letterSpacing:"0.12em",
+            textShadow:`0 0 10px ${C.teal}`,
+          }}>{kana.roma}</span>
+          <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
+            この文字をなぞれ！
+          </span>
         </div>
 
-        {/* answer options: 2×2 grid */}
-        <div style={{
-          display:"grid", gridTemplateColumns:"1fr 1fr", gap:10,
-          width:"100%",
-        }}>
-          {question.options.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => handleAnswer(opt)}
-              style={{
-                height: 54,
-                background:"linear-gradient(180deg, rgba(28,14,14,0.92) 0%, rgba(16,8,8,0.96) 100%)",
-                border:"1.5px solid rgba(120,60,60,0.5)",
-                borderRadius:12,
-                color: "#e2e8f0",
-                fontFamily:"monospace",
-                fontWeight:700,
-                fontSize:"clamp(1rem,4vw,1.25rem)",
-                letterSpacing:"0.08em",
-                cursor: phase !== "idle" ? "default" : "pointer",
-                transition:"all 0.15s",
-                ...optionStyle(opt),
-              }}
-            >
-              {opt}
-            </button>
-          ))}
+        {/* キャンバス */}
+        <div ref={canvasWrapRef} style={{ width:"min(68vw, 320px)" }}>
+          <TracingCanvas
+            guideKana={kana.kana}
+            onFirstStroke={() => setHasStroke(true)}
+          />
+        </div>
+
+        {/* ミス残り表示 */}
+        {missCount > 0 && phase === "idle" && (
+          <div style={{ display:"flex", gap:6 }}>
+            {Array.from({ length: MAX_MISS }).map((_, i) => (
+              <div key={i} style={{
+                width:10, height:10, borderRadius:"50%",
+                background: i < missCount ? "#ef4444" : "rgba(239,68,68,0.2)",
+                boxShadow: i < missCount ? "0 0 6px #ef4444" : "none",
+              }} />
+            ))}
+          </div>
+        )}
+
+        {/* ボタン */}
+        <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
+          <button onClick={handleClear} disabled={!hasStroke || phase !== "idle"}
+            style={{
+              flex:1, height:50,
+              background:"rgba(22,10,10,0.85)",
+              border:"1.5px solid rgba(120,60,60,0.4)", borderRadius:12,
+              color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
+              cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.4,
+              transition:"all 0.2s",
+            }}>消す</button>
+
+          <button onClick={handleAttack} disabled={!hasStroke || phase !== "idle"}
+            style={{
+              flex:2, height:50,
+              background: hasStroke && phase === "idle"
+                ? "linear-gradient(180deg,#f87171,#dc2626)"
+                : "rgba(60,20,20,0.6)",
+              border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
+              color:"#fff",
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"clamp(0.95rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
+              cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.45,
+              boxShadow: hasStroke && phase === "idle" ? "0 3px 14px rgba(239,68,68,0.45)" : "none",
+              transition:"all 0.2s",
+            }}>こうげき！</button>
+
+          <button onClick={handleGiveUp} disabled={phase !== "idle"}
+            style={{
+              flex:1, height:50,
+              background:"rgba(22,10,10,0.85)",
+              border:"1.5px solid rgba(120,60,60,0.4)", borderRadius:12,
+              color: C.muted,
+              fontFamily:"monospace", fontSize:"0.7rem", letterSpacing:"0.06em",
+              cursor: phase === "idle" ? "pointer" : "default",
+              opacity: phase === "idle" ? 1 : 0.4,
+            }}>スキップ</button>
         </div>
       </div>
+
+      <div style={{ height:16 }} />
 
       {/* ── WIN / LOSE OVERLAY ─────────────────────────── */}
-      {(phase === "win" || phase === "lose") && (
+      {(isWin || isLose) && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
-          background:"rgba(0,0,0,0.82)",
-          backdropFilter:"blur(6px)",
+          background:"rgba(0,0,0,0.82)", backdropFilter:"blur(6px)",
           display:"flex", flexDirection:"column",
           alignItems:"center", justifyContent:"center", gap:20,
         }}>
@@ -803,51 +899,33 @@ function BattleScreen({ onHome }) {
             fontSize:"clamp(3rem,14vw,5rem)",
             animation:"shuwatchAppear 0.55s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
           }}>
-            {phase === "win" ? "🏆" : "💀"}
+            {isWin ? "🏆" : "💀"}
           </div>
           <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-            fontWeight:900,
+            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif", fontWeight:900,
             fontSize:"clamp(1.5rem,7vw,2.5rem)",
-            color: phase === "win" ? C.gold : "#f87171",
-            textShadow: phase === "win"
-              ? "0 0 20px rgba(251,191,36,0.8)"
-              : "0 0 20px rgba(239,68,68,0.8)",
+            color: isWin ? C.gold : "#f87171",
+            textShadow: isWin ? "0 0 20px rgba(251,191,36,0.8)" : "0 0 20px rgba(239,68,68,0.8)",
             letterSpacing:"0.1em",
-          }}>
-            {phase === "win" ? "しょうり！" : "やられた…"}
-          </div>
+          }}>{isWin ? "しょうり！" : "やられた…"}</div>
           <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.8rem" }}>
             スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
           </div>
           <div style={{ display:"flex", gap:12, marginTop:8 }}>
-            <button
-              onClick={restart}
-              style={{
-                padding:"12px 32px", borderRadius:999,
-                background:"linear-gradient(180deg,#f87171,#dc2626)",
-                border:"none", color:"#fff",
-                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
-                cursor:"pointer",
-                boxShadow:"0 4px 16px rgba(239,68,68,0.5)",
-              }}
-            >
-              もういちど
-            </button>
-            <button
-              onClick={onHome}
-              style={{
-                padding:"12px 32px", borderRadius:999,
-                background:"rgba(30,15,15,0.9)",
-                border:"1px solid rgba(120,60,60,0.5)",
-                color: C.muted,
-                fontFamily:"monospace", fontSize:"0.9rem", letterSpacing:"0.08em",
-                cursor:"pointer",
-              }}
-            >
-              ホームへ
-            </button>
+            <button onClick={restart} style={{
+              padding:"12px 32px", borderRadius:999,
+              background:"linear-gradient(180deg,#f87171,#dc2626)",
+              border:"none", color:"#fff",
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
+              cursor:"pointer", boxShadow:"0 4px 16px rgba(239,68,68,0.5)",
+            }}>もういちど</button>
+            <button onClick={onHome} style={{
+              padding:"12px 32px", borderRadius:999,
+              background:"rgba(30,15,15,0.9)",
+              border:"1px solid rgba(120,60,60,0.5)",
+              color: C.muted, fontFamily:"monospace", fontSize:"0.9rem", cursor:"pointer",
+            }}>ホームへ</button>
           </div>
         </div>
       )}
@@ -1374,6 +1452,10 @@ function ScreenTransition({ screenKey, children }) {
 // ============================================================
 const SCREENS = ["home", "battle", "tokkun", "zukan"];
 
+// 画像URLをここで設定 (後から差し替え可)
+const HERO_IMG    = null; // 例: "https://i.imgur.com/xxx.png"
+const MONSTER_IMG = null;
+
 export default function App() {
   const [screen,  setScreen]  = useState("home");
   const [prevScr, setPrevScr] = useState(null);
@@ -1414,7 +1496,7 @@ export default function App() {
             onZukan ={() => go("zukan")}
           />
         )}
-        {screen === "battle" && <BattleScreen onHome={() => go("home")} />}
+        {screen === "battle" && <BattleScreen onHome={() => go("home")} heroImg={HERO_IMG} monsterImg={MONSTER_IMG} />}
         {screen === "tokkun" && <TokkunScreen onHome={() => go("home")} />}
         {screen === "zukan"  && <ZukanScreen  onHome={() => go("home")} />}
       </ScreenTransition>
