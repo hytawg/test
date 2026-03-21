@@ -936,33 +936,30 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
         padding:"0 24px",
         display:"flex", flexDirection:"column", alignItems:"center", gap:12,
       }}>
-        {/* しゅつげき — big red pill */}
+        {/* なぞりもーど — big red pill */}
         <div style={{ position:"relative", width:"100%" }}>
           <div style={{
             position:"absolute", inset:-5,
-            border:"1.5px dashed rgba(239,68,68,0.35)",
+            border:"1.5px dashed rgba(239,68,68,0.4)",
             borderRadius:999, pointerEvents:"none",
           }} />
           <button
             onClick={onBattle}
             style={{
-              width:"100%", height:62,
+              width:"100%", height:58,
               background:"linear-gradient(180deg, #f87171 0%, #dc2626 50%, #b91c1c 100%)",
               border:"2px solid rgba(255,255,255,0.18)",
               borderRadius:999, color:"#fff",
               fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-              fontWeight:900,
-              fontSize:"clamp(1.4rem, 5.5vw, 1.8rem)",
-              letterSpacing:"0.12em",
-              cursor:"pointer",
+              fontWeight:900, fontSize:"clamp(1.1rem,4.5vw,1.4rem)",
+              letterSpacing:"0.12em", cursor:"pointer",
+              boxShadow:"0 0 20px rgba(239,68,68,0.4)",
               animation:"btnPulse 2s ease-in-out infinite",
             }}
-          >
-            しゅつげき
-          </button>
+          >🖊 なぞりもーど</button>
         </div>
 
-        {/* かきとりバトル — big purple pill (HARD) */}
+        {/* かきとりバトル — big purple pill */}
         <div style={{ position:"relative", width:"100%" }}>
           <div style={{
             position:"absolute", inset:-5,
@@ -972,7 +969,7 @@ function HomeScreen({ onBattle, onTokkun, onZukan, onKakitori }) {
           <button
             onClick={onKakitori}
             style={{
-              width:"100%", height:54,
+              width:"100%", height:58,
               background:"linear-gradient(180deg, #c084fc 0%, #9333ea 50%, #7c3aed 100%)",
               border:"2px solid rgba(255,255,255,0.15)",
               borderRadius:999, color:"#fff",
@@ -2111,76 +2108,133 @@ function TokkunScreen({ onHome }) {
 const KAKITORI_XP = 8; // 1文字成功で獲得するXP
 
 function KakitoriScreen({ onHome, enemy }) {
-  const deck = useRef(kanaOf(enemy.kana).sort(() => Math.random() - 0.5)).current;
+  const PP = "#a855f7";
+  const PL = "#c084fc";
+  const PD = "#7c3aed";
 
-  const [idx,         setIdx]         = useState(0);
-  const [done,        setDone]        = useState(false);
+  const kanaSet     = useRef(kanaOf(enemy.kana)).current;
+  const pickKana    = useCallback(() => kanaSet[Math.floor(Math.random() * kanaSet.length)], [kanaSet]);
+  const canvasWrapRef = useRef(null);
+
+  const monsterMaxHp = kanaSet.length;
+
+  const [heroHp,    setHeroHp]    = useState(HERO_MAX_HP);
+  const [monsterHp, setMonsterHp] = useState(monsterMaxHp);
+  const [kana,      setKana]      = useState(pickKana);
+  const [phase,     setPhase]     = useState("idle"); // idle|checking|correct|miss|monsterAtk|win|lose
+  const [score,     setScore]     = useState(0);
+  const [missCount, setMissCount] = useState(0);
   const [hasStroke,   setHasStroke]   = useState(false);
-  const [phase,       setPhase]       = useState("idle"); // idle|ok|miss
-  const [peeking,     setPeeking]     = useState(false);
-  const [peekLock,    setPeekLock]    = useState(false); // クールダウン
+  const [feedback,    setFeedback]    = useState("");
   const [confettiKey, setConfettiKey] = useState(0);
-  const [xpEarned,    setXpEarned]    = useState(0); // このセッションで稼いだXP
-  const [correctCount,setCorrectCount]= useState(0);
-  const canvasRef = useRef(null);
+  const [xp,          setXp]          = useState(getXP);
+  const [leveledUp,   setLeveledUp]   = useState(false);
+  const [peeking,     setPeeking]     = useState(false);
+  const [peekLock,    setPeekLock]    = useState(false);
+  // 出題済みかなを追跡してすべて正解で勝利
+  const answered = useRef(new Set()).current;
 
-  const card     = deck[idx];
-  const total    = deck.length;
-  const progress = Math.round((idx / total) * 100);
+  const level       = calcLevel(xp);
+  const heroDanger  = heroHp <= 2;
+  const isCorrect   = phase === "correct";
+  const isMonsterAtk = phase === "monsterAtk";
+  const isWin       = phase === "win";
+  const isLose      = phase === "lose";
 
-  const getCanvas = () => canvasRef.current?.querySelector("canvas");
-  const clearCanvas = () => { getCanvas()?._clear?.(); setHasStroke(false); };
+  useEffect(() => { speak(kana.kana, { rate: 0.75, pitch: 1.1 }); }, [kana]);
 
-  const goNext = useCallback(() => {
-    setPhase("idle"); setHasStroke(false);
-    if (idx + 1 >= total) { setDone(true); return; }
-    setIdx(i => i + 1);
-  }, [idx, total]);
+  const getCanvas = () => canvasWrapRef.current?.querySelector("canvas");
 
-  const handleJudge = () => {
-    if (!hasStroke || phase !== "idle") return;
+  const goNextKana = useCallback((curMHp, curHHp, curScore) => {
+    setFeedback("");
+    setHasStroke(false);
+    setMissCount(0);
+    if (curMHp <= 0) { setPhase("win"); return; }
+    if (curHHp <= 0) { setPhase("lose"); return; }
+    setPhase("idle");
+    // まだ答えていないかなを優先
+    const remaining = kanaSet.filter(k => !answered.has(k.kana));
+    const next = remaining.length > 0
+      ? remaining[Math.floor(Math.random() * remaining.length)]
+      : pickKana();
+    setKana(next);
+  }, [kanaSet, answered, pickKana]);
+
+  const handleJudge = useCallback(() => {
+    if (phase !== "idle" || !hasStroke) return;
+    setPhase("checking");
     const canvas = getCanvas();
-    if (!canvas) return;
+    if (!canvas) { setPhase("idle"); return; }
     let cov = 0;
-    try { cov = evalCoverage(card.kana, canvas); } catch { setPhase("idle"); return; }
+    try { cov = evalCoverage(kana.kana, canvas); } catch { setPhase("idle"); return; }
 
     if (cov >= COVERAGE_THRESHOLD) {
+      const nextMHp  = monsterHp - 1;
+      const newScore = score + 10;
+      setMonsterHp(nextMHp);
+      setScore(newScore);
+      answered.add(kana.kana);
+      saveStamp(kana.kana);
+      if (nextMHp <= 0) {
+        const oldLv = calcLevel(xp);
+        const newXp = addXP(newScore);
+        setXp(newXp);
+        if (calcLevel(newXp) > oldLv) setLeveledUp(true);
+      }
+      setFeedback("シュワッチ！");
+      setPhase("correct");
       speak(randItem(PRAISE));
       setConfettiKey(k => k + 1);
-      saveStamp(card.kana);
-      addXP(KAKITORI_XP);
-      setXpEarned(n => n + KAKITORI_XP);
-      setCorrectCount(n => n + 1);
-      setPhase("ok");
-      setTimeout(goNext, 1200);
+      setTimeout(() => {
+        goNextKana(nextMHp, heroHp, newScore);
+        getCanvas()?._clear?.();
+      }, 1300);
     } else {
-      speak(randItem(ENCOURAGE));
-      setPhase("miss");
-      setTimeout(() => { clearCanvas(); setPhase("idle"); }, 900);
+      const newMiss = missCount + 1;
+      setMissCount(newMiss);
+      if (newMiss >= MAX_MISS) {
+        speak(randItem(ENCOURAGE));
+        setFeedback("やられた！");
+        setPhase("monsterAtk");
+        const nextHHp = heroHp - 1;
+        setHeroHp(nextHHp);
+        setTimeout(() => {
+          goNextKana(monsterHp, nextHHp, score);
+          getCanvas()?._clear?.();
+        }, 1000);
+      } else {
+        speak(randItem(ENCOURAGE));
+        setFeedback(`もう一度！ (${newMiss}/${MAX_MISS})`);
+        setPhase("miss");
+        setTimeout(() => {
+          setPhase("idle"); setFeedback("");
+          getCanvas()?._clear?.(); setHasStroke(false);
+        }, 900);
+      }
     }
-  };
+  }, [phase, hasStroke, kana, monsterHp, heroHp, missCount, score, goNextKana, answered, xp]);
 
-  // チラ見: 文字を1.5秒だけ表示
+  const handleClear = () => { if (phase !== "idle") return; getCanvas()?._clear?.(); setHasStroke(false); };
+
+  // チラ見: 1.5秒だけ文字表示
   const handlePeek = () => {
-    if (peekLock || peeking) return;
-    speak(card.kana, { rate: 0.75, pitch: 1.1 });
+    if (peekLock || peeking || phase !== "idle") return;
+    speak(kana.kana, { rate: 0.75, pitch: 1.1 });
     setPeeking(true);
     setTimeout(() => {
       setPeeking(false);
       setPeekLock(true);
-      setTimeout(() => setPeekLock(false), 3000); // 3秒クールダウン
+      setTimeout(() => setPeekLock(false), 3000);
     }, 1500);
   };
 
   const restart = () => {
-    deck.sort(() => Math.random() - 0.5);
-    setIdx(0); setDone(false); setHasStroke(false);
-    setPhase("idle"); setXpEarned(0); setCorrectCount(0);
+    answered.clear();
+    setHeroHp(HERO_MAX_HP); setMonsterHp(monsterMaxHp);
+    setScore(0); setPhase("idle"); setMissCount(0);
+    setHasStroke(false); setFeedback(""); setLeveledUp(false);
+    setXp(getXP()); setKana(pickKana());
   };
-
-  const PP = "#a855f7";
-  const PL = "#c084fc";
-  const PD = "#7c3aed";
 
   return (
     <div style={{
@@ -2191,11 +2245,7 @@ function KakitoriScreen({ onHome, enemy }) {
     }}>
       {confettiKey > 0 && <Confetti key={confettiKey}/>}
       <CityBokeh />
-      {/* 紫オーバーレイ */}
-      <div style={{
-        position:"absolute", inset:0, zIndex:1, pointerEvents:"none",
-        background:"rgba(88,28,135,0.2)",
-      }} />
+      <div style={{ position:"absolute", inset:0, zIndex:1, pointerEvents:"none", background:"rgba(88,28,135,0.18)" }} />
 
       {/* チラ見オーバーレイ */}
       {peeking && (
@@ -2212,16 +2262,11 @@ function KakitoriScreen({ onHome, enemy }) {
             textShadow:`0 0 40px ${PP}, 0 0 80px rgba(168,85,247,0.4)`,
             lineHeight:1,
             animation:"shuwatchAppear 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
-          }}>{card.kana}</div>
-          <div style={{
-            fontFamily:"monospace", fontWeight:900,
-            fontSize:"clamp(1.2rem,4vw,1.6rem)",
-            color: PP, letterSpacing:"0.12em",
-            textShadow:`0 0 10px ${PP}`,
-          }}>{card.roma}</div>
-          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.65rem", letterSpacing:"0.1em", marginTop:4 }}>
-            おぼえてね！
+          }}>{kana.kana}</div>
+          <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"clamp(1.2rem,4vw,1.6rem)", color:PP, letterSpacing:"0.12em" }}>
+            {kana.roma}
           </div>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.65rem", letterSpacing:"0.1em" }}>おぼえてね！</div>
         </div>
       )}
 
@@ -2229,7 +2274,7 @@ function KakitoriScreen({ onHome, enemy }) {
       <div style={{
         position:"relative", zIndex:10, width:"100%", maxWidth:520,
         display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"14px 20px 6px",
+        padding:"12px 20px 4px",
       }}>
         <button onClick={onHome} style={{
           background:"rgba(168,85,247,0.08)", border:"1px solid rgba(168,85,247,0.3)",
@@ -2237,224 +2282,256 @@ function KakitoriScreen({ onHome, enemy }) {
           padding:"6px 14px", fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.08em",
         }}>← もどる</button>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
-          <div style={{ fontFamily:"monospace", fontSize:"0.5rem", letterSpacing:"0.15em", color:PL, opacity:0.8 }}>
-            ⚔ HARD MODE
-          </div>
-          <div style={{ fontFamily:"monospace", fontSize:"0.75rem", letterSpacing:"0.1em", color:PP }}>
-            {enemy.name}
+          <div style={{ fontFamily:"monospace", fontSize:"0.45rem", color:PL, letterSpacing:"0.15em" }}>⚔ HARD MODE</div>
+          <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
+            スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
           </div>
         </div>
-        <div style={{ fontFamily:"monospace", fontSize:"0.7rem", color: C.muted }}>
-          {idx + 1} / {total}
-        </div>
+        <ColorTimer danger={heroDanger} />
       </div>
 
-      {/* プログレスバー */}
-      <div style={{ position:"relative", zIndex:10, width:"100%", maxWidth:520, padding:"0 20px 6px" }}>
-        <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden" }}>
-          <div style={{
-            height:"100%", width:`${progress}%`,
-            background:`linear-gradient(90deg, ${PD}, ${PP})`,
-            borderRadius:2, transition:"width 0.3s ease-out",
-          }} />
-        </div>
-      </div>
-
-      {/* 敵ミニ表示 */}
+      {/* HP BARS */}
       <div style={{
-        position:"relative", zIndex:10,
-        display:"flex", alignItems:"center", gap:12,
-        background:"rgba(88,28,135,0.15)",
-        border:"1px solid rgba(168,85,247,0.2)",
-        borderRadius:12, padding:"8px 18px",
-        marginBottom:6, width:"100%", maxWidth:520,
-        margin:"0 20px 8px",
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"0 20px", display:"flex", gap:12,
       }}>
-        <enemy.Svg size={36} />
         <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"monospace", fontSize:"0.45rem", color:PL, letterSpacing:"0.1em" }}>vs</div>
-          <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-            fontWeight:900, fontSize:"0.9rem", color:"#f1f5f9",
-          }}>{enemy.name}</div>
-          <div style={{ fontFamily:"monospace", fontSize:"0.45rem", color: C.muted, letterSpacing:"0.04em" }}>
-            {enemy.desc}
-          </div>
+          <HPBar hp={heroHp}    maxHp={HERO_MAX_HP}    label="⚡ ゆずき" />
         </div>
-        <div style={{
-          background:"rgba(168,85,247,0.18)",
-          border:"1px solid rgba(168,85,247,0.4)",
-          borderRadius:6, padding:"3px 10px",
-          fontFamily:"monospace", fontSize:"0.5rem",
-          color:PP, letterSpacing:"0.1em", fontWeight:700,
-        }}>NO GUIDE</div>
+        <div style={{ flex:1 }}>
+          <HPBar hp={monsterHp} maxHp={monsterMaxHp} label={`🦖 ${enemy.name}`} />
+        </div>
       </div>
 
-      {/* メインエリア */}
-      {!done && (
+      {/* ARENA */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"6px 20px 0",
+      }}>
         <div style={{
-          position:"relative", zIndex:10, width:"100%", maxWidth:520,
-          padding:"0 20px",
-          display:"flex", flexDirection:"column", alignItems:"center", gap:12,
-          flex:1,
+          position:"relative", height:"min(36vw, 160px)",
+          background:"linear-gradient(180deg, rgba(14,6,26,0.85) 0%, rgba(6,3,14,0.95) 100%)",
+          border:"1px solid rgba(168,85,247,0.2)",
+          borderRadius:12,
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"0 clamp(12px,5vw,36px)",
+          overflow:"hidden",
+          animation: isMonsterAtk ? "screenShake 0.45s ease-out" : "none",
         }}>
-          {/* プロンプト */}
+          {/* scanlines */}
           <div style={{
-            display:"flex", alignItems:"center", gap:10,
-            background:"rgba(168,85,247,0.1)",
-            border:"1px solid rgba(168,85,247,0.35)",
-            borderRadius:24, padding:"8px 22px",
-          }}>
-            <span style={{
-              fontFamily:"monospace", fontWeight:900,
-              fontSize:"clamp(1rem,3.5vw,1.3rem)",
-              color:PP, letterSpacing:"0.14em",
-              textShadow:`0 0 10px ${PP}`,
-            }}>{card.roma}</span>
-            <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.6rem", letterSpacing:"0.1em" }}>
-              のもじをかいてみよう！
-            </span>
-          </div>
-
-          {/* キャンバス + 判定オーバーレイ */}
-          <div ref={canvasRef} style={{ width:"min(80vw, 440px)", position:"relative" }}>
-            <TracingCanvas
-              guideKana={card.kana}
-              onFirstStroke={() => setHasStroke(true)}
-              showStrokeBtn={false}
-              freeWrite={true}
-            />
-            {phase !== "idle" && (
+            position:"absolute", inset:0, pointerEvents:"none",
+            background:"repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px)",
+          }} />
+          {/* 正解フラッシュ */}
+          {isCorrect && (
+            <div style={{
+              position:"absolute", inset:0, borderRadius:12, zIndex:5, pointerEvents:"none",
+              background:"rgba(168,85,247,0.15)",
+              animation:"correctFlash 1s ease-out forwards",
+            }} />
+          )}
+          {/* feedback */}
+          {feedback && (
+            <div style={{
+              position:"absolute", inset:0, zIndex:6, pointerEvents:"none",
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
               <div style={{
-                position:"absolute", inset:0, zIndex:20, borderRadius:16,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                background: phase === "ok" ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)",
-                border:`2.5px solid ${phase === "ok" ? "#22c55e" : "#ef4444"}`,
-                animation:"correctFlash 0.9s ease-out forwards",
-                pointerEvents:"none",
-              }}>
-                {phase === "ok" && (
-                  <div style={{
-                    fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                    fontWeight:900, lineHeight:1,
-                    fontSize:"clamp(3rem,18vw,6rem)",
-                    color:"rgba(34,197,94,0.9)",
-                    textShadow:"0 0 24px rgba(34,197,94,0.8)",
-                    animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
-                  }}>{card.kana}</div>
-                )}
-                {phase === "miss" && (
-                  <div style={{
-                    fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                    fontWeight:900, fontSize:"clamp(1.6rem,8vw,2.5rem)",
-                    color:"#f87171",
-                    textShadow:"0 0 20px rgba(239,68,68,0.9)",
-                    animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
-                  }}>もう一度！</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* チラ見 + 操作ボタン */}
-          <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
-            <button
-              onClick={handlePeek}
-              disabled={peekLock || peeking || phase !== "idle"}
-              style={{
-                flex:1, height:52,
-                background: peekLock ? "rgba(20,10,30,0.6)" : "rgba(168,85,247,0.12)",
-                border:`1.5px solid ${peekLock ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.5)"}`,
-                borderRadius:12,
-                color: peekLock ? C.muted : PP,
-                fontFamily:"'Hiragino Kaku Gothic Pro','Noto Sans JP',sans-serif",
-                fontWeight:700, fontSize:"0.85rem", letterSpacing:"0.06em",
-                cursor: (peekLock || peeking || phase !== "idle") ? "default" : "pointer",
-                opacity: phase !== "idle" ? 0.4 : 1,
-                transition:"all 0.2s",
-              }}
-            >{peekLock ? "⏳" : "👁 チラ見"}</button>
-
-            <button
-              onClick={clearCanvas}
-              disabled={!hasStroke || phase !== "idle"}
-              style={{
-                flex:1, height:52,
-                background:"rgba(14,8,24,0.85)",
-                border:"1.5px solid rgba(80,40,120,0.4)", borderRadius:12,
-                color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
                 fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
-                cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-                opacity: hasStroke && phase === "idle" ? 1 : 0.4,
-                transition:"all 0.2s",
-              }}>消す</button>
-
-            <button
-              onClick={handleJudge}
-              disabled={!hasStroke || phase !== "idle"}
-              style={{
-                flex:2, height:52,
-                background: hasStroke && phase === "idle"
-                  ? `linear-gradient(180deg, ${PL} 0%, ${PD} 100%)`
-                  : "rgba(20,10,40,0.6)",
-                border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
-                color:"#fff",
-                fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-                fontWeight:900, fontSize:"clamp(0.9rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
-                cursor: hasStroke && phase === "idle" ? "pointer" : "default",
-                opacity: hasStroke && phase === "idle" ? 1 : 0.45,
-                boxShadow: hasStroke && phase === "idle" ? `0 3px 14px rgba(168,85,247,0.5)` : "none",
-                transition:"all 0.2s",
-              }}>はんてい！</button>
+                fontWeight:900, fontSize:"clamp(1.2rem,5vw,1.8rem)",
+                color: isCorrect ? C.gold : "#f87171",
+                textShadow: isCorrect ? "0 0 16px rgba(251,191,36,0.9)" : "0 0 16px rgba(239,68,68,0.9)",
+                letterSpacing:"0.06em",
+                animation:"shuwatchAppear 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+              }}>{feedback}</div>
+            </div>
+          )}
+          {/* ヒーロー */}
+          <div style={{
+            filter: isLose ? "grayscale(1) opacity(0.3)"
+              : heroDanger ? "drop-shadow(0 0 14px rgba(255,80,80,0.9))"
+              : "drop-shadow(0 0 12px rgba(168,85,247,0.8))",
+            animation: isLose ? "none"
+              : isMonsterAtk ? "wrongShake 0.45s ease-out"
+              : "heroFloat 3s ease-in-out infinite",
+          }}>
+            <HeroImg size={Math.min(window.innerWidth * 0.2, 88)} mode={isCorrect ? "kougeki" : "migi"}/>
           </div>
-
-          <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color:"rgba(168,85,247,0.5)", letterSpacing:"0.08em" }}>
-            せいかいで +{KAKITORI_XP} XP
+          {/* ビーム (紫) */}
+          {isCorrect && (
+            <div style={{
+              position:"absolute",
+              left:"clamp(55px,16vw,95px)",
+              right:"clamp(55px,16vw,95px)",
+              top:"50%", transform:"translateY(-50%)",
+              height:6, borderRadius:3,
+              background:"linear-gradient(90deg, #a78bfa, #c084fc, #f472b6)",
+              boxShadow:"0 0 16px #a78bfa, 0 0 30px #c084fc",
+              animation:"beamShoot 0.8s ease-out forwards",
+              transformOrigin:"left center",
+              zIndex:4,
+            }} />
+          )}
+          {/* モンスター */}
+          <div style={{
+            filter: isWin ? "grayscale(1) opacity(0)" : `drop-shadow(0 0 14px ${enemy.color}99)`,
+            animation: isWin ? "monsterDead 0.7s ease-out forwards"
+              : isCorrect ? "monsterHit 0.6s ease-out"
+              : "heroFloat 2.5s ease-in-out 0.4s infinite",
+          }}>
+            <enemy.Svg size={Math.min(window.innerWidth * 0.22, 96)}/>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* DONE OVERLAY */}
-      {done && (
+      {/* 書き取りエリア */}
+      <div style={{
+        position:"relative", zIndex:10, width:"100%", maxWidth:520,
+        padding:"8px 20px 0",
+        display:"flex", flexDirection:"column", alignItems:"center", gap:8,
+        flex:1,
+      }}>
+        {/* 読み方ラベル */}
+        <div style={{
+          display:"flex", alignItems:"center", gap:8,
+          background:"rgba(168,85,247,0.1)",
+          border:`1px solid rgba(168,85,247,0.3)`,
+          borderRadius:24, padding:"5px 18px",
+        }}>
+          <span style={{
+            fontFamily:"monospace", fontWeight:900,
+            fontSize:"clamp(0.85rem,3vw,1.1rem)",
+            color:PP, letterSpacing:"0.12em",
+            textShadow:`0 0 10px ${PP}`,
+          }}>{kana.roma}</span>
+          <span style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.55rem", letterSpacing:"0.1em" }}>
+            この文字をかけ！
+          </span>
+          <button
+            onClick={() => speak(kana.kana, {rate:0.75, pitch:1.1})}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"2px 4px",lineHeight:1}}
+          >🔊</button>
+        </div>
+
+        {/* キャンバス */}
+        <div ref={canvasWrapRef} style={{ width:"min(68vw, 320px)" }}>
+          <TracingCanvas
+            guideKana={kana.kana}
+            onFirstStroke={() => setHasStroke(true)}
+            showStrokeBtn={false}
+            freeWrite={true}
+          />
+        </div>
+
+        {/* ミス残り */}
+        {missCount > 0 && phase === "idle" && (
+          <div style={{ display:"flex", gap:6 }}>
+            {Array.from({ length: MAX_MISS }).map((_, i) => (
+              <div key={i} style={{
+                width:10, height:10, borderRadius:"50%",
+                background: i < missCount ? "#ef4444" : "rgba(239,68,68,0.2)",
+                boxShadow: i < missCount ? "0 0 6px #ef4444" : "none",
+              }} />
+            ))}
+          </div>
+        )}
+
+        {/* ボタン */}
+        <div style={{ display:"flex", gap:10, width:"100%", maxWidth:380 }}>
+          <button onClick={handleClear} disabled={!hasStroke || phase !== "idle"}
+            style={{
+              flex:1, height:50,
+              background:"rgba(14,8,24,0.85)",
+              border:"1.5px solid rgba(80,40,120,0.4)", borderRadius:12,
+              color: hasStroke && phase === "idle" ? "#f87171" : C.muted,
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:700, fontSize:"0.9rem", letterSpacing:"0.08em",
+              cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.4,
+              transition:"all 0.2s",
+            }}>消す</button>
+
+          <button onClick={handleJudge} disabled={!hasStroke || phase !== "idle"}
+            style={{
+              flex:2, height:50,
+              background: hasStroke && phase === "idle"
+                ? `linear-gradient(180deg, ${PL}, ${PD})`
+                : "rgba(20,10,40,0.6)",
+              border:"2px solid rgba(255,255,255,0.12)", borderRadius:12,
+              color:"#fff",
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"clamp(0.95rem,3.5vw,1.1rem)", letterSpacing:"0.1em",
+              cursor: hasStroke && phase === "idle" ? "pointer" : "default",
+              opacity: hasStroke && phase === "idle" ? 1 : 0.45,
+              boxShadow: hasStroke && phase === "idle" ? `0 3px 14px rgba(168,85,247,0.5)` : "none",
+              transition:"all 0.2s",
+            }}>はんてい！</button>
+
+          <button onClick={handlePeek} disabled={peekLock || peeking || phase !== "idle"}
+            style={{
+              flex:1, height:50,
+              background: peekLock ? "rgba(20,10,30,0.6)" : "rgba(168,85,247,0.1)",
+              border:`1.5px solid ${peekLock ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.45)"}`,
+              borderRadius:12,
+              color: peekLock ? C.muted : PP,
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:700, fontSize:"0.75rem", letterSpacing:"0.04em",
+              cursor: (peekLock || peeking || phase !== "idle") ? "default" : "pointer",
+              opacity: phase !== "idle" ? 0.4 : 1,
+              transition:"all 0.2s",
+            }}>{peekLock ? "⏳" : "👁"}</button>
+        </div>
+      </div>
+
+      <div style={{ height:16 }} />
+
+      {/* WIN / LOSE OVERLAY */}
+      {(isWin || isLose) && (
         <div style={{
           position:"fixed", inset:0, zIndex:100,
-          background:"rgba(0,0,0,0.88)", backdropFilter:"blur(6px)",
+          background:"rgba(0,0,0,0.85)", backdropFilter:"blur(6px)",
           display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center", gap:16,
+          alignItems:"center", justifyContent:"center", gap:20,
         }}>
-          <div style={{ fontSize:"4rem" }}>⚔</div>
           <div style={{
-            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-            fontWeight:900, fontSize:"clamp(1.4rem,6vw,2rem)",
-            color:PP, letterSpacing:"0.1em",
-            textShadow:`0 0 20px rgba(168,85,247,0.7)`,
-          }}>かきとりバトル かんりょう！</div>
-          <div style={{ display:"flex", gap:16, marginTop:4 }}>
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color: C.muted, marginBottom:2 }}>せいかい</div>
-              <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1.2rem", color:"#86efac" }}>
-                {correctCount} / {total}
-              </div>
-            </div>
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color: C.muted, marginBottom:2 }}>かくとく XP</div>
-              <div style={{ fontFamily:"monospace", fontWeight:900, fontSize:"1.2rem", color: C.gold }}>
-                +{xpEarned}
-              </div>
-            </div>
+            fontSize:"clamp(3rem,14vw,5rem)",
+            animation:"shuwatchAppear 0.55s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+          }}>{isWin ? "🏆" : "💀"}</div>
+          <div style={{
+            fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif", fontWeight:900,
+            fontSize:"clamp(1.5rem,7vw,2.5rem)",
+            color: isWin ? PP : "#f87171",
+            textShadow: isWin ? `0 0 20px rgba(168,85,247,0.8)` : "0 0 20px rgba(239,68,68,0.8)",
+            letterSpacing:"0.1em",
+          }}>{isWin ? "かきとりバトル かんりょう！" : "やられた…"}</div>
+          <div style={{ color: C.muted, fontFamily:"monospace", fontSize:"0.8rem" }}>
+            スコア: <span style={{ color: C.gold, fontWeight:900 }}>{score}</span>
+            {isWin && <span style={{ color:PP, marginLeft:8 }}>+{score} XP</span>}
           </div>
+          {isWin && leveledUp && (
+            <div style={{
+              background:`linear-gradient(135deg, ${PL}, ${PP})`,
+              border:`2px solid ${PL}`,
+              borderRadius:16, padding:"8px 28px",
+              fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
+              fontWeight:900, fontSize:"clamp(1rem,4vw,1.4rem)",
+              color:"#fff", letterSpacing:"0.08em",
+              boxShadow:`0 0 24px rgba(168,85,247,0.7)`,
+              animation:"levelUpBadge 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+            }}>⬆ LEVEL UP！ Lv.{calcLevel(xp)}</div>
+          )}
           <div style={{ display:"flex", gap:12, marginTop:8 }}>
             <button onClick={restart} style={{
-              padding:"12px 28px", borderRadius:999,
+              padding:"12px 32px", borderRadius:999,
               background:`linear-gradient(180deg, ${PL}, ${PD})`,
               border:"none", color:"#fff",
               fontFamily:"'Hiragino Kaku Gothic Pro',sans-serif",
-              fontWeight:900, fontSize:"0.95rem", letterSpacing:"0.1em",
+              fontWeight:900, fontSize:"1rem", letterSpacing:"0.1em",
               cursor:"pointer", boxShadow:`0 4px 16px rgba(168,85,247,0.5)`,
             }}>もういちど</button>
             <button onClick={onHome} style={{
-              padding:"12px 28px", borderRadius:999,
+              padding:"12px 32px", borderRadius:999,
               background:"rgba(20,10,30,0.9)",
               border:"1px solid rgba(80,40,120,0.5)",
               color: C.muted, fontFamily:"monospace", fontSize:"0.9rem", cursor:"pointer",
