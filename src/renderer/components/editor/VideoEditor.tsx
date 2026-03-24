@@ -73,7 +73,7 @@ export function VideoEditor({
 
   // Add text at center when clicking timeline text lane
   const handleAddTextFromTimeline = (time: number) => {
-    addTextAnnotation(0.5, 0.8, time)
+    addTextAnnotation(0.5, 0.9, time)
   }
 
   const TOOLS = [
