@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import type { EditState, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment } from '../types'
+import type { EditState, Clip, ZoomRegion, TextAnnotation, CanvasSettings, SpeedSegment, FocusLogRecord, CutSegment } from '../types'
 import { nanoid } from '../utils/nanoid'
 
 type UseVideoEditorReturn = {
@@ -10,6 +10,7 @@ type UseVideoEditorReturn = {
   videoLoaded: boolean
   playing: boolean
   currentTime: number
+  clipBoundaries: number[]   // virtual times at clip transitions (for timeline markers)
   play: () => void
   pause: () => void
   seek: (t: number) => void
@@ -31,6 +32,9 @@ type UseVideoEditorReturn = {
   addCutSegment: (startTime: number, endTime: number) => void
   updateCutSegment: (id: string, patch: Partial<CutSegment>) => void
   removeCutSegment: (id: string) => void
+  addClip: (blob: Blob) => Promise<void>
+  removeClip: (id: string) => void
+  reorderClips: (fromIdx: number, toIdx: number) => void
   exportVideo: (format: string, quality: string, fps: number, saveLocation: string) => Promise<string | null>
   exporting: boolean
   exportProgress: number
@@ -55,6 +59,49 @@ function playDoneTone() {
   } catch { /* ignore */ }
 }
 
+// ── Virtual multi-clip timeline helpers ───────────────────────────────────────
+
+type ClipEntry = { clip: Clip; vStart: number; vEnd: number }
+
+function buildLayout(clips: Clip[]): ClipEntry[] {
+  let off = 0
+  return clips.map(clip => {
+    const dur = clip.trimEnd - clip.trimStart
+    const entry: ClipEntry = { clip, vStart: off, vEnd: off + dur }
+    off += dur
+    return entry
+  })
+}
+
+function resolveVt(vt: number, layout: ClipEntry[]): (ClipEntry & { localTime: number }) | null {
+  if (!layout.length) return null
+  for (const e of layout) {
+    if (vt < e.vEnd) return { ...e, localTime: e.clip.trimStart + (vt - e.vStart) }
+  }
+  const last = layout[layout.length - 1]
+  return { ...last, localTime: last.clip.trimEnd }
+}
+
+async function probeVideoDuration(blob: Blob): Promise<number> {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(blob)
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    let done = false
+    const finish = (dur: number) => {
+      if (done) return; done = true
+      URL.revokeObjectURL(url)
+      resolve(isFinite(dur) ? dur : 0)
+    }
+    v.onloadedmetadata = () => {
+      if (isFinite(v.duration)) { finish(v.duration) }
+      else { v.onseeked = () => finish(v.duration); v.currentTime = 1e10 }
+    }
+    v.onerror = () => finish(0)
+    v.src = url
+  })
+}
+
 export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   const [state, setState] = useState<EditState>(initialState)
   const [playing, setPlaying] = useState(false)
@@ -75,14 +122,38 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   // Persistent offscreen canvas for high-quality rounded corner compositing
   const tmpCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
+  // ── Multi-clip refs ────────────────────────────────────────────────────────
+  // One HTMLVideoElement per clip, keyed by clip.id
+  const clipVideoElsRef = useRef<Map<string, HTMLVideoElement>>(new Map())
+  const clipBlobUrlsRef = useRef<Map<string, string>>(new Map())
+  // Which clip is currently "active" (playing or last seeked)
+  const activeClipIdRef = useRef<string | null>(null)
+  // Stable virtual-time tracker (readable from callbacks without stale closure)
+  const currentTimeRef = useRef(initialState.trimStart)
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const renderFrame = useCallback((time: number) => {
     const canvas = canvasRef.current
-    const video = videoRef.current
-    if (!canvas || !video || video.videoWidth === 0) return
+    if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    // Resolve which video element to use based on multi-clip or single-clip mode
+    let video: HTMLVideoElement
+    const stClips = stateRef.current.clips
+    if (stClips && stClips.length > 0) {
+      const layout = buildLayout(stClips)
+      const resolved = resolveVt(time, layout)
+      if (!resolved) return
+      const clipEl = clipVideoElsRef.current.get(resolved.clip.id)
+      if (!clipEl || clipEl.videoWidth === 0) return
+      video = clipEl
+    } else {
+      const singleVideo = videoRef.current
+      if (!singleVideo || singleVideo.videoWidth === 0) return
+      video = singleVideo
+    }
 
     const W = canvas.width
     const H = canvas.height
@@ -207,11 +278,78 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   // ── Playback ──────────────────────────────────────────────────────────────
 
   const tick = useCallback(() => {
+    const st = stateRef.current
+    const clips = st.clips
+
+    if (clips && clips.length > 0) {
+      // ── Multi-clip tick ────────────────────────────────────────────────────
+      const activeId = activeClipIdRef.current; if (!activeId) return
+      const video = clipVideoElsRef.current.get(activeId); if (!video) return
+
+      const layout = buildLayout(clips)
+      const activeEntry = layout.find(e => e.clip.id === activeId); if (!activeEntry) return
+
+      const localT = video.currentTime
+      const vt = activeEntry.vStart + (localT - activeEntry.clip.trimStart)
+
+      // Skip cut segments
+      const cut = st.cutSegments.find(c => vt >= c.startTime && vt < c.endTime)
+      if (cut) {
+        const resolved = resolveVt(cut.endTime, layout)
+        if (resolved) {
+          const nv = clipVideoElsRef.current.get(resolved.clip.id)
+          if (nv) {
+            if (nv !== video) { video.pause(); video.playbackRate = 1.0 }
+            activeClipIdRef.current = resolved.clip.id
+            nv.currentTime = resolved.localTime
+            const onSeeked = () => {
+              nv.removeEventListener('seeked', onSeeked)
+              if (nv !== video) nv.play()
+              rafRef.current = requestAnimationFrame(tick)
+            }
+            nv.addEventListener('seeked', onSeeked)
+            return
+          }
+        }
+      }
+
+      // Speed
+      const speedSeg = st.speedSegments.find(s => vt >= s.startTime && vt <= s.endTime)
+      const rate = speedSeg ? speedSeg.speed : 1.0
+      if (Math.abs(video.playbackRate - rate) > 0.01) video.playbackRate = rate
+
+      // Clip or trimEnd boundary
+      if (vt >= st.trimEnd || localT >= activeEntry.clip.trimEnd - 0.001) {
+        const nextEntry = layout.find(e => e.vStart >= activeEntry.vEnd - 0.001 && e !== activeEntry)
+        if (nextEntry && nextEntry.vStart < st.trimEnd) {
+          const nv = clipVideoElsRef.current.get(nextEntry.clip.id)
+          if (nv) {
+            video.pause(); video.playbackRate = 1.0
+            activeClipIdRef.current = nextEntry.clip.id
+            nv.currentTime = nextEntry.clip.trimStart
+            nv.play()
+            const newVt = nextEntry.vStart
+            setCurrentTime(newVt); currentTimeRef.current = newVt
+            renderFrame(newVt)
+            rafRef.current = requestAnimationFrame(tick)
+            return
+          }
+        }
+        video.pause(); video.playbackRate = 1.0
+        setPlaying(false); return
+      }
+
+      setCurrentTime(vt); currentTimeRef.current = vt
+      renderFrame(vt)
+      rafRef.current = requestAnimationFrame(tick)
+      return
+    }
+
+    // ── Single-clip tick ─────────────────────────────────────────────────────
     const video = videoRef.current; if (!video) return
     const t = video.currentTime
 
-    // Skip cut segments during playback
-    const cut = stateRef.current.cutSegments.find(c => t >= c.startTime && t < c.endTime)
+    const cut = st.cutSegments.find(c => t >= c.startTime && t < c.endTime)
     if (cut) {
       video.currentTime = cut.endTime
       const onSeeked = () => { video.removeEventListener('seeked', onSeeked); rafRef.current = requestAnimationFrame(tick) }
@@ -219,53 +357,132 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
       return
     }
 
-    // Adjust playback speed based on speed segments
-    const speedSeg = stateRef.current.speedSegments.find(s => t >= s.startTime && t <= s.endTime)
+    const speedSeg = st.speedSegments.find(s => t >= s.startTime && t <= s.endTime)
     const targetRate = speedSeg ? speedSeg.speed : 1.0
-    if (Math.abs(video.playbackRate - targetRate) > 0.01) {
-      video.playbackRate = targetRate
-    }
+    if (Math.abs(video.playbackRate - targetRate) > 0.01) video.playbackRate = targetRate
 
-    setCurrentTime(t); renderFrame(t)
-    if (t >= stateRef.current.trimEnd) {
-      video.pause()
-      video.playbackRate = 1.0
-      setPlaying(false)
-      return
+    setCurrentTime(t); currentTimeRef.current = t; renderFrame(t)
+    if (t >= st.trimEnd) {
+      video.pause(); video.playbackRate = 1.0
+      setPlaying(false); return
     }
     rafRef.current = requestAnimationFrame(tick)
   }, [renderFrame])
 
   const play = useCallback(() => {
+    const st = stateRef.current
+    const clips = st.clips
+
+    if (clips && clips.length > 0) {
+      const layout = buildLayout(clips)
+      const vt = currentTimeRef.current >= st.trimEnd ? st.trimStart : currentTimeRef.current
+      const resolved = resolveVt(vt, layout); if (!resolved) return
+      const video = clipVideoElsRef.current.get(resolved.clip.id); if (!video) return
+      activeClipIdRef.current = resolved.clip.id
+      video.currentTime = resolved.localTime
+      video.play(); setPlaying(true)
+      rafRef.current = requestAnimationFrame(tick)
+      return
+    }
+
     const video = videoRef.current; if (!video) return
-    if (video.currentTime >= stateRef.current.trimEnd) video.currentTime = stateRef.current.trimStart
+    if (video.currentTime >= st.trimEnd) video.currentTime = st.trimStart
     video.play(); setPlaying(true)
     rafRef.current = requestAnimationFrame(tick)
   }, [tick])
 
   const pause = useCallback(() => {
-    const video = videoRef.current
-    if (video) { video.pause(); video.playbackRate = 1.0 }
+    const clips = stateRef.current.clips
+    if (clips && clips.length > 0) {
+      for (const [, el] of clipVideoElsRef.current) { el.pause(); el.playbackRate = 1.0 }
+    } else {
+      const video = videoRef.current
+      if (video) { video.pause(); video.playbackRate = 1.0 }
+    }
     setPlaying(false)
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
   }, [])
 
   const seek = useCallback((t: number) => {
+    const st = stateRef.current
+    const clips = st.clips
+    const clamped = Math.max(st.trimStart, Math.min(st.trimEnd, t))
+    setCurrentTime(clamped); currentTimeRef.current = clamped
+
+    if (clips && clips.length > 0) {
+      const layout = buildLayout(clips)
+      const resolved = resolveVt(clamped, layout); if (!resolved) return
+      const video = clipVideoElsRef.current.get(resolved.clip.id); if (!video) return
+      activeClipIdRef.current = resolved.clip.id
+      video.currentTime = resolved.localTime
+      video.onseeked = () => renderFrame(clamped)
+      return
+    }
+
     const video = videoRef.current; if (!video) return
-    const clamped = Math.max(stateRef.current.trimStart, Math.min(stateRef.current.trimEnd, t))
-    video.currentTime = clamped; setCurrentTime(clamped)
+    video.currentTime = clamped
     video.onseeked = () => renderFrame(clamped)
   }, [renderFrame])
 
+  // ── Video loading ─────────────────────────────────────────────────────────
+
+  // Single-clip: watch the videoRef element's loadedmetadata
   useEffect(() => {
+    if (stateRef.current.clips?.length) return  // multi-clip handles its own loading
     const video = videoRef.current; if (!video) return
     const onLoaded = () => {
       video.currentTime = stateRef.current.trimStart
-      video.onseeked = () => renderFrame(stateRef.current.trimStart)
-      setVideoLoaded(true); playDoneTone()
+      video.onseeked = () => { renderFrame(stateRef.current.trimStart); setVideoLoaded(true); playDoneTone() }
     }
     video.addEventListener('loadedmetadata', onLoaded)
     return () => video.removeEventListener('loadedmetadata', onLoaded)
+  }, [renderFrame])
+
+  // Multi-clip: create video elements for every clip, wait for all metadata, then render
+  useEffect(() => {
+    const clips = stateRef.current.clips
+    if (!clips || clips.length === 0) return
+
+    const map = clipVideoElsRef.current
+    const urlMap = clipBlobUrlsRef.current
+
+    // Create elements for clips not yet tracked
+    for (const clip of clips) {
+      if (!map.has(clip.id)) {
+        const url = URL.createObjectURL(clip.blob)
+        const el = document.createElement('video')
+        el.src = url; el.preload = 'auto'
+        urlMap.set(clip.id, url)
+        map.set(clip.id, el)
+      }
+    }
+
+    let remaining = clips.length
+    const onClipMetadata = () => {
+      remaining--
+      if (remaining > 0) return
+      // All clips ready — position first clip at trimStart and render
+      const first = clips[0]
+      const firstEl = map.get(first.id)!
+      activeClipIdRef.current = first.id
+      firstEl.currentTime = first.trimStart
+      firstEl.onseeked = () => {
+        renderFrame(stateRef.current.trimStart)
+        setVideoLoaded(true)
+        playDoneTone()
+      }
+    }
+
+    for (const clip of clips) {
+      const el = map.get(clip.id)!
+      if (el.readyState >= 1) { onClipMetadata() }
+      else { el.addEventListener('loadedmetadata', onClipMetadata, { once: true }) }
+    }
+
+    return () => {
+      for (const url of urlMap.values()) URL.revokeObjectURL(url)
+      map.clear(); urlMap.clear()
+    }
   }, [renderFrame])
 
   useEffect(() => {
@@ -282,6 +499,48 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   const updateCanvasSettings = useCallback((patch: Partial<CanvasSettings>) => {
     setState(s => ({ ...s, canvasSettings: { ...s.canvasSettings, ...patch } }))
+  }, [])
+
+  // ── Clip management ───────────────────────────────────────────────────────
+
+  const addClip = useCallback(async (blob: Blob) => {
+    const rawDuration = await probeVideoDuration(blob)
+    const clip: Clip = { id: nanoid(), blob, rawDuration, trimStart: 0, trimEnd: rawDuration }
+    const url = URL.createObjectURL(blob)
+    const el = document.createElement('video')
+    el.src = url; el.preload = 'auto'
+    clipBlobUrlsRef.current.set(clip.id, url)
+    clipVideoElsRef.current.set(clip.id, el)
+    setState(s => {
+      const clips = [...(s.clips ?? []), clip]
+      const total = clips.reduce((acc, c) => acc + c.trimEnd - c.trimStart, 0)
+      return { ...s, clips, rawDuration: total, trimEnd: total }
+    })
+  }, [])
+
+  const removeClip = useCallback((id: string) => {
+    const url = clipBlobUrlsRef.current.get(id)
+    if (url) URL.revokeObjectURL(url)
+    clipVideoElsRef.current.delete(id)
+    clipBlobUrlsRef.current.delete(id)
+    setState(s => {
+      const clips = (s.clips ?? []).filter(c => c.id !== id)
+      const total = clips.reduce((acc, c) => acc + c.trimEnd - c.trimStart, 0)
+      return {
+        ...s, clips, rawDuration: total,
+        trimEnd: Math.min(s.trimEnd, total),
+        trimStart: Math.min(s.trimStart, Math.max(0, total - 0.1)),
+      }
+    })
+  }, [])
+
+  const reorderClips = useCallback((fromIdx: number, toIdx: number) => {
+    setState(s => {
+      const clips = [...(s.clips ?? [])]
+      const [moved] = clips.splice(fromIdx, 1)
+      clips.splice(toIdx, 0, moved)
+      return { ...s, clips }
+    })
   }, [])
 
   // ── Zoom regions ──────────────────────────────────────────────────────────
@@ -378,26 +637,43 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
   // ── Export (Web Codecs → H.264 MP4) ──────────────────────────────────────
 
   const exportVideo = useCallback(async (format: string, quality: string, fps: number, saveLocation: string): Promise<string | null> => {
-    const video = videoRef.current; const canvas = canvasRef.current
-    if (!video || !canvas) return null
-    // Stop playback and RAF loop before export to prevent tick() interference
-    video.pause(); video.playbackRate = 1.0
+    const canvas = canvasRef.current; if (!canvas) return null
+    const st = stateRef.current
+    const clips = st.clips
+
+    // Stop all playback before export
+    if (clips && clips.length > 0) {
+      for (const [, el] of clipVideoElsRef.current) { el.pause(); el.playbackRate = 1.0 }
+    } else {
+      const video = videoRef.current; if (!video) return null
+      video.pause(); video.playbackRate = 1.0
+    }
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
     setPlaying(false)
     setExporting(true); setExportProgress(0)
-    const st = stateRef.current
     const bitrate = quality === 'high' ? 8_000_000 : quality === 'medium' ? 4_000_000 : 2_000_000
 
     let savedFilePath: string | null = null
     try {
-      const buffer = await exportWithWebCodecs(canvas, video, st, fps, bitrate, renderFrame, setExportProgress)
+      let buffer: ArrayBuffer
+      if (clips && clips.length > 0) {
+        buffer = await exportMultiClipWithWebCodecs(
+          canvas, clips, st, fps, bitrate, renderFrame, setExportProgress, clipVideoElsRef.current
+        )
+      } else {
+        const video = videoRef.current!
+        buffer = await exportWithWebCodecs(canvas, video, st, fps, bitrate, renderFrame, setExportProgress)
+      }
       const result = saveLocation === 'dialog'
         ? await window.electronAPI?.saveRecording(buffer, 'mp4')
         : await window.electronAPI?.saveToDownloads(buffer, 'mp4')
       savedFilePath = result?.filePath ?? null
     } catch (err) {
       console.error('Web Codecs export failed, falling back to WebM:', err)
-      savedFilePath = await exportWithMediaRecorder(canvas, video, st, fps, bitrate, renderFrame, setExportProgress, saveLocation)
+      if (!clips || clips.length === 0) {
+        const video = videoRef.current!
+        savedFilePath = await exportWithMediaRecorder(canvas, video, st, fps, bitrate, renderFrame, setExportProgress, saveLocation)
+      }
     }
 
     setExporting(false); setExportProgress(100)
@@ -406,11 +682,20 @@ export function useVideoEditor(initialState: EditState): UseVideoEditorReturn {
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
 
+  // Compute clip boundaries for timeline display
+  const clipBoundaries: number[] = (() => {
+    const clips = state.clips
+    if (!clips || clips.length < 2) return []
+    const layout = buildLayout(clips)
+    return layout.slice(0, -1).map(e => e.vEnd)
+  })()
+
   return {
     state, videoRef, canvasRef, videoLoaded,
-    playing, currentTime, play, pause, seek,
+    playing, currentTime, clipBoundaries, play, pause, seek,
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
     updateCanvasSettings,
+    addClip, removeClip, reorderClips,
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
     addTextAnnotation, updateTextAnnotation, removeTextAnnotation,
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
@@ -552,6 +837,63 @@ async function exportWithWebCodecs(
 
   await encoder.flush()
   if (encoderError) throw encoderError
+  muxer.finalize()
+  return target.buffer
+}
+
+// ─── Export: Multi-clip WebCodecs ─────────────────────────────────────────────
+
+async function exportMultiClipWithWebCodecs(
+  canvas: HTMLCanvasElement,
+  clips: Clip[],
+  st: EditState,
+  fps: number,
+  bitrate: number,
+  renderFrame: (t: number) => void,
+  onProgress: (p: number) => void,
+  clipVideoEls: Map<string, HTMLVideoElement>
+): Promise<ArrayBuffer> {
+  const W = canvas.width; const H = canvas.height
+  const layout = buildLayout(clips)
+  const sourceDuration = Math.max(0.001, st.trimEnd - st.trimStart)
+  const frameInterval = 1 / fps
+
+  const target = new ArrayBufferTarget()
+  const muxer = new Muxer({ target, video: { codec: 'avc', width: W, height: H }, fastStart: 'in-memory' })
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: (e) => { throw e },
+  })
+  encoder.configure({ codec: 'avc1.640028', width: W, height: H, bitrate, framerate: fps })
+
+  let vt = st.trimStart; let outT = 0; let frameCount = 0
+
+  while (vt <= st.trimEnd) {
+    const cut = st.cutSegments.find(c => vt >= c.startTime && vt < c.endTime)
+    if (cut) { vt = cut.endTime; continue }
+
+    const resolved = resolveVt(vt, layout)
+    if (!resolved) { vt += frameInterval; continue }
+
+    const video = clipVideoEls.get(resolved.clip.id)
+    if (!video) { vt += frameInterval; continue }
+
+    video.currentTime = Math.min(resolved.localTime, resolved.clip.trimEnd)
+    await waitForSeek(video)
+    renderFrame(vt)
+
+    const timestampUs = Math.round(outT * 1_000_000)
+    const frame = new VideoFrame(canvas, { timestamp: timestampUs, duration: Math.round(frameInterval * 1_000_000) })
+    encoder.encode(frame, { keyFrame: frameCount % (fps * 2) === 0 })
+    frame.close()
+
+    const speed = getSpeedAt(vt, st.speedSegments)
+    vt += frameInterval * speed; outT += frameInterval; frameCount++
+    onProgress(Math.min(99, ((vt - st.trimStart) / sourceDuration) * 100))
+    if (frameCount % 10 === 0) await new Promise<void>(r => setTimeout(r, 0))
+  }
+
+  await encoder.flush(); encoder.close()
   muxer.finalize()
   return target.buffer
 }

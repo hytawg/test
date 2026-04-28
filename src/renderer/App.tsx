@@ -7,7 +7,7 @@ import {
 } from './types'
 import type {
   CanvasSettings, CameraSettings, AudioSettings, RecordingSettings,
-  CaptureSource, EditState, AppState, CaptureRegion
+  CaptureSource, EditState, AppState, CaptureRegion, Clip
 } from './types'
 import { Sidebar } from './components/Sidebar'
 import { SourcePanel } from './components/SourcePanel'
@@ -306,6 +306,48 @@ function MainApp() {
     setMode('editing')
   }, [canvas])
 
+  // Called by FilesPanel when user selects multiple files to merge → go to editor
+  const handleMergeFiles = useCallback(async (blobs: Blob[]) => {
+    const clips: Clip[] = await Promise.all(blobs.map(async (blob) => {
+      const url = URL.createObjectURL(blob)
+      const rawDuration = await new Promise<number>((resolve) => {
+        const v = document.createElement('video')
+        v.preload = 'metadata'
+        let settled = false
+        const finish = (d: number) => { if (settled) return; settled = true; URL.revokeObjectURL(url); resolve(d) }
+        v.onloadedmetadata = () => {
+          if (isFinite(v.duration)) { finish(v.duration) }
+          else { v.onseeked = () => finish(isFinite(v.duration) ? v.duration : 0); v.currentTime = 1e10 }
+        }
+        v.onerror = () => finish(0)
+        v.src = url
+      })
+      return { id: crypto.randomUUID(), blob, rawDuration, trimStart: 0, trimEnd: rawDuration }
+    }))
+    const totalDuration = clips.reduce((acc, c) => acc + c.trimEnd - c.trimStart, 0)
+    const state: EditState = {
+      blob: blobs[0],
+      rawDuration: totalDuration,
+      trimStart: 0,
+      trimEnd: totalDuration,
+      clips,
+      zoomRegions: [],
+      textAnnotations: [],
+      speedSegments: [],
+      cutSegments: [],
+      captureRegion: null,
+      canvasSettings: { ...DEFAULT_CANVAS, backgroundType: 'none', padding: 0, cornerRadius: 0, shadowEnabled: false },
+      activeTool: 'clips',
+      selectedId: null,
+      focusLog: null,
+      autoZoomEnabled: false,
+      clickEvents: [],
+      keyEvents: [],
+    }
+    setEditState(state)
+    setMode('editing')
+  }, [])
+
   // Called by RecordingBar when recording finishes → go to editor
   const handleRecordingComplete = useCallback(async (blob: Blob, durationSec: number, captureRegionBaked: boolean) => {
     // Fetch focus / click / key logs recorded by MouseTracker in main process
@@ -383,7 +425,7 @@ function MainApp() {
             <ExportPanel settings={recordingSettings} onChange={setRecordingSettings} />
           )}
           {activePanel === 'files' && (
-            <FilesPanel onOpenFile={handleOpenFile} />
+            <FilesPanel onOpenFile={handleOpenFile} onMergeFiles={handleMergeFiles} />
           )}
         </div>
       </div>

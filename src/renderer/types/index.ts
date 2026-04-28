@@ -259,18 +259,27 @@ export type CutSegment = {
   endTime: number
 }
 
+export type Clip = {
+  id: string
+  blob: Blob
+  rawDuration: number
+  trimStart: number
+  trimEnd: number
+}
+
 export type EditState = {
   blob: Blob
   rawDuration: number   // seconds recorded
-  trimStart: number     // seconds
-  trimEnd: number       // seconds
+  trimStart: number     // seconds (virtual timeline)
+  trimEnd: number       // seconds (virtual timeline)
+  clips?: Clip[]        // if present, overrides blob for multi-clip virtual timeline
   zoomRegions: ZoomRegion[]
   textAnnotations: TextAnnotation[]
   speedSegments: SpeedSegment[]
   cutSegments: CutSegment[]           // ranges to be removed from output
   captureRegion: CaptureRegion | null
   canvasSettings: CanvasSettings
-  activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed'
+  activeTool: 'select' | 'zoom' | 'text' | 'canvas' | 'speed' | 'clips'
   selectedId: string | null
   focusLog: FocusLogRecord[] | null    // camera log from MouseTracker; null = not available
   autoZoomEnabled: boolean             // when true, focusLog overrides zoomRegions

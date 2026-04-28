@@ -1,31 +1,88 @@
 import { useEffect, useRef, useState } from 'react'
-import { Upload, FolderOpen, Film, Clock, Trash2, RotateCcw, AlertCircle } from 'lucide-react'
+import { Upload, FolderOpen, Film, Clock, Trash2, RotateCcw, AlertCircle, Plus, Layers2, GripVertical, X } from 'lucide-react'
 import type { RecordingHistoryEntry } from '../types'
 import clsx from 'clsx'
 
 type Props = {
   onOpenFile: (blob: Blob, fileName: string) => void
+  onMergeFiles?: (blobs: Blob[]) => void
 }
 
-export function FilesPanel({ onOpenFile }: Props) {
+type QueueItem = {
+  id: string
+  file: File
+  duration: number | null  // null = still probing
+}
+
+export function FilesPanel({ onOpenFile, onMergeFiles }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mergeInputRef = useRef<HTMLInputElement>(null)
   const [history, setHistory] = useState<RecordingHistoryEntry[]>([])
   const [dragging, setDragging] = useState(false)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [errorId, setErrorId] = useState<string | null>(null)
   const dragCounterRef = useRef(0)
 
+  // Multi-clip queue
+  const [queue, setQueue] = useState<QueueItem[]>([])
+  const dragItemRef = useRef<number | null>(null)
+  const dragOverRef = useRef<number | null>(null)
+
   useEffect(() => {
     window.electronAPI?.getRecordingHistory().then(setHistory)
   }, [])
+
+  // Probe duration of a video file blob
+  const probeDuration = (file: File): Promise<number> => {
+    return new Promise<number>((resolve) => {
+      const url = URL.createObjectURL(file)
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      let settled = false
+      const finish = (d: number) => {
+        if (settled) return
+        settled = true
+        URL.revokeObjectURL(url)
+        resolve(d)
+      }
+      v.onloadedmetadata = () => {
+        if (isFinite(v.duration)) { finish(v.duration) }
+        else { v.onseeked = () => finish(isFinite(v.duration) ? v.duration : 0); v.currentTime = 1e10 }
+      }
+      v.onerror = () => finish(0)
+      v.src = url
+    })
+  }
+
+  const addFilesToQueue = async (files: File[]) => {
+    const videoFiles = files.filter(f => f.type.startsWith('video/') || /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(f.name))
+    if (videoFiles.length === 0) return
+
+    // Add with null durations first for instant feedback
+    const newItems: QueueItem[] = videoFiles.map(f => ({ id: crypto.randomUUID(), file: f, duration: null }))
+    setQueue(prev => [...prev, ...newItems])
+
+    // Probe durations in background
+    for (const item of newItems) {
+      probeDuration(item.file).then(dur => {
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, duration: dur } : q))
+      })
+    }
+  }
 
   // ── File import via HTML input ─────────────────────────────────────────────
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    e.target.value = ''   // allow re-selecting the same file
+    e.target.value = ''
     onOpenFile(file, file.name)
+  }
+
+  const handleMergeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    addFilesToQueue(files)
   }
 
   // ── Drag & drop ───────────────────────────────────────────────────────────
@@ -48,9 +105,15 @@ export function FilesPanel({ onOpenFile }: Props) {
     e.preventDefault()
     dragCounterRef.current = 0
     setDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (!file || !file.type.startsWith('video/')) return
-    onOpenFile(file, file.name)
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+    if (files.length === 1 && files[0].type.startsWith('video/')) {
+      // Single file → open directly
+      onOpenFile(files[0], files[0].name)
+    } else {
+      // Multiple files → add to merge queue
+      addFilesToQueue(files)
+    }
   }
 
   // ── Re-edit a saved recording ──────────────────────────────────────────────
@@ -69,6 +132,31 @@ export function FilesPanel({ onOpenFile }: Props) {
     await window.electronAPI?.removeRecordingHistory(id)
     setHistory(prev => prev.filter(e => e.id !== id))
   }
+
+  // ── Queue drag-reorder ────────────────────────────────────────────────────
+
+  const handleQueueDragStart = (idx: number) => { dragItemRef.current = idx }
+  const handleQueueDragEnter = (idx: number) => { dragOverRef.current = idx }
+  const handleQueueDragEnd = () => {
+    const from = dragItemRef.current
+    const to = dragOverRef.current
+    if (from === null || to === null || from === to) return
+    setQueue(prev => {
+      const arr = [...prev]
+      const [item] = arr.splice(from, 1)
+      arr.splice(to, 0, item)
+      return arr
+    })
+    dragItemRef.current = null
+    dragOverRef.current = null
+  }
+
+  const handleMerge = () => {
+    if (!onMergeFiles || queue.length < 1) return
+    onMergeFiles(queue.map(q => q.file))
+  }
+
+  const totalDuration = queue.reduce((acc, q) => acc + (q.duration ?? 0), 0)
 
   return (
     <div
@@ -111,6 +199,14 @@ export function FilesPanel({ onOpenFile }: Props) {
         onChange={handleFileInput}
         className="hidden"
       />
+      <input
+        ref={mergeInputRef}
+        type="file"
+        accept="video/*,.mp4,.webm,.mov,.avi,.mkv,.m4v"
+        multiple
+        onChange={handleMergeInput}
+        className="hidden"
+      />
 
       <button
         onClick={() => fileInputRef.current?.click()}
@@ -119,6 +215,91 @@ export function FilesPanel({ onOpenFile }: Props) {
         <FolderOpen size={14} />
         Browse File…
       </button>
+
+      {/* Multi-clip merge section */}
+      {onMergeFiles && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/25">Merge Clips</p>
+            <button
+              onClick={() => mergeInputRef.current?.click()}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[10px] transition-all"
+            >
+              <Plus size={10} />
+              Add
+            </button>
+          </div>
+
+          {queue.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-dashed border-white/8 cursor-pointer hover:border-white/15 transition-all"
+              onClick={() => mergeInputRef.current?.click()}
+            >
+              <Layers2 size={16} className="text-white/20" />
+              <p className="text-[10px] text-white/25">Add multiple files to merge</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {queue.map((item, idx) => (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={() => handleQueueDragStart(idx)}
+                  onDragEnter={() => handleQueueDragEnter(idx)}
+                  onDragEnd={handleQueueDragEnd}
+                  onDragOver={e => e.preventDefault()}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/4 border border-white/6 group cursor-grab active:cursor-grabbing hover:border-white/12 transition-all"
+                >
+                  <GripVertical size={12} className="text-white/15 shrink-0" />
+                  <Film size={11} className="text-white/30 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-white/60 truncate leading-tight">{item.file.name}</p>
+                    {item.duration !== null && (
+                      <p className="text-[9px] text-white/25 flex items-center gap-0.5">
+                        <Clock size={8} />
+                        {fmtDuration(item.duration)}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setQueue(prev => prev.filter(q => q.id !== item.id))}
+                    className="w-5 h-5 rounded flex items-center justify-center text-white/20 hover:text-red-400/70 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+
+              {/* Total + Edit Together */}
+              <div className="flex items-center justify-between mt-1 px-1">
+                <span className="text-[9px] text-white/25">
+                  {queue.length} clip{queue.length > 1 ? 's' : ''}{totalDuration > 0 ? ` · ${fmtDuration(totalDuration)}` : ''}
+                </span>
+                <button
+                  onClick={() => setQueue([])}
+                  className="text-[9px] text-white/20 hover:text-white/40 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+
+              <button
+                onClick={handleMerge}
+                disabled={queue.length < 1}
+                className={clsx(
+                  'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-xs transition-all',
+                  queue.length >= 1
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/20 hover:scale-[1.02] active:scale-95'
+                    : 'bg-white/5 text-white/20 cursor-not-allowed'
+                )}
+              >
+                <Layers2 size={13} />
+                Edit Together
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* History */}
       {history.length > 0 && (

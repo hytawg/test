@@ -28,6 +28,7 @@ type Props = {
   onAddCutSegment: (startTime: number, endTime: number) => void
   onUpdateCutSegment: (id: string, patch: Partial<CutSegment>) => void
   onRemoveCutSegment: (id: string) => void
+  clipBoundaries?: number[]
 }
 
 function fmt(s: number): string {
@@ -50,7 +51,7 @@ function speedColorSelected(speed: number): string {
 }
 
 export function Timeline({
-  state, currentTime,
+  state, currentTime, clipBoundaries,
   onSeek, onTrimStart, onTrimEnd, onSelectId, onSetTool,
   onAddZoomAtTime, onAddZoomRegion, onUpdateZoomRegion, onRemoveZoom,
   onAddText, onUpdateText, onRemoveText,
@@ -448,6 +449,14 @@ export function Timeline({
             style={{ left: `${toPercent(c.startTime)}%`, width: `${Math.max(0.3, toPercent(c.endTime) - toPercent(c.startTime))}%` }}>
             <div className="absolute inset-0 bg-red-500/20 border-x border-red-500/40"
               style={{ backgroundImage: 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(239,68,68,0.08) 4px, rgba(239,68,68,0.08) 8px)' }} />
+          </div>
+        ))}
+
+        {/* Clip boundary markers */}
+        {clipBoundaries && clipBoundaries.slice(0, -1).map((t, i) => (
+          <div key={i} className="absolute top-0 bottom-0 w-px bg-indigo-400/40 z-10 pointer-events-none"
+            style={{ left: `${toPercent(t)}%` }}>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-indigo-400/60 rounded-full" />
           </div>
         ))}
 

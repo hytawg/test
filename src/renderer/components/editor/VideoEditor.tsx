@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap } from 'lucide-react'
-import type { CutSegment, AspectRatio, CanvasSettings } from '../../types'
+import { useEffect, useRef, useState } from 'react'
+import { Play, Pause, SkipBack, Scissors, ZoomIn, Type, Download, ArrowLeft, Loader2, Film, Layers, Gauge, Zap, Layers2, GripVertical, Trash2, Plus, X, Clock } from 'lucide-react'
+import type { CutSegment, AspectRatio, CanvasSettings, Clip } from '../../types'
 import type { EditState } from '../../types'
 import { useVideoEditor } from '../../hooks/useVideoEditor'
 import { Timeline } from './Timeline'
@@ -27,7 +27,7 @@ export function VideoEditor({
 }: Props) {
   const {
     state, videoRef, canvasRef, videoLoaded,
-    playing, currentTime,
+    playing, currentTime, clipBoundaries,
     play, pause, seek,
     setTrimStart, setTrimEnd, setActiveTool, setSelectedId,
     addZoomAtTime, addZoomRegion, updateZoomRegion, removeZoomRegion,
@@ -35,6 +35,7 @@ export function VideoEditor({
     addSpeedSegment, updateSpeedSegment, removeSpeedSegment,
     addCutSegment, updateCutSegment, removeCutSegment,
     updateCanvasSettings,
+    addClip, removeClip, reorderClips,
     exportVideo, exporting, exportProgress,
     setAutoZoomEnabled
   } = useVideoEditor(initialState)
@@ -82,6 +83,7 @@ export function VideoEditor({
     { id: 'text'    as const, Icon: Type,       label: 'Text'    },
     { id: 'canvas'  as const, Icon: Layers,     label: 'Canvas'  },
     { id: 'speed'   as const, Icon: Gauge,      label: 'Speed'   },
+    ...(state.clips && state.clips.length > 0 ? [{ id: 'clips' as const, Icon: Layers2, label: 'Clips' }] : []),
   ]
 
   // Always render video element so loadedmetadata can fire even during loading screen
@@ -172,6 +174,14 @@ export function VideoEditor({
               currentTime={currentTime} onUpdate={updateSpeedSegment}
               onRemove={removeSpeedSegment} onSelect={setSelectedId} />
           )}
+          {state.activeTool === 'clips' && state.clips && (
+            <ClipsPanel clips={state.clips} clipBoundaries={clipBoundaries}
+              currentTime={currentTime}
+              onSeek={seek}
+              onAdd={addClip}
+              onRemove={removeClip}
+              onReorder={reorderClips} />
+          )}
         </div>
 
         {/* Export */}
@@ -256,6 +266,7 @@ export function VideoEditor({
         <Timeline
           state={state}
           currentTime={currentTime}
+          clipBoundaries={clipBoundaries}
           onSeek={seek}
           onTrimStart={setTrimStart}
           onTrimEnd={setTrimEnd}
@@ -353,6 +364,121 @@ function TrimPoint({ label, value, onClick, btnLabel }: {
         className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 text-[10px] font-medium transition-all">
         {btnLabel}
       </button>
+    </div>
+  )
+}
+
+// ── ClipsPanel ────────────────────────────────────────────────────────────────
+
+function ClipsPanel({ clips, clipBoundaries, currentTime, onSeek, onAdd, onRemove, onReorder }: {
+  clips: Clip[]
+  clipBoundaries: number[]
+  currentTime: number
+  onSeek: (t: number) => void
+  onAdd: (blob: Blob) => Promise<void>
+  onRemove: (id: string) => void
+  onReorder: (fromIdx: number, toIdx: number) => void
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const dragFromRef = useRef<number | null>(null)
+  const dragOverRef = useRef<number | null>(null)
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    files.forEach(f => onAdd(f))
+  }
+
+  const totalDuration = clipBoundaries.length > 0 ? clipBoundaries[clipBoundaries.length - 1] : 0
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-white/80">Clips</h2>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-[10px] transition-all"
+        >
+          <Plus size={10} />
+          Add
+        </button>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*,.mp4,.webm,.mov,.avi,.mkv,.m4v"
+        multiple
+        onChange={handleFileInput}
+        className="hidden"
+      />
+
+      <p className="text-[10px] text-white/30 leading-relaxed">
+        Drag to reorder. Click to jump to clip start.
+      </p>
+
+      <div className="flex flex-col gap-1">
+        {clips.map((clip, idx) => {
+          const vStart = clipBoundaries[idx - 1] ?? 0
+          const vEnd = clipBoundaries[idx] ?? clip.rawDuration
+          const isActive = currentTime >= vStart && currentTime < vEnd
+
+          return (
+            <div
+              key={clip.id}
+              draggable
+              onDragStart={() => { dragFromRef.current = idx }}
+              onDragEnter={() => { dragOverRef.current = idx }}
+              onDragEnd={() => {
+                const from = dragFromRef.current
+                const to = dragOverRef.current
+                if (from !== null && to !== null && from !== to) onReorder(from, to)
+                dragFromRef.current = null
+                dragOverRef.current = null
+              }}
+              onDragOver={e => e.preventDefault()}
+              onClick={() => onSeek(vStart)}
+              className={clsx(
+                'flex items-center gap-2 px-2 py-2 rounded-lg border group cursor-grab active:cursor-grabbing transition-all',
+                isActive
+                  ? 'bg-indigo-500/15 border-indigo-500/30'
+                  : 'bg-white/3 border-white/6 hover:border-white/15'
+              )}
+            >
+              <GripVertical size={12} className="text-white/15 shrink-0" />
+              <div className="w-5 h-5 rounded flex items-center justify-center bg-white/5 shrink-0">
+                <Film size={10} className={isActive ? 'text-indigo-400' : 'text-white/30'} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={clsx('text-[10px] truncate leading-tight', isActive ? 'text-indigo-300' : 'text-white/60')}>
+                  Clip {idx + 1}
+                </p>
+                <p className="text-[9px] text-white/25 flex items-center gap-0.5">
+                  <Clock size={8} />
+                  {fmtDuration(clip.rawDuration)}
+                </p>
+              </div>
+              {clips.length > 1 && (
+                <button
+                  onClick={e => { e.stopPropagation(); onRemove(clip.id) }}
+                  className="w-5 h-5 rounded flex items-center justify-center text-white/15 hover:text-red-400/70 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                >
+                  <Trash2 size={9} />
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex items-center justify-between px-1 mt-1">
+        <span className="text-[9px] text-white/20">
+          {clips.length} clip{clips.length !== 1 ? 's' : ''}
+        </span>
+        <span className="text-[9px] text-white/20 font-mono">
+          {fmtDuration(totalDuration)} total
+        </span>
+      </div>
     </div>
   )
 }
